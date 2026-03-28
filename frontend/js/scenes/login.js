@@ -5,6 +5,7 @@
 import { APP, $, apiFetch } from '../app.js';
 import { CFG, FALLBACK_ROSTER, PALM_LOGO } from '../config.js';
 import { registerScene, go } from '../scene-manager.js';
+import { T, pinFrame, errBanner, buildNumpadKey, buildActionButton, numpadContainerStyle } from '../theme-manager.js';
 
 registerScene('login', {
   onEnter(el) {
@@ -50,44 +51,25 @@ registerScene('login', {
       }
     }
 
-    // ── PIN Hex Visualization ──
-    function renderPinHexes() {
-      const maxDigits = 4;
-      let html = '';
-      for (let i = 0; i < maxDigits; i++) {
-        const filled = i < pin.length;
-        const bgColor = filled ? 'var(--mint)' : '#444';
-        const textColor = filled ? 'var(--bg)' : 'var(--mint)';
-        html += `<div style="width:44px;height:50px;background:${bgColor};border:2px solid var(--mint);clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);display:flex;align-items:center;justify-content:center;font-family:var(--fb);font-size:24px;color:${textColor};"></div>`;
-      }
-      return html;
-    }
-
     // ── Draw Login Screen ──
     function draw() {
-      const errH = err
-        ? `<div style="background:rgba(232,64,64,0.15);border:1px solid var(--red);padding:4px 8px;font-size:15px;color:var(--red);margin-top:4px;border-radius:4px;">\u26A0 ${err}</div>`
-        : '';
-
       el.innerHTML = `
         <div style="display:grid;grid-template-columns:280px 400px 1fr;height:100%;padding:16px;gap:16px;padding-bottom:56px;">
           <!-- LEFT: BRANDING -->
           <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
             <img src="${PALM_LOGO}" style="height:300px;width:auto;object-fit:contain;">
-            <div style="font-family:var(--fhi-solid);font-size:36px;color:var(--mint);">STORE NAME</div>
+            <div style="font-family:${T.fhiSolid};font-size:36px;color:${T.mint};">STORE NAME</div>
           </div>
 
           <!-- CENTER: NUMPAD -->
           <div style="display:flex;flex-direction:column;justify-content:center;">
-            <div style="background:var(--mint);border:var(--border-w) solid var(--mint);padding:10px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;clip-path:polygon(10px 0%,calc(100% - 10px) 0%,100% 10px,100% calc(100% - 10px),calc(100% - 10px) 100%,10px 100%,0% calc(100% - 10px),0% 10px);" id="pad"></div>
+            <div style="${numpadContainerStyle()}" id="pad"></div>
           </div>
 
           <!-- RIGHT: PIN DISPLAY + ACTIONS -->
           <div style="display:flex;flex-direction:column;gap:0;">
-            <div id="pin-frame" style="border:var(--border-w) solid var(--mint);padding:8px;display:flex;justify-content:center;align-items:center;gap:4px;flex-wrap:wrap;height:65px;clip-path:polygon(8px 0%,calc(100% - 8px) 0%,100% 8px,100% calc(100% - 8px),calc(100% - 8px) 100%,8px 100%,0% calc(100% - 8px),0% 8px);">
-              ${renderPinHexes()}
-            </div>
-            <div style="width:100%;">${errH}</div>
+            ${pinFrame(pin.length)}
+            <div style="width:100%;">${errBanner(err)}</div>
             <div style="display:flex;flex-direction:column;justify-content:center;gap:10px;flex:1;" id="action-btns"></div>
           </div>
         </div>`;
@@ -104,36 +86,12 @@ registerScene('login', {
       const keys = ['1','2','3','4','5','6','7','8','9','CLR','0','>>>'];
 
       keys.forEach(k => {
-        const wrap = document.createElement('div');
-        wrap.className = 'btn-wrap';
-
-        const b = document.createElement('div');
-        b.textContent = k;
         const isCLR = k === 'CLR';
-        const isENT = k === '>>>';
-
-        if (isCLR) {
-          b.style.cssText = 'background:var(--clr-red);color:var(--bg);border:none;font-family:var(--fb);font-size:72px;display:flex;align-items:center;justify-content:center;height:88px;cursor:pointer;user-select:none;clip-path:polygon(5px 0%,calc(100% - 5px) 0%,100% 5px,100% calc(100% - 5px),calc(100% - 5px) 100%,5px 100%,0% calc(100% - 5px),0% 5px);';
-        } else if (isENT) {
-          b.style.cssText = 'background:var(--go-green);color:var(--bg);border:none;font-family:var(--fb);font-size:72px;display:flex;align-items:center;justify-content:center;height:88px;cursor:pointer;user-select:none;clip-path:polygon(5px 0%,calc(100% - 5px) 0%,100% 5px,100% calc(100% - 5px),calc(100% - 5px) 100%,5px 100%,0% calc(100% - 5px),0% 5px);';
-        } else {
-          b.style.cssText = 'background:var(--bg);color:var(--mint);border:none;font-family:var(--fb);font-size:100px;display:flex;align-items:center;justify-content:center;height:88px;cursor:pointer;user-select:none;clip-path:polygon(5px 0%,calc(100% - 5px) 0%,100% 5px,100% calc(100% - 5px),calc(100% - 5px) 100%,5px 100%,0% calc(100% - 5px),0% 5px);';
-        }
-
-        b.addEventListener('click', () => press(k));
-
-        if (isCLR) {
-          const startHold = () => { holdTimer = setTimeout(() => { pin = ''; err = ''; draw(); }, 500); };
-          const endHold   = () => { clearTimeout(holdTimer); };
-          b.addEventListener('mousedown',   startHold);
-          b.addEventListener('mouseup',     endHold);
-          b.addEventListener('mouseleave',  endHold);
-          b.addEventListener('touchstart',  startHold);
-          b.addEventListener('touchend',    endHold);
-        }
-
-        wrap.appendChild(b);
-        pad.appendChild(wrap);
+        const el = buildNumpadKey(k, {
+          onPress: () => press(k),
+          onLongPress: isCLR ? { delay: 500, action: () => { pin = ''; err = ''; draw(); } } : null
+        });
+        pad.appendChild(el);
       });
     }
 
@@ -149,16 +107,7 @@ registerScene('login', {
       ];
 
       actions.forEach(a => {
-        const wrap = document.createElement('div');
-        wrap.className = 'btn-wrap';
-
-        const btn = document.createElement('div');
-        btn.textContent = a.label;
-        btn.style.cssText = 'background:var(--mint);color:var(--bg);border:none;font-family:var(--fb);font-size:32px;height:56px;cursor:pointer;text-align:center;display:flex;align-items:center;justify-content:center;clip-path:polygon(6px 0%,calc(100% - 6px) 0%,100% 6px,100% calc(100% - 6px),calc(100% - 6px) 100%,6px 100%,0% calc(100% - 6px),0% 6px);';
-        btn.addEventListener('click', a.act);
-
-        wrap.appendChild(btn);
-        ab.appendChild(wrap);
+        ab.appendChild(buildActionButton(a.label, a.act));
       });
     }
 
