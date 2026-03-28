@@ -5,7 +5,7 @@
 import { APP, $, apiFetch } from '../app.js';
 import { CFG, FALLBACK_ROSTER, PALM_LOGO } from '../config.js';
 import { registerScene, go } from '../scene-manager.js';
-import { T, pinFrame, errBanner, buildNumpadKey, buildActionButton, numpadContainerStyle } from '../theme-manager.js';
+import { T, pinFrame, errBanner, buildNumpadKey, buildActionButton, numpadContainerStyle, overlayBox, overlayHeader, overlayStubBtn, roleBtn } from '../theme-manager.js';
 
 registerScene('login', {
   onEnter(el) {
@@ -51,10 +51,31 @@ registerScene('login', {
       }
     }
 
+    // ── Role Color Map ──
+    const ROLE_COLORS = {
+      server:    T.mint,
+      manager:   T.clockGold,
+      mgr:       T.clockGold,
+      bartender: T.cyan,
+      host:      T.lavender,
+    };
+    const ROLE_COLOR_PALETTE = [T.mint, T.clockGold, T.cyan, T.lavender, T.orange];
+
+    function roleColor(role) {
+      const key = (role || '').toLowerCase();
+      return ROLE_COLORS[key] || ROLE_COLOR_PALETTE[0];
+    }
+
+    function roleDisplayName(role) {
+      const key = (role || '').toLowerCase();
+      if (key === 'manager') return 'MGR';
+      return role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
+    }
+
     // ── Draw Login Screen ──
     function draw() {
       el.innerHTML = `
-        <div style="display:grid;grid-template-columns:280px 400px 1fr;height:100%;padding:16px;gap:16px;padding-bottom:56px;">
+        <div id="login-content" style="display:grid;grid-template-columns:280px 400px 1fr;height:100%;padding:16px;gap:16px;padding-bottom:56px;">
           <!-- LEFT: BRANDING -->
           <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
             <img src="${PALM_LOGO}" style="height:300px;width:auto;object-fit:contain;">
@@ -103,7 +124,7 @@ registerScene('login', {
       const actions = [
         { label: 'Quick Service', act: () => { if (!matchPin()) return; const o = makeOrder('quick_service'); go('check-editing', { order: o }); } },
         { label: 'Settings',      act: () => { if (!matchPin()) return; go('settings'); } },
-        { label: 'Clock in/out',  act: () => {} },
+        { label: 'Clock in/out',  act: () => { showClockOverlay(); } },
       ];
 
       actions.forEach(a => {
@@ -173,13 +194,125 @@ registerScene('login', {
       return o;
     }
 
+    // ── Clock-In Overlay ──
+    let selectedRole = '';
+
+    function showClockOverlay() {
+      if (!matchPin()) {
+        err = 'Enter PIN first.';
+        pin = '';
+        draw();
+        shakeFrame();
+        return;
+      }
+
+      const staff = APP.staff;
+      const staffName = staff.name || 'Team Member';
+
+      // Collect unique roles from the roster
+      const uniqueRoles = [...new Set(roster.map(r => r.role).filter(Boolean))];
+      if (uniqueRoles.length === 0) uniqueRoles.push(staff.role || 'server');
+
+      // Pre-select the staff member's own role
+      selectedRole = staff.role || uniqueRoles[0];
+
+      // Dim login content
+      const loginContent = $('login-content');
+      if (loginContent) loginContent.style.opacity = '0.25';
+
+      renderClockOverlay(staffName, uniqueRoles);
+    }
+
+    function renderClockOverlay(staffName, roles) {
+      // Remove existing overlay elements if any
+      const existingBox = $('clock-overlay-box');
+      if (existingBox) existingBox.remove();
+      const existingStub = $('clock-overlay-stub');
+      if (existingStub) existingStub.remove();
+
+      // Build welcome header
+      const welcomeLeft = `<div><span style="font-family:${T.fb};font-size:32px;color:${T.mint};">Welcome, </span><span style="font-family:${T.fhi};font-size:32px;color:${T.clockGold};">${staffName}!</span></div>`;
+
+      // Build role grid
+      const roleGridHtml = roles.map(role => {
+        const color = roleColor(role);
+        const label = roleDisplayName(role);
+        const sel = (role === selectedRole);
+        return roleBtn(label, { selected: sel, color, onClick: `window._kindClockSelectRole('${role}')` });
+      }).join('');
+
+      // Build hours bar (placeholder — no backend endpoint yet)
+      const hoursHtml = `<div style="border-top:2px solid ${T.mint};padding-top:10px;margin-top:auto;"><span style="font-family:${T.fb};font-size:28px;color:${T.mint};">Current Hours: <span style="color:${T.clockGold};">0.0</span></span></div>`;
+
+      // Determine clock in vs clock out label
+      const clockLabel = 'Clock in';
+
+      // Build overlay inner content
+      const inner = overlayHeader(welcomeLeft, `window._kindCloseClockOverlay()`)
+        + `<div style="font-family:${T.fb};font-size:36px;color:${T.mint};text-align:center;padding-bottom:8px;border-bottom:3px solid ${T.mint};">Select Role</div>`
+        + `<div id="clock-role-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">${roleGridHtml}</div>`
+        + hoursHtml;
+
+      // Inject overlay box
+      el.insertAdjacentHTML('beforeend', overlayBox(inner, { id: 'clock-overlay-box' }));
+
+      // Inject stub button (positioned at bottom-right of scene area)
+      el.insertAdjacentHTML('beforeend', overlayStubBtn(clockLabel, {
+        id: 'clock-overlay-stub',
+        right: '16px',
+        bottom: '4px',
+        onClick: `window._kindSubmitClock()`
+      }));
+    }
+
+    function closeClockOverlay() {
+      const box = $('clock-overlay-box');
+      if (box) box.remove();
+      const stub = $('clock-overlay-stub');
+      if (stub) stub.remove();
+
+      // Restore login content opacity
+      const loginContent = $('login-content');
+      if (loginContent) loginContent.style.opacity = '1';
+
+      // Reset staff state (PIN still needs to be re-entered for next action)
+      APP.staff = null;
+      pin = '';
+      err = '';
+    }
+
+    // Global handlers for inline onclick attrs in overlay HTML
+    window._kindCloseClockOverlay = function() {
+      closeClockOverlay();
+    };
+
+    window._kindClockSelectRole = function(role) {
+      selectedRole = role;
+      // Re-render overlay with updated selection
+      const staff = APP.staff;
+      if (!staff) return;
+      const uniqueRoles = [...new Set(roster.map(r => r.role).filter(Boolean))];
+      if (uniqueRoles.length === 0) uniqueRoles.push('server');
+      renderClockOverlay(staff.name || 'Team Member', uniqueRoles);
+    };
+
+    window._kindSubmitClock = function() {
+      console.log(`Clock action: ${APP.staff ? APP.staff.name : 'unknown'} → role: ${selectedRole}`);
+      closeClockOverlay();
+      draw();
+    };
+
     // ── Keyboard Support ──
     function keyHandler(e) {
       if (APP.screen !== 'login') return;
       if (e.key >= '0' && e.key <= '9') press(e.key);
       else if (e.key === 'Backspace') press('CLR');
       else if (e.key === 'Enter') submit();
-      else if (e.key === 'Escape') { pin = ''; err = ''; draw(); }
+      else if (e.key === 'Escape') {
+        // Close overlay if open, otherwise clear PIN
+        if ($('clock-overlay-box')) { closeClockOverlay(); }
+        else { pin = ''; err = ''; draw(); }
+      }
     }
 
     window.addEventListener('keydown', keyHandler);
@@ -191,6 +324,9 @@ registerScene('login', {
     return () => {
       window.removeEventListener('keydown', keyHandler);
       clearTimeout(holdTimer);
+      delete window._kindCloseClockOverlay;
+      delete window._kindClockSelectRole;
+      delete window._kindSubmitClock;
     };
   }
 });

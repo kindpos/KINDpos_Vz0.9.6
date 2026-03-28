@@ -24,6 +24,7 @@ export const T = Object.freeze({
   clrRed:   'var(--clr-red)',
   goGreen:  'var(--go-green)',
   kindGold: 'var(--kind-gold)',
+  clockGold:'var(--clock-gold)',
 
   // Typography
   fh:       'var(--fh)',
@@ -189,4 +190,64 @@ export function buildActionButton(label, onClick) {
 
 export function numpadContainerStyle() {
   return `background:${T.mint};border:${T.borderW} solid ${T.mint};padding:10px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;clip-path:${chamfer('xl')};`;
+}
+
+// ═══════════════════════════════════════════════════
+//  Overlay Components
+// ═══════════════════════════════════════════════════
+
+// ── Overlay Box (centered chamfered container) ──
+
+export function overlayBox(inner, opts = {}) {
+  const width = opts.width || '560px';
+  const top = opts.top || '0';
+  const bottom = opts.bottom || '0';
+  const id = opts.id ? ` id="${opts.id}"` : '';
+  return `<div${id} style="position:absolute;top:${top};left:50%;transform:translateX(-50%);width:${width};bottom:${bottom};background:${T.bg};border:${T.borderW} solid ${T.mint};z-index:100;display:flex;flex-direction:column;padding:20px 24px;gap:12px;filter:drop-shadow(4px 6px 0px #1a1a1a);clip-path:${chamfer('12px')};">${inner}</div>`;
+}
+
+// ── Overlay Close Button (red X) ──
+
+export function overlayCloseBtn(onClickAttr) {
+  const handler = onClickAttr ? ` onclick="${onClickAttr}"` : '';
+  return `<div style="filter:drop-shadow(2px 3px 0px #1a1a1a);"><div style="background:${T.clrRed};color:${T.mint};font-family:${T.fb};font-size:28px;width:44px;height:44px;cursor:pointer;display:flex;align-items:center;justify-content:center;clip-path:${chamfer('md')};"${handler}>X</div></div>`;
+}
+
+// ── Overlay Header (welcome row + close button) ──
+
+export function overlayHeader(leftHtml, onCloseAttr) {
+  return `<div style="display:flex;justify-content:space-between;align-items:center;">${leftHtml}${overlayCloseBtn(onCloseAttr)}</div>`;
+}
+
+// ── Overlay Stub Button (positioned over login button) ──
+
+export function overlayStubBtn(label, opts = {}) {
+  const id = opts.id ? ` id="${opts.id}"` : '';
+  const right = opts.right || '16px';
+  const bottom = opts.bottom || '0';
+  const width = opts.width || '280px';
+  const height = opts.height || '56px';
+  const bg = opts.bg || T.clockGold;
+  const onClickAttr = opts.onClick || '';
+  const handler = onClickAttr ? ` onclick="${onClickAttr}"` : '';
+  return `<div${id} style="position:absolute;right:${right};bottom:${bottom};z-index:110;filter:drop-shadow(2px 3px 0px #1a1a1a);"><div style="background:${bg};color:${T.bg};font-family:${T.fb};font-size:32px;width:${width};height:${height};cursor:pointer;display:flex;align-items:center;justify-content:center;clip-path:${chamfer('md')};"${handler}>${label}</div></div>`;
+}
+
+// ── Role Button Outer (colored border wrapper) ──
+
+export function roleBtnOuter(color, inner) {
+  return `<div style="padding:3px;background:${color};clip-path:${chamfer('md')};">${inner}</div>`;
+}
+
+// ── Role Button (selectable role toggle) ──
+
+export function roleBtn(label, opts = {}) {
+  const selected = opts.selected || false;
+  const color = opts.color || T.mint;
+  const onClickAttr = opts.onClick || '';
+  const bg = selected ? color : T.bg;
+  const textColor = selected ? T.bg : color;
+  const handler = onClickAttr ? ` onclick="${onClickAttr}"` : '';
+  const inner = `<div style="height:64px;display:flex;align-items:center;justify-content:center;font-family:${T.fb};font-size:32px;cursor:pointer;background:${bg};color:${textColor};clip-path:${chamfer('sm')};"${handler}>${label}</div>`;
+  return `<div style="filter:drop-shadow(2px 3px 0px #1a1a1a);">${roleBtnOuter(color, inner)}</div>`;
 }
