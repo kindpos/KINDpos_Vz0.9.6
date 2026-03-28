@@ -23,6 +23,7 @@ from app.api.routes import printing
 from app.api.routes import payment_routes
 from app.api.routes import config
 from app.api.routes import staff
+from app.api.routes import printers
 
 
 @asynccontextmanager
@@ -71,6 +72,7 @@ app.include_router(printing.router, prefix="/api/v1")
 app.include_router(payment_routes.router, prefix="/api/v1")
 app.include_router(config.router, prefix="/api/v1")
 app.include_router(staff.router, prefix="/api/v1")
+app.include_router(printers.router, prefix="/api/v1")
 
 
 # ── Health Check ──
