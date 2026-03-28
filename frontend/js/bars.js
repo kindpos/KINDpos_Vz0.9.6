@@ -15,6 +15,7 @@ const SCREEN_TITLES = {
   'payment':        'Payment',
   'close-day':      'Close Day',
   'settings':       'Settings',
+  'printer-discovery': 'Printer Discovery',
 };
 
 export function renderBars() {
