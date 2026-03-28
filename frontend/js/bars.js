@@ -6,6 +6,17 @@ import { APP, $, fmtTime, greeting } from './app.js';
 import { CFG, PALM_LOGO } from './config.js';
 import { sbarContent, tbarLoggedOut, tbarLoggedIn } from './theme-manager.js';
 
+let _barSubtitle = '';
+
+export function setBarSubtitle(subtitle) {
+  _barSubtitle = subtitle || '';
+  // Update tbar clock area to show subtitle
+  const clockEl = $('_tbar_clock');
+  if (clockEl) {
+    clockEl.textContent = _barSubtitle ? `${fmtTime()} // ${_barSubtitle}` : fmtTime();
+  }
+}
+
 const SCREEN_TITLES = {
   'snapshot':       'Snapshot',
   'check-overview': 'Check Overview',
@@ -24,7 +35,8 @@ export function renderBars() {
 
   // ── TBar ──
   if (!APP.staff) {
-    t.innerHTML = tbarLoggedOut(fmtTime());
+    const timeDisplay = _barSubtitle ? `${fmtTime()} // ${_barSubtitle}` : fmtTime();
+    t.innerHTML = tbarLoggedOut(timeDisplay);
   } else {
     const title = SCREEN_TITLES[APP.screen] || '';
     const orderRef = (APP.p && APP.p.order) ? ` ${APP.p.order.id}` : '';
@@ -65,6 +77,6 @@ export function renderBars() {
 setInterval(() => {
   if (APP.staff) {
     const clockEl = $('_tbar_clock');
-    if (clockEl) clockEl.textContent = fmtTime();
+    if (clockEl) clockEl.textContent = _barSubtitle ? `${fmtTime()} // ${_barSubtitle}` : fmtTime();
   }
 }, 30000);

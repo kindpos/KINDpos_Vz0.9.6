@@ -233,6 +233,45 @@ export function overlayStubBtn(label, opts = {}) {
   return `<div${id} style="position:absolute;right:${right};bottom:${bottom};z-index:110;filter:drop-shadow(2px 3px 0px #1a1a1a);"><div style="background:${bg};color:${T.bg};font-family:${T.fb};font-size:32px;width:${width};height:${height};cursor:pointer;display:flex;align-items:center;justify-content:center;clip-path:${chamfer('md')};"${handler}>${label}</div></div>`;
 }
 
+// ── Tab Bar (horizontal tabbed navigation) ──
+
+export function tabBar(tabs, activeIndex, onTabClick) {
+  const items = tabs.map((tab, i) => {
+    const isActive = i === activeIndex;
+    const otherTab = tabs[1 - i]; // assumes 2 tabs
+    if (isActive) {
+      return `<div style="flex:1;background:${tab.color};color:${T.bg};font-family:${T.fb};font-size:36px;height:50px;display:flex;align-items:center;justify-content:center;cursor:pointer;clip-path:${chamfer('lg')};" onclick="${onTabClick}(${i})">${tab.label}</div>`;
+    } else {
+      return `<div style="flex:1;padding:3px;background:${tab.color};clip-path:${chamfer('lg')};" onclick="${onTabClick}(${i})"><div style="background:${T.bg};color:${tab.color};font-family:${T.fb};font-size:36px;height:44px;display:flex;align-items:center;justify-content:center;cursor:pointer;clip-path:${chamfer('lg')};">${tab.label}</div></div>`;
+    }
+  }).join('');
+  return `<div style="display:flex;gap:8px;">${items}</div>`;
+}
+
+// ── Big Card (large touchable card for grids) ──
+
+export function bigCard(label, opts = {}) {
+  const color = opts.color || T.mint;
+  const id = opts.id ? ` id="${opts.id}"` : '';
+  const handler = opts.onClick ? ` onclick="${opts.onClick}"` : '';
+  const width = opts.width || '100%';
+  const height = opts.height || '220px';
+  const inner = `<div${id} style="background:${T.bg};border:${T.borderW} solid ${color};color:${color};font-family:${T.fb};font-size:40px;width:${width};height:${height};display:flex;align-items:center;justify-content:center;cursor:pointer;clip-path:${chamfer('lg')};"${handler}>${label}</div>`;
+  return `<div class="btn-wrap">${inner}</div>`;
+}
+
+// ── Full-Screen Overlay (fills scene area) ──
+
+export function fullScreenOverlay(inner, opts = {}) {
+  const id = opts.id ? ` id="${opts.id}"` : '';
+  const borderColor = opts.borderColor || T.mint;
+  const closeBtn = opts.onClose ? overlayCloseBtn(opts.onClose) : '';
+  return `<div${id} style="position:absolute;inset:0;background:${T.bg};border:${T.borderW} solid ${borderColor};z-index:100;display:flex;flex-direction:column;padding:16px 20px;gap:12px;filter:drop-shadow(4px 6px 0px #1a1a1a);clip-path:${chamfer('12px')};">
+    <div style="display:flex;justify-content:flex-end;">${closeBtn}</div>
+    ${inner}
+  </div>`;
+}
+
 // ── Role Button Outer (colored border wrapper) ──
 
 export function roleBtnOuter(color, inner) {
