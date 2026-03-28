@@ -9,12 +9,22 @@ from app.models.config_events import TipoutRule
 class ServerSnapshotService:
     def __init__(self, ledger: EventLedger):
         self.ledger = ledger
+        self._orders_cache: Optional[Dict[str, Order]] = None
+
+    async def _get_all_orders(self) -> Dict[str, Order]:
+        """Fetch and project all orders once, then cache for reuse."""
+        if self._orders_cache is None:
+            events = await self.ledger.get_events_since(0, limit=10000)
+            self._orders_cache = project_orders(events, tax_rate=settings.tax_rate)
+        return self._orders_cache
+
+    def invalidate_cache(self):
+        """Clear the cached orders (call after writes like adjust_tip)."""
+        self._orders_cache = None
 
     async def get_server_orders(self, server_id: str, since: Optional[datetime] = None) -> List[Order]:
         """Get all orders for a specific server since a given time."""
-        # For simplicity, we get all events and filter.
-        events = await self.ledger.get_events_since(0, limit=10000)
-        orders_dict = project_orders(events, tax_rate=settings.tax_rate)
+        orders_dict = await self._get_all_orders()
 
         server_orders = []
         for order in orders_dict.values():
@@ -163,8 +173,7 @@ class ServerSnapshotService:
         }
 
     async def adjust_tip(self, terminal_id: str, order_id: str, payment_id: str, tip_amount: float):
-        events = await self.ledger.get_events_since(0, limit=10000)
-        orders = project_orders(events, tax_rate=settings.tax_rate)
+        orders = await self._get_all_orders()
         order = orders.get(order_id)
         if not order:
             raise ValueError(f"Order {order_id} not found")
@@ -188,6 +197,7 @@ class ServerSnapshotService:
             previous_tip=previous_tip
         )
         await self.ledger.append(event)
+        self.invalidate_cache()
         return event
 
     async def get_server_hourly_guest_pace(self, server_id: str, since: Optional[datetime] = None) -> List[Dict[str, Any]]:

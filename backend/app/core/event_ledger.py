@@ -313,6 +313,31 @@ class EventLedger:
         rows = await cursor.fetchall()
         return [self._row_to_event(row) for row in rows]
 
+    async def get_events_by_types(
+            self,
+            event_types: list[EventType],
+            limit: int = 5000
+    ) -> list[Event]:
+        """Get events matching any of the given types in a single query."""
+        if not event_types:
+            return []
+        placeholders = ",".join("?" for _ in event_types)
+        values = [et.value for et in event_types]
+        values.append(limit)
+        cursor = await self._db.execute(
+            f"""
+            SELECT sequence_number, event_id, timestamp, terminal_id, event_type,
+                   payload, user_id, user_role, correlation_id, previous_checksum, checksum
+            FROM events
+            WHERE event_type IN ({placeholders})
+            ORDER BY sequence_number ASC
+            LIMIT ?
+            """,
+            values
+        )
+        rows = await cursor.fetchall()
+        return [self._row_to_event(row) for row in rows]
+
     async def get_events_since(
             self,
             sequence_number: int = 0,
