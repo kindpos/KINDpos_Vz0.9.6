@@ -32,12 +32,12 @@ body {
   height: var(--bar-h);
   background: var(--mint);
   color: var(--bg);
-  font-family: var(--fh);
+  font-family: var(--fb);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 10px;
-  font-size: 20px;
+  padding: 0 16px;
+  font-size: 36px;
   flex-shrink: 0;
 }
 
@@ -49,14 +49,14 @@ body {
 
 #sbar {
   height: var(--bar-h);
-  background: var(--bg);
-  color: var(--mint);
-  border-top: 1px solid var(--mint);
+  background: var(--mint);
+  color: var(--bg);
+  border-top: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 12px;
-  font-size: 20px;
+  padding: 0 16px;
+  font-size: 24px;
   flex-shrink: 0;
 }
 
@@ -64,32 +64,29 @@ body {
 .btn-p {
   background: var(--mint);
   color: var(--bg);
-  border: 2px solid #555;
-  border-top-color: #eee;
-  border-left-color: #eee;
+  border: none;
   padding: 8px 14px;
   cursor: pointer;
   font-family: var(--fb);
-  font-size: 20px;
+  font-size: 32px;
   text-align: center;
   display: flex;
   align-items: center;
   justify-content: center;
   user-select: none;
   border-radius: 0;
-}
-.btn-p:active {
-  border: 2px solid #eee;
-  border-top-color: #555;
-  border-left-color: #555;
+  clip-path: polygon(
+    6px 0%, calc(100% - 6px) 0%,
+    100% 6px, 100% calc(100% - 6px),
+    calc(100% - 6px) 100%, 6px 100%,
+    0% calc(100% - 6px), 0% 6px
+  );
 }
 
 .btn-s {
   background: var(--bg);
   color: var(--mint);
-  border: 2px solid #555;
-  border-top-color: #eee;
-  border-left-color: #eee;
+  border: none;
   padding: 8px 14px;
   cursor: pointer;
   font-family: var(--fb);
@@ -100,19 +97,18 @@ body {
   justify-content: center;
   user-select: none;
   border-radius: 0;
-}
-.btn-s:active {
-  border: 2px solid #eee;
-  border-top-color: #555;
-  border-left-color: #555;
+  clip-path: polygon(
+    6px 0%, calc(100% - 6px) 0%,
+    100% 6px, 100% calc(100% - 6px),
+    calc(100% - 6px) 100%, 6px 100%,
+    0% calc(100% - 6px), 0% 6px
+  );
 }
 
 .btn-d {
   background: var(--red);
   color: var(--bg);
-  border: 2px solid #555;
-  border-top-color: #eee;
-  border-left-color: #eee;
+  border: none;
   padding: 8px 14px;
   cursor: pointer;
   font-family: var(--fb);
@@ -123,20 +119,19 @@ body {
   justify-content: center;
   user-select: none;
   border-radius: 0;
-}
-.btn-d:active {
-  border: 2px solid #eee;
-  border-top-color: #555;
-  border-left-color: #555;
+  clip-path: polygon(
+    5px 0%, calc(100% - 5px) 0%,
+    100% 5px, 100% calc(100% - 5px),
+    calc(100% - 5px) 100%, 5px 100%,
+    0% calc(100% - 5px), 0% 5px
+  );
 }
 .btn-d:hover { opacity: 0.3; }
 
 .btn-num {
   background: var(--bg);
   color: var(--mint);
-  border: 2px solid #555;
-  border-top-color: #eee;
-  border-left-color: #eee;
+  border: none;
   padding: 8px;
   cursor: pointer;
   font-family: var(--fb);
@@ -147,11 +142,70 @@ body {
   justify-content: center;
   user-select: none;
   border-radius: 0;
+  clip-path: polygon(
+    5px 0%, calc(100% - 5px) 0%,
+    100% 5px, 100% calc(100% - 5px),
+    calc(100% - 5px) 100%, 5px 100%,
+    0% calc(100% - 5px), 0% 5px
+  );
 }
-.btn-num:active {
-  border: 2px solid #eee;
-  border-top-color: #555;
-  border-left-color: #555;
+
+/* ── Button Drop-Shadow Wrapper ── */
+.btn-wrap {
+  filter: drop-shadow(2px 3px 0px #1a1a1a);
+  transition: filter 0.05s ease, transform 0.05s ease;
+}
+.btn-wrap:active {
+  filter: drop-shadow(0px 0px 0px #1a1a1a);
+  transform: translate(2px, 3px);
+}
+
+/* ── Footer Text Boxes ── */
+.sbar-box {
+  background: var(--bg);
+  padding: 4px 14px;
+  display: inline-flex;
+  align-items: center;
+  clip-path: polygon(
+    8px 0%, calc(100% - 8px) 0%,
+    100% 8px, 100% calc(100% - 8px),
+    calc(100% - 8px) 100%, 8px 100%,
+    0% calc(100% - 8px), 0% 8px
+  );
+}
+
+/* ── Chamfered Corners ── */
+.chamfer-sm {
+  clip-path: polygon(
+    var(--chamfer-sm) 0%, calc(100% - var(--chamfer-sm)) 0%,
+    100% var(--chamfer-sm), 100% calc(100% - var(--chamfer-sm)),
+    calc(100% - var(--chamfer-sm)) 100%, var(--chamfer-sm) 100%,
+    0% calc(100% - var(--chamfer-sm)), 0% var(--chamfer-sm)
+  );
+}
+.chamfer-md {
+  clip-path: polygon(
+    var(--chamfer-md) 0%, calc(100% - var(--chamfer-md)) 0%,
+    100% var(--chamfer-md), 100% calc(100% - var(--chamfer-md)),
+    calc(100% - var(--chamfer-md)) 100%, var(--chamfer-md) 100%,
+    0% calc(100% - var(--chamfer-md)), 0% var(--chamfer-md)
+  );
+}
+.chamfer-lg {
+  clip-path: polygon(
+    var(--chamfer-lg) 0%, calc(100% - var(--chamfer-lg)) 0%,
+    100% var(--chamfer-lg), 100% calc(100% - var(--chamfer-lg)),
+    calc(100% - var(--chamfer-lg)) 100%, var(--chamfer-lg) 100%,
+    0% calc(100% - var(--chamfer-lg)), 0% var(--chamfer-lg)
+  );
+}
+.chamfer-xl {
+  clip-path: polygon(
+    var(--chamfer-xl) 0%, calc(100% - var(--chamfer-xl)) 0%,
+    100% var(--chamfer-xl), 100% calc(100% - var(--chamfer-xl)),
+    calc(100% - var(--chamfer-xl)) 100%, var(--chamfer-xl) 100%,
+    0% calc(100% - var(--chamfer-xl)), 0% var(--chamfer-xl)
+  );
 }
 
 .btn-off {

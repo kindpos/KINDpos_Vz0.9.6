@@ -22,7 +22,7 @@ export function renderBars() {
 
   // ── TBar ──
   if (!APP.staff) {
-    t.innerHTML = `<span id="_tbar_clock">${fmtTime()}</span><span></span>`;
+    t.innerHTML = `<span id="_tbar_clock" style="font-family:var(--fb);font-size:36px;">${fmtTime()}</span><span></span>`;
   } else {
     const badge = APP.staff.role === 'manager'
       ? `<span style="background:#44FF88;color:var(--bg);padding:0 5px;font-size:14px;">[MGR]</span>`
@@ -34,24 +34,24 @@ export function renderBars() {
 
     // Settings button in header (manager only)
     const headerSettings = APP.staff.role === 'manager'
-      ? `<span style="background:var(--bg);color:var(--mint);padding:0 8px;height:20px;display:flex;align-items:center;justify-content:center;font-size:13px;font-family:var(--fb);cursor:pointer;"
+      ? `<span style="background:var(--bg);color:var(--mint);padding:0 8px;height:28px;display:flex;align-items:center;justify-content:center;font-size:16px;font-family:var(--fb);cursor:pointer;"
               id="_tbar_settings">Settings</span>`
       : '';
 
     const backBtn = (APP.screen === 'check-editing' || APP.screen === 'check-overview')
-      ? `<span style="background:var(--bg);color:var(--mint);padding:0 8px;height:20px;display:flex;align-items:center;justify-content:center;font-size:13px;font-family:var(--fb);cursor:pointer;margin-right:8px;"
+      ? `<span style="background:var(--bg);color:var(--mint);padding:0 8px;height:28px;display:flex;align-items:center;justify-content:center;font-size:16px;font-family:var(--fb);cursor:pointer;margin-right:8px;"
               id="_tbar_back">\u2190</span>`
       : '';
 
     t.innerHTML = `
       <div style="display:flex;align-items:center;">
         ${backBtn}
-        <span style="font-size:16px;"><span id="_tbar_clock">${fmtTime()}</span>${titlePart} // ${greeting()}, ${APP.staff.name}</span>
+        <span style="font-size:20px;font-family:var(--fb);"><span id="_tbar_clock">${fmtTime()}</span>${titlePart} // ${greeting()}, ${APP.staff.name}</span>
       </div>
       <div style="display:flex;align-items:center;gap:6px;">
         ${badge}
         ${headerSettings}
-        <span style="background:var(--red);color:var(--bg);width:24px;height:20px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;border-radius:3px;cursor:pointer;"
+        <span style="background:var(--red);color:var(--bg);width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:bold;cursor:pointer;clip-path:polygon(4px 0%,calc(100% - 4px) 0%,100% 4px,100% calc(100% - 4px),calc(100% - 4px) 100%,4px 100%,0% calc(100% - 4px),0% 4px);"
               id="_tbar_logout">\u2715</span>
       </div>`;
 
@@ -74,16 +74,13 @@ export function renderBars() {
     }
   }
 
-  // ── SBar — Mint background, boxed text in grey ──
-  s.style.background = 'var(--mint)';
-  s.style.color = 'var(--bg)';
-  s.style.borderTop = '2px solid var(--bg)';
-
+  // ── SBar — Mint background with chamfered dark text boxes ──
   s.innerHTML = `
-    <span style="background:var(--bg);color:var(--mint);padding:2px 10px;font-size:13px;">TRM-<span style="color:var(--yellow);">01</span> // Vz<span style="color:var(--yellow);">1.0</span></span>
-    <span style="background:var(--bg);padding:3px 12px;display:flex;align-items:center;gap:6px;">
-      <img src="${PALM_LOGO}" style="width:24px;height:24px;object-fit:contain;animation:spin 20s linear infinite;">
-      <span style="display:flex;align-items:baseline;gap:0px;"><span style="font-family:var(--fh);font-size:22px;color:#fcbe40;">KIND</span><span style="font-family:var(--fb);font-size:18px;color:var(--red);">pos</span></span>
+    <span class="sbar-box">
+      <span style="font-family:var(--fb);color:var(--mint);font-size:24px;">TRM-</span><span style="font-family:var(--fb);color:var(--kind-gold);font-size:24px;">01</span><span style="font-family:var(--fb);color:var(--mint);font-size:24px;"> // Vz</span><span style="font-family:var(--fb);color:var(--kind-gold);font-size:24px;">1.0</span>
+    </span>
+    <span class="sbar-box">
+      <span style="font-family:var(--fhi);font-size:30px;color:var(--kind-gold);">KIND</span><span style="font-family:var(--fb);font-size:30px;color:var(--clr-red);">pos</span>
     </span>`;
 }
 

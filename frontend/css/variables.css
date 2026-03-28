@@ -11,6 +11,22 @@
 }
 
 @font-face {
+  font-family: 'Alien Encounters Bold Italic';
+  src: url('../assets/fonts/Alien-Encounters-Bold-Italic.ttf') format('truetype');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Alien Encounters Solid Bold Italic';
+  src: url('../assets/fonts/Alien-Encounters-Solid-Bold-Italic.ttf') format('truetype');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
   font-family: 'Sevastopol Interface';
   src: url('../assets/fonts/Sevastopol-Interface.ttf') format('truetype');
   font-weight: 400;
@@ -33,13 +49,25 @@
   --lavender:   #b48efa;
   --gold:       #fcbe40;
   --orange:     #ff8c00;
+  --clr-red:    #da331c;
+  --go-green:   #7ac943;
+  --kind-gold:  #ffc344;
 
   /* ── Typography ── */
   --fh: 'Alien Encounters Solid Bold', 'Impact', 'Arial Black', sans-serif;
+  --fhi: 'Alien Encounters Bold Italic', 'Impact', 'Arial Black', sans-serif;
+  --fhi-solid: 'Alien Encounters Solid Bold Italic', 'Impact', 'Arial Black', sans-serif;
   --fb: 'Sevastopol Interface', 'Courier New', 'Lucida Console', monospace;
 
   /* ── Terminal Dimensions ── */
   --app-w: 1024px;
   --app-h: 600px;
-  --bar-h: 30px;
+  --bar-h: 46px;
+
+  /* ── Layout Tokens ── */
+  --border-w:   7px;
+  --chamfer-sm: 5px;
+  --chamfer-md: 6px;
+  --chamfer-lg: 8px;
+  --chamfer-xl: 10px;
 }

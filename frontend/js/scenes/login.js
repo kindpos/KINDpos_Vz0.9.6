@@ -52,23 +52,13 @@ registerScene('login', {
 
     // ── PIN Hex Visualization ──
     function renderPinHexes() {
-      if (pin.length === 0) {
-        return '<span style="opacity:0.35;font-size:15px;">enter PIN</span>';
-      }
-      const S = 30;
-      const H = S * 0.866;
-      const cStep = S * 0.75;
-      const maxCols = 6;
+      const maxDigits = 4;
       let html = '';
-      for (let i = 0; i < pin.length && i < maxCols * 2; i++) {
-        const col = i % maxCols;
-        const row = Math.floor(i / maxCols);
-        const x = col * cStep + 4;
-        const y = row * (H + 4) + (col % 2 === 1 ? H * 0.5 : 0) + 4;
-        html += `<div style="position:absolute;left:${x}px;top:${y}px;width:${S}px;height:${H}px;display:flex;align-items:center;justify-content:center;">
-          <div style="position:absolute;inset:0;background:var(--mint);clip-path:polygon(25% 0%,75% 0%,100% 50%,75% 100%,25% 100%,0% 50%);"></div>
-          <div style="position:absolute;inset:2px;background:var(--bg3);clip-path:polygon(25% 0%,75% 0%,100% 50%,75% 100%,25% 100%,0% 50%);"></div>
-        </div>`;
+      for (let i = 0; i < maxDigits; i++) {
+        const filled = i < pin.length;
+        const bgColor = filled ? 'var(--mint)' : '#444';
+        const textColor = filled ? 'var(--bg)' : 'var(--mint)';
+        html += `<div style="width:44px;height:50px;background:${bgColor};border:2px solid var(--mint);clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);display:flex;align-items:center;justify-content:center;font-family:var(--fb);font-size:24px;color:${textColor};"></div>`;
       }
       return html;
     }
@@ -80,29 +70,30 @@ registerScene('login', {
         : '';
 
       el.innerHTML = `
-        <div style="display:flex;height:100%;align-items:center;justify-content:center;gap:20px;">
-          <!-- LEFT: LOGO + PIN DISPLAY -->
-          <div style="display:flex;flex-direction:column;align-items:center;gap:10px;width:180px;">
-            <div style="width:60px;height:60px;display:flex;align-items:center;justify-content:center;">
-              <img src="${PALM_LOGO}" style="width:55px;height:55px;object-fit:contain;animation:spin 20s linear infinite;">
-            </div>
-            <div id="pin-frame" style="width:160px;height:70px;border:2px solid var(--mint);border-radius:8px;background:var(--bg2);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;">
-              ${renderPinHexes()}
-            </div>
-            <div style="width:160px;">${errH}</div>
+        <div style="display:grid;grid-template-columns:280px 400px 1fr;height:100%;padding:16px;gap:16px;padding-bottom:56px;">
+          <!-- LEFT: BRANDING -->
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
+            <img src="${PALM_LOGO}" style="height:300px;width:auto;object-fit:contain;">
+            <div style="font-family:var(--fhi-solid);font-size:36px;color:var(--mint);">STORE NAME</div>
           </div>
 
           <!-- CENTER: NUMPAD -->
-          <div style="background:var(--mint);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px;">
-            <div style="display:grid;grid-template-columns:repeat(3,80px);gap:8px;" id="pad"></div>
+          <div style="display:flex;flex-direction:column;justify-content:center;">
+            <div style="background:var(--mint);border:var(--border-w) solid var(--mint);padding:10px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;clip-path:polygon(10px 0%,calc(100% - 10px) 0%,100% 10px,100% calc(100% - 10px),calc(100% - 10px) 100%,10px 100%,0% calc(100% - 10px),0% 10px);" id="pad"></div>
           </div>
 
-          <!-- RIGHT: ACTION HEXES -->
-          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;margin-left:20px;" id="action-hexes"></div>
+          <!-- RIGHT: PIN DISPLAY + ACTIONS -->
+          <div style="display:flex;flex-direction:column;gap:0;">
+            <div id="pin-frame" style="border:var(--border-w) solid var(--mint);padding:8px;display:flex;justify-content:center;align-items:center;gap:4px;flex-wrap:wrap;height:65px;clip-path:polygon(8px 0%,calc(100% - 8px) 0%,100% 8px,100% calc(100% - 8px),calc(100% - 8px) 100%,8px 100%,0% calc(100% - 8px),0% 8px);">
+              ${renderPinHexes()}
+            </div>
+            <div style="width:100%;">${errH}</div>
+            <div style="display:flex;flex-direction:column;justify-content:center;gap:10px;flex:1;" id="action-btns"></div>
+          </div>
         </div>`;
 
       buildNumpad();
-      buildActionHexes();
+      buildActionButtons();
     }
 
     // ── Build Numpad ──
@@ -113,22 +104,20 @@ registerScene('login', {
       const keys = ['1','2','3','4','5','6','7','8','9','CLR','0','>>>'];
 
       keys.forEach(k => {
+        const wrap = document.createElement('div');
+        wrap.className = 'btn-wrap';
+
         const b = document.createElement('div');
         b.textContent = k;
         const isCLR = k === 'CLR';
         const isENT = k === '>>>';
 
         if (isCLR) {
-          b.style.cssText = 'width:80px;height:60px;background:var(--red);color:var(--bg);border:none;border-radius:6px;font-family:var(--fb);font-size:15px;font-weight:bold;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;';
+          b.style.cssText = 'background:var(--clr-red);color:var(--bg);border:none;font-family:var(--fb);font-size:72px;display:flex;align-items:center;justify-content:center;height:88px;cursor:pointer;user-select:none;clip-path:polygon(5px 0%,calc(100% - 5px) 0%,100% 5px,100% calc(100% - 5px),calc(100% - 5px) 100%,5px 100%,0% calc(100% - 5px),0% 5px);';
         } else if (isENT) {
-          b.style.cssText = 'width:80px;height:60px;background:#22CC66;color:var(--bg);border:none;border-radius:6px;font-family:var(--fb);font-size:16px;font-weight:bold;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;';
+          b.style.cssText = 'background:var(--go-green);color:var(--bg);border:none;font-family:var(--fb);font-size:72px;display:flex;align-items:center;justify-content:center;height:88px;cursor:pointer;user-select:none;clip-path:polygon(5px 0%,calc(100% - 5px) 0%,100% 5px,100% calc(100% - 5px),calc(100% - 5px) 100%,5px 100%,0% calc(100% - 5px),0% 5px);';
         } else {
-          b.style.cssText = 'width:80px;height:60px;background:var(--bg);color:var(--mint);border:none;border-radius:6px;font-family:var(--fb);font-size:22px;font-weight:bold;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;';
-        }
-
-        if (!isCLR && !isENT) {
-          b.addEventListener('mouseover', () => { b.style.background = 'var(--bg3)'; });
-          b.addEventListener('mouseout',  () => { b.style.background = 'var(--bg)'; });
+          b.style.cssText = 'background:var(--bg);color:var(--mint);border:none;font-family:var(--fb);font-size:100px;display:flex;align-items:center;justify-content:center;height:88px;cursor:pointer;user-select:none;clip-path:polygon(5px 0%,calc(100% - 5px) 0%,100% 5px,100% calc(100% - 5px),calc(100% - 5px) 100%,5px 100%,0% calc(100% - 5px),0% 5px);';
         }
 
         b.addEventListener('click', () => press(k));
@@ -143,30 +132,33 @@ registerScene('login', {
           b.addEventListener('touchend',    endHold);
         }
 
-        pad.appendChild(b);
+        wrap.appendChild(b);
+        pad.appendChild(wrap);
       });
     }
 
-    // ── Build Action Hexes ──
-    function buildActionHexes() {
-      const ah = $('action-hexes');
-      if (!ah) return;
+    // ── Build Action Buttons ──
+    function buildActionButtons() {
+      const ab = $('action-btns');
+      if (!ab) return;
 
-      const hexes = [
-        { label: 'Clock\nin/out', act: () => {} },
-        { label: 'Settings', act: () => { if (!matchPin()) return; go('settings'); } },
-        { label: 'Quick\nOrder',  act: () => { if (!matchPin()) return; const o = makeOrder('quick_service'); go('check-editing', { order: o }); } },
+      const actions = [
+        { label: 'Quick Service', act: () => { if (!matchPin()) return; const o = makeOrder('quick_service'); go('check-editing', { order: o }); } },
+        { label: 'Settings',      act: () => { if (!matchPin()) return; go('settings'); } },
+        { label: 'Clock in/out',  act: () => {} },
       ];
 
-      hexes.forEach(h => {
-        const d = document.createElement('div');
-        d.style.cssText = 'width:120px;height:100px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:20px;cursor:pointer;position:relative;white-space:pre-line;';
-        d.innerHTML = `
-          <div style="position:absolute;inset:0;background:var(--mint);clip-path:polygon(25% 0%,75% 0%,100% 50%,75% 100%,25% 100%,0% 50%);"></div>
-          <div style="position:absolute;inset:3px;background:var(--bg3);clip-path:polygon(25% 0%,75% 0%,100% 50%,75% 100%,25% 100%,0% 50%);"></div>
-          <span style="z-index:1;">${h.label}</span>`;
-        d.addEventListener('click', h.act);
-        ah.appendChild(d);
+      actions.forEach(a => {
+        const wrap = document.createElement('div');
+        wrap.className = 'btn-wrap';
+
+        const btn = document.createElement('div');
+        btn.textContent = a.label;
+        btn.style.cssText = 'background:var(--mint);color:var(--bg);border:none;font-family:var(--fb);font-size:32px;height:56px;cursor:pointer;text-align:center;display:flex;align-items:center;justify-content:center;clip-path:polygon(6px 0%,calc(100% - 6px) 0%,100% 6px,100% calc(100% - 6px),calc(100% - 6px) 100%,6px 100%,0% calc(100% - 6px),0% 6px);';
+        btn.addEventListener('click', a.act);
+
+        wrap.appendChild(btn);
+        ab.appendChild(wrap);
       });
     }
 
