@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════
 
 import { APP, $, apiFetch } from '../app.js';
-import { FALLBACK_ROSTER, PALM_LOGO } from '../config.js';
+import { CFG, FALLBACK_ROSTER, PALM_LOGO } from '../config.js';
 import { registerScene, go } from '../scene-manager.js';
 
 registerScene('login', {
@@ -13,8 +13,9 @@ registerScene('login', {
     let holdTimer = null;
     let roster = [...FALLBACK_ROSTER]; // Start with fallback, upgrade if API responds
 
-    // ── Fetch live roster from API on mount ──
+    // ── Fetch live roster + config from API on mount ──
     fetchRoster();
+    fetchConfig();
 
     async function fetchRoster() {
       try {
@@ -31,6 +32,21 @@ registerScene('login', {
       } catch (_) {
         APP.offline = true;
         console.log('API unreachable — using fallback roster');
+      }
+    }
+
+    async function fetchConfig() {
+      try {
+        const bundle = await apiFetch('/api/v1/config/terminal-bundle');
+        if (bundle && bundle.store && bundle.store.tax_rules) {
+          const defaultRule = bundle.store.tax_rules.find(r => r.tax_rule_id === 'default');
+          if (defaultRule) {
+            CFG.TAX = defaultRule.rate_percent / 100;
+            console.log(`Tax rate loaded from config: ${(CFG.TAX * 100).toFixed(2)}%`);
+          }
+        }
+      } catch (_) {
+        console.log('Config fetch failed — using existing tax rate');
       }
     }
 

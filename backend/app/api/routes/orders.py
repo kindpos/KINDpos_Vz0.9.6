@@ -211,7 +211,7 @@ async def get_order_or_404(ledger: EventLedger, order_id: str) -> Order:
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Order {order_id} not found"
         )
-    order = project_order(events)
+    order = project_order(events, tax_rate=settings.tax_rate)
     if not order:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -248,7 +248,7 @@ async def create_order(
 
     # Return the projected order
     events = await ledger.get_events_by_correlation(order_id)
-    order = project_order(events)
+    order = project_order(events, tax_rate=settings.tax_rate)
     return OrderResponse.from_order(order)
 
 
@@ -262,7 +262,7 @@ async def list_orders(
     """List orders with optional filters."""
     # Get recent events (last 1000)
     events = await get_current_day_events(ledger, limit=10000)
-    orders = project_orders(events)
+    orders = project_orders(events, tax_rate=settings.tax_rate)
 
     # Apply filters
     result = list(orders.values())
@@ -288,7 +288,7 @@ async def list_active_orders(
 ):
     """Get all active (open or printed) orders."""
     events = await get_current_day_events(ledger, limit=10000)
-    orders = project_orders(events)
+    orders = project_orders(events, tax_rate=settings.tax_rate)
     active_orders = [o for o in orders.values() if o.status in ["open", "printed"]]
     active_orders.sort(key=lambda o: o.created_at or datetime.min, reverse=True)
     return [OrderResponse.from_order(o) for o in active_orders]
@@ -300,7 +300,7 @@ async def list_open_orders(
 ):
     """Get all open orders."""
     events = await get_current_day_events(ledger, limit=10000)
-    orders = project_orders(events)
+    orders = project_orders(events, tax_rate=settings.tax_rate)
     open_orders = [o for o in orders.values() if o.status == "open"]
     open_orders.sort(key=lambda o: o.created_at or datetime.min, reverse=True)
     return [OrderResponse.from_order(o) for o in open_orders]
@@ -310,7 +310,7 @@ async def list_open_orders(
 async def get_day_summary(ledger: EventLedger = Depends(get_ledger)):
     """Get current day summary without closing anything."""
     all_events = await get_current_day_events(ledger)
-    all_orders = project_orders(all_events)
+    all_orders = project_orders(all_events, tax_rate=settings.tax_rate)
 
     open_count = 0
     closed_count = 0
@@ -734,7 +734,7 @@ async def close_batch(ledger: EventLedger = Depends(get_ledger)):
 
     for oid in open_ids:
         events = await ledger.get_events_by_correlation(oid)
-        order = project_order(events)
+        order = project_order(events, tax_rate=settings.tax_rate)
         if order and order.status == "open":
             evt = order_closed(
                 terminal_id=settings.terminal_id,
@@ -747,7 +747,7 @@ async def close_batch(ledger: EventLedger = Depends(get_ledger)):
 
     # Compute batch totals from current-day orders
     day_events = await get_current_day_events(ledger)
-    all_orders = project_orders(day_events)
+    all_orders = project_orders(day_events, tax_rate=settings.tax_rate)
 
     batch_total = 0.0
     batch_cash = 0.0
@@ -809,7 +809,7 @@ async def close_day(ledger: EventLedger = Depends(get_ledger)):
     closed_count = 0
     for oid in open_ids:
         events = await ledger.get_events_by_correlation(oid)
-        order = project_order(events)
+        order = project_order(events, tax_rate=settings.tax_rate)
         if order and order.status in ("open", "paid"):
             evt = order_closed(
                 terminal_id=settings.terminal_id,
@@ -821,7 +821,7 @@ async def close_day(ledger: EventLedger = Depends(get_ledger)):
 
     # Build day summary BEFORE emitting boundary events
     all_events = await get_current_day_events(ledger)
-    all_orders = project_orders(all_events)
+    all_orders = project_orders(all_events, tax_rate=settings.tax_rate)
 
     total_orders = len(all_orders)
     total_sales = 0.0

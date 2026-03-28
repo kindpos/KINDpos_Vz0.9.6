@@ -6,7 +6,7 @@
 export const CFG = {
   TID: "T-01",
   VER: "Vz1",
-  TAX: 0.07,
+  TAX: 0.0,           // Fetched from backend at login; 0 until configured
   CASH_DISC: 0.035,
   API_BASE: "",        // Empty = same origin; set for remote backend
   API_TIMEOUT: 3000,   // ms before falling back to offline roster

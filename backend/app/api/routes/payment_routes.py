@@ -104,7 +104,7 @@ async def process_cash_payment(
     events = await ledger.get_events_by_correlation(request.order_id)
     if not events:
         raise HTTPException(status_code=404, detail=f"Order {request.order_id} not found")
-    order = project_order(events)
+    order = project_order(events, tax_rate=settings.tax_rate)
     if not order:
         raise HTTPException(status_code=404, detail=f"Order {request.order_id} not found")
 
@@ -146,7 +146,7 @@ async def process_cash_payment(
 
     # Re-project to check if fully paid
     events = await ledger.get_events_by_correlation(request.order_id)
-    order = project_order(events)
+    order = project_order(events, tax_rate=settings.tax_rate)
 
     # Auto-close if fully paid
     if order and order.is_fully_paid and order.status != "closed":
@@ -185,7 +185,7 @@ async def adjust_tip(
     events = await ledger.get_events_by_correlation(request.order_id)
     if not events:
         raise HTTPException(status_code=404, detail=f"Order {request.order_id} not found")
-    order = project_order(events)
+    order = project_order(events, tax_rate=settings.tax_rate)
     if not order:
         raise HTTPException(status_code=404, detail=f"Order {request.order_id} not found")
 

@@ -25,95 +25,100 @@ class OrderType(str, Enum):
 
 
 class EventType(str, Enum):
-    """All possible event types in the system."""
+    """
+    All possible event types in the system.
+
+    Convention: dot.notation (domain.action) for all values.
+    Enum member names use SCREAMING_SNAKE for Python readability.
+    """
 
     # Order lifecycle
-    ORDER_CREATED = "ORDER_CREATED"
-    ORDER_CLOSED = "ORDER_CLOSED"
-    ORDER_VOIDED = "ORDER_VOIDED"
-    ORDER_TYPE_CHANGED = "ORDER_TYPE_CHANGED"
+    ORDER_CREATED = "order.created"
+    ORDER_CLOSED = "order.closed"
+    ORDER_VOIDED = "order.voided"
+    ORDER_TYPE_CHANGED = "order.type_changed"
 
     # Item management
-    ITEM_ADDED = "ITEM_ADDED"
-    ITEM_REMOVED = "ITEM_REMOVED"
-    ITEM_MODIFIED = "ITEM_MODIFIED"
-    ITEM_SENT = "ITEM_SENT"
-    MODIFIER_APPLIED = "MODIFIER_APPLIED"
+    ITEM_ADDED = "item.added"
+    ITEM_REMOVED = "item.removed"
+    ITEM_MODIFIED = "item.modified"
+    ITEM_SENT = "item.sent"
+    MODIFIER_APPLIED = "item.modifier_applied"
 
     # Discounts
-    DISCOUNT_REQUESTED = "DISCOUNT_REQUESTED"
-    DISCOUNT_APPROVED = "DISCOUNT_APPROVED"
-    DISCOUNT_REJECTED = "DISCOUNT_REJECTED"
+    DISCOUNT_REQUESTED = "discount.requested"
+    DISCOUNT_APPROVED = "discount.approved"
+    DISCOUNT_REJECTED = "discount.rejected"
 
     # Printing
-    TICKET_PRINTED = "TICKET_PRINTED"
-    TICKET_PRINT_FAILED = "TICKET_PRINT_FAILED"
-    TICKET_REPRINTED = "TICKET_REPRINTED"
-    RECEIPT_PRINTED = "RECEIPT_PRINTED"
-    RECEIPT_REPRINTED = "RECEIPT_REPRINTED"
-    PRINT_JOB_QUEUED = "PRINT_JOB_QUEUED"
-    PRINT_JOB_SENT = "PRINT_JOB_SENT"
-    PRINT_JOB_COMPLETED = "PRINT_JOB_COMPLETED"
-    PRINT_JOB_FAILED = "PRINT_JOB_FAILED"
-    PRINT_JOB_RETRIED = "PRINT_JOB_RETRIED"
-    PRINT_RETRYING = "PRINT_RETRYING"
-    PRINT_REROUTED = "PRINT_REROUTED"
+    TICKET_PRINTED = "ticket.printed"
+    TICKET_PRINT_FAILED = "ticket.print_failed"
+    TICKET_REPRINTED = "ticket.reprinted"
+    RECEIPT_PRINTED = "receipt.printed"
+    RECEIPT_REPRINTED = "receipt.reprinted"
+    PRINT_JOB_QUEUED = "print.job_queued"
+    PRINT_JOB_SENT = "print.job_sent"
+    PRINT_JOB_COMPLETED = "print.job_completed"
+    PRINT_JOB_FAILED = "print.job_failed"
+    PRINT_JOB_RETRIED = "print.job_retried"
+    PRINT_RETRYING = "print.retrying"
+    PRINT_REROUTED = "print.rerouted"
 
     # Delivery lifecycle
-    DELIVERY_INFO_ADDED = "DELIVERY_INFO_ADDED"
-    DRIVER_ASSIGNED = "DRIVER_ASSIGNED"
-    DELIVERY_DISPATCHED = "DELIVERY_DISPATCHED"
-    DELIVERY_COMPLETED = "DELIVERY_COMPLETED"
+    DELIVERY_INFO_ADDED = "delivery.info_added"
+    DRIVER_ASSIGNED = "delivery.driver_assigned"
+    DELIVERY_DISPATCHED = "delivery.dispatched"
+    DELIVERY_COMPLETED = "delivery.completed"
 
     # Printer lifecycle
-    PRINTER_REGISTERED = "PRINTER_REGISTERED"
-    PRINTER_STATUS_CHANGED = "PRINTER_STATUS_CHANGED"
-    PRINTER_ERROR = "PRINTER_ERROR"
+    PRINTER_REGISTERED = "printer.registered"
+    PRINTER_STATUS_CHANGED = "printer.status_changed"
+    PRINTER_ERROR = "printer.error"
 
     # Printer configuration
-    PRINTER_ROLE_ASSIGNED = "PRINTER_ROLE_ASSIGNED"
-    PRINTER_ROLE_CREATED = "PRINTER_ROLE_CREATED"
-    PRINTER_FALLBACK_ASSIGNED = "PRINTER_FALLBACK_ASSIGNED"
-    PRINTER_CONFIG_UPDATED = "PRINTER_CONFIG_UPDATED"
-    TEMPLATE_CONFIG_UPDATED = "TEMPLATE_CONFIG_UPDATED"
+    PRINTER_ROLE_ASSIGNED = "printer.role_assigned"
+    PRINTER_ROLE_CREATED = "printer.role_created"
+    PRINTER_FALLBACK_ASSIGNED = "printer.fallback_assigned"
+    PRINTER_CONFIG_UPDATED = "printer.config_updated"
+    TEMPLATE_CONFIG_UPDATED = "printer.template_config_updated"
 
     # Printer maintenance
-    PRINTER_REBOOT_STARTED = "PRINTER_REBOOT_STARTED"
-    PRINTER_REBOOT_COMPLETED = "PRINTER_REBOOT_COMPLETED"
-    PRINTER_HEALTH_WARNING = "PRINTER_HEALTH_WARNING"
+    PRINTER_REBOOT_STARTED = "printer.reboot_started"
+    PRINTER_REBOOT_COMPLETED = "printer.reboot_completed"
+    PRINTER_HEALTH_WARNING = "printer.health_warning"
 
     # Cash drawer
-    DRAWER_OPENED = "DRAWER_OPENED"
-    DRAWER_OPEN_FAILED = "DRAWER_OPEN_FAILED"
+    DRAWER_OPENED = "drawer.opened"
+    DRAWER_OPEN_FAILED = "drawer.open_failed"
 
     # Payment device lifecycle
-    PAYMENT_DEVICE_REGISTERED = "PAYMENT_DEVICE_REGISTERED"
-    PAYMENT_DEVICE_CONNECTED = "PAYMENT_DEVICE_CONNECTED"
-    PAYMENT_DEVICE_DISCONNECTED = "PAYMENT_DEVICE_DISCONNECTED"
-    PAYMENT_DEVICE_ERROR = "PAYMENT_DEVICE_ERROR"
-    PAYMENT_DEVICE_REBOOTED = "PAYMENT_DEVICE_REBOOTED"
+    PAYMENT_DEVICE_REGISTERED = "payment_device.registered"
+    PAYMENT_DEVICE_CONNECTED = "payment_device.connected"
+    PAYMENT_DEVICE_DISCONNECTED = "payment_device.disconnected"
+    PAYMENT_DEVICE_ERROR = "payment_device.error"
+    PAYMENT_DEVICE_REBOOTED = "payment_device.rebooted"
 
     # Payment processing
     PAYMENT_INITIATED = "payment.initiated"
-    PAYMENT_WAITING = "PAYMENT_WAITING"
-    PAYMENT_PROCESSING = "PAYMENT_PROCESSING"
-    PAYMENT_APPROVED = "PAYMENT_APPROVED"
+    PAYMENT_WAITING = "payment.waiting"
+    PAYMENT_PROCESSING = "payment.processing"
+    PAYMENT_APPROVED = "payment.approved"
     PAYMENT_CONFIRMED = "payment.confirmed"
-    PAYMENT_DECLINED = "payment.failed"
+    PAYMENT_DECLINED = "payment.declined"
     PAYMENT_CANCELLED = "payment.cancelled"
     PAYMENT_TIMED_OUT = "payment.timeout"
-    PAYMENT_ERROR = "PAYMENT_ERROR"
-    PAYMENT_FAILED = "PAYMENT_FAILED"
+    PAYMENT_ERROR = "payment.error"
+    PAYMENT_FAILED = "payment.failed"
 
     # Post-authorization
-    PAYMENT_CAPTURED = "PAYMENT_CAPTURED"
+    PAYMENT_CAPTURED = "payment.captured"
     PAYMENT_VOIDED = "payment.voided"
-    PAYMENT_REFUNDED = "PAYMENT_REFUNDED"
-    PAYMENT_REFUND_FAILED = "PAYMENT_REFUND_FAILED"
-    TIP_ADDED = "TIP_ADDED"
-    TIP_ADJUST_SENT = "TIP_ADJUST_SENT"
-    TIP_ADJUST_CONFIRMED = "TIP_ADJUST_CONFIRMED"
-    TIP_ADJUST_FAILED = "TIP_ADJUST_FAILED"
+    PAYMENT_REFUNDED = "payment.refunded"
+    PAYMENT_REFUND_FAILED = "payment.refund_failed"
+    TIP_ADDED = "tip.added"
+    TIP_ADJUST_SENT = "tip.adjust_sent"
+    TIP_ADJUST_CONFIRMED = "tip.adjust_confirmed"
+    TIP_ADJUST_FAILED = "tip.adjust_failed"
     TIP_ADJUSTED = "payment.tip_adjusted"
 
     # Batch / Day
@@ -128,12 +133,12 @@ class EventType(str, Enum):
     DEVICE_RESTORED = "device.restored"
 
     # Split payments
-    SPLIT_STARTED = "SPLIT_STARTED"
-    SPLIT_PAYMENT_COMPLETED = "SPLIT_PAYMENT_COMPLETED"
-    SPLIT_COMPLETED = "SPLIT_COMPLETED"
+    SPLIT_STARTED = "split.started"
+    SPLIT_PAYMENT_COMPLETED = "split.payment_completed"
+    SPLIT_COMPLETED = "split.completed"
 
     # Idempotency
-    DUPLICATE_PAYMENT_BLOCKED = "DUPLICATE_PAYMENT_BLOCKED"
+    DUPLICATE_PAYMENT_BLOCKED = "payment.duplicate_blocked"
 
     # Store Configuration (Overseer)
     STORE_INFO_UPDATED = "store.info_updated"
@@ -145,7 +150,7 @@ class EventType(str, Enum):
     STORE_ORDER_TYPES_UPDATED = "store.order_types_updated"
     STORE_AUTO_GRATUITY_UPDATED = "store.auto_gratuity_updated"
 
-    # Employee & Roles (NEW)
+    # Employee & Roles
     EMPLOYEE_ROLE_CREATED = "employee.role_created"
     EMPLOYEE_ROLE_UPDATED = "employee.role_updated"
     EMPLOYEE_ROLE_DELETED = "employee.role_deleted"
@@ -156,42 +161,42 @@ class EventType(str, Enum):
     TIPOUT_RULE_UPDATED = "tipout.rule_updated"
     TIPOUT_RULE_DELETED = "tipout.rule_deleted"
 
-    # Menu management (EXTENDED)
-    MENU_ITEM_CREATED = "MENU_ITEM_CREATED"
-    MENU_ITEM_UPDATED = "MENU_ITEM_UPDATED"
-    MENU_ITEM_DELETED = "MENU_ITEM_DELETED"
-    MENU_CATEGORY_CREATED = "MENU_CATEGORY_CREATED"
-    MENU_CATEGORY_UPDATED = "MENU_CATEGORY_UPDATED"
-    MENU_CATEGORY_DELETED = "MENU_CATEGORY_DELETED"
+    # Menu management
+    MENU_ITEM_CREATED = "menu.item_created"
+    MENU_ITEM_UPDATED = "menu.item_updated"
+    MENU_ITEM_DELETED = "menu.item_deleted"
+    MENU_CATEGORY_CREATED = "menu.category_created"
+    MENU_CATEGORY_UPDATED = "menu.category_updated"
+    MENU_CATEGORY_DELETED = "menu.category_deleted"
     MENU_ITEM_86D = "menu.item_86d"
     MENU_ITEM_RESTORED = "menu.item_restored"
-    
-    MODIFIER_GROUP_CREATED = "MODIFIER_GROUP_CREATED"
-    MODIFIER_GROUP_UPDATED = "MODIFIER_GROUP_UPDATED"
-    MODIFIER_GROUP_DELETED = "MODIFIER_GROUP_DELETED"
 
-    # Floor Plan (NEW)
+    MODIFIER_GROUP_CREATED = "menu.modifier_group_created"
+    MODIFIER_GROUP_UPDATED = "menu.modifier_group_updated"
+    MODIFIER_GROUP_DELETED = "menu.modifier_group_deleted"
+
+    # Floor Plan
     FLOORPLAN_SECTION_CREATED = "floorplan.section_created"
     FLOORPLAN_SECTION_UPDATED = "floorplan.section_updated"
     FLOORPLAN_SECTION_DELETED = "floorplan.section_deleted"
     FLOORPLAN_LAYOUT_UPDATED = "floorplan.layout_updated"
 
-    # Hardware (EXTENDED)
-    TERMINAL_REGISTERED = "TERMINAL_REGISTERED"
+    # Hardware
+    TERMINAL_REGISTERED = "terminal.registered"
     TERMINAL_UPDATED = "terminal.updated"
     TERMINAL_TRAINING_MODE_CHANGED = "terminal.training_mode_changed"
     ROUTING_MATRIX_UPDATED = "routing.matrix_updated"
     ROUTING_ITEM_OVERRIDE_CREATED = "routing.item_override_created"
     ROUTING_ITEM_OVERRIDE_DELETED = "routing.item_override_deleted"
 
-    # Reporting (NEW)
+    # Reporting
     REPORTING_DASHBOARD_CONFIGURED = "reporting.dashboard_configured"
     REPORTING_CUSTOM_REPORT_SAVED = "reporting.custom_report_saved"
     REPORTING_ACCOUNTS_MAPPING_UPDATED = "reporting.accounts_mapping_updated"
 
     # System
-    USER_LOGGED_IN = "USER_LOGGED_IN"
-    USER_LOGGED_OUT = "USER_LOGGED_OUT"
+    USER_LOGGED_IN = "system.user_logged_in"
+    USER_LOGGED_OUT = "system.user_logged_out"
 
 
 class Event(BaseModel):

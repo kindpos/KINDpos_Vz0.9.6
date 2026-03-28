@@ -17,6 +17,10 @@ from decimal import Decimal
 
 from .events import Event, EventType
 
+# Sentinel default: forces operators to configure tax rate via store settings.
+# Imported by modules that need the configured rate.
+_DEFAULT_TAX_RATE: float = 0.0
+
 
 @dataclass
 class OrderItem:
@@ -92,10 +96,12 @@ class Order:
         """Sum of all discounts."""
         return sum(d.get("amount", 0) for d in self.discounts)
 
+    _tax_rate: float = field(default=_DEFAULT_TAX_RATE, repr=False)
+
     @property
     def tax_rate(self) -> float:
-        """Tax rate - TODO: make configurable."""
-        return 0.08
+        """Tax rate sourced from store config (set during projection)."""
+        return self._tax_rate
 
     @property
     def tax(self) -> float:
@@ -124,12 +130,16 @@ class Order:
         return self.amount_paid >= self.total
 
 
-def project_order(events: list[Event]) -> Optional[Order]:
+def project_order(events: list[Event], tax_rate: float = _DEFAULT_TAX_RATE) -> Optional[Order]:
     """
     Rebuild an Order from a list of events.
 
     This is the core projection logic. Given all events for an order,
     replay them in sequence to compute current state.
+
+    Args:
+        events: Events for a single order.
+        tax_rate: Tax rate from store config (decimal, e.g. 0.07 for 7%).
     """
     if not events:
         return None
@@ -153,6 +163,7 @@ def project_order(events: list[Event]) -> Optional[Order]:
                 order_type=payload.get("order_type", "dine_in"),
                 guest_count=payload.get("guest_count", 1),
                 created_at=event.timestamp,
+                _tax_rate=tax_rate,
             )
 
         elif event.event_type == EventType.ORDER_CLOSED:
@@ -303,11 +314,15 @@ def project_order(events: list[Event]) -> Optional[Order]:
     return order
 
 
-def project_orders(events: list[Event]) -> dict[str, Order]:
+def project_orders(events: list[Event], tax_rate: float = _DEFAULT_TAX_RATE) -> dict[str, Order]:
     """
     Project multiple orders from a list of events.
 
     Groups events by order_id and projects each order.
+
+    Args:
+        events: All events to process.
+        tax_rate: Tax rate from store config (decimal, e.g. 0.07 for 7%).
     """
     # Group events by order_id
     events_by_order: dict[str, list[Event]] = {}
@@ -322,7 +337,7 @@ def project_orders(events: list[Event]) -> dict[str, Order]:
     # Project each order
     orders = {}
     for order_id, order_events in events_by_order.items():
-        order = project_order(order_events)
+        order = project_order(order_events, tax_rate=tax_rate)
         if order:
             orders[order_id] = order
 

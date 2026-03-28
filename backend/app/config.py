@@ -27,8 +27,8 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = 8000
 
-    # Tax rate (default 7%)
-    tax_rate: float = 0.07
+    # Tax rate — must be set via store config; defaults to 0 until configured
+    tax_rate: float = 0.0
 
     # Hardware Discovery
     default_subnet: str = "10.0.0.0/24"

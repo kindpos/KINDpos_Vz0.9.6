@@ -13,14 +13,20 @@ from app.api.routes.payment_routes import (
     TipAdjustRequest,
 )
 from app.core.projections import project_order
+from app.config import settings
 import uuid
 import os
 
 # Test database path
 TEST_DB = "./data/test_cash_and_tip_flows.db"
 
+# Use a fixed tax rate for predictable test calculations
+TEST_TAX_RATE = 0.08
+
 @pytest.fixture
-async def ledger():
+async def ledger(monkeypatch):
+    # Set a fixed tax rate for these tests (process_cash_payment reads from settings)
+    monkeypatch.setattr(settings, 'tax_rate', TEST_TAX_RATE)
     if os.path.exists(TEST_DB):
         os.remove(TEST_DB)
     async with EventLedger(TEST_DB) as _ledger:
@@ -119,7 +125,7 @@ async def test_cash_payment_auto_closes_order(ledger):
     
     # Check that it's open
     events = await ledger.get_events_by_correlation(order_id)
-    order = project_order(events)
+    order = project_order(events, tax_rate=TEST_TAX_RATE)
     assert order.status == "open"
     assert order.total == 16.20 # 15.00 * 1.08
     
@@ -128,7 +134,7 @@ async def test_cash_payment_auto_closes_order(ledger):
     await process_cash_payment(request, ledger)
     
     events = await ledger.get_events_by_correlation(order_id)
-    order = project_order(events)
+    order = project_order(events, tax_rate=TEST_TAX_RATE)
     
     # In project_order: 
     # PAYMENT_CONFIRMED -> if order.is_fully_paid: order.status = "paid"

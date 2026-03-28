@@ -144,7 +144,7 @@ async def item_restore(item_id: str, background_tasks: BackgroundTasks, ledger: 
         payload={"item_id": item_id}
     )
     await ledger.append(event)
-    background_tasks.add_task(background_tasks.add_task, broadcast_config_update, ["menu"])
+    background_tasks.add_task(broadcast_config_update, ["menu"])
     return {"status": "ok", "event_id": event.sequence_number}
 
 @router.post("/roles")
@@ -185,7 +185,7 @@ async def create_employee(employee: Employee, background_tasks: BackgroundTasks,
     # In a real system, we'd use employee.created event, 
     # but for now let's stick to the pattern.
     event = create_event(
-        event_type=EventType.EMPLOYEE_REGISTERED, # Assuming this exists or using a generic one
+        event_type=EventType.EMPLOYEE_CREATED,
         terminal_id="OVERSEER",
         payload=employee.model_dump()
     )

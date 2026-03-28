@@ -42,6 +42,13 @@ registerScene('settings', {
     async function loadData() {
       try {
         const bundle = await apiFetch('/api/v1/config/terminal-bundle');
+        if (bundle && bundle.store && bundle.store.tax_rules) {
+          const defaultRule = bundle.store.tax_rules.find(r => r.tax_rule_id === 'default');
+          if (defaultRule) {
+            settings.financial.taxRate = defaultRule.rate_percent.toFixed(2);
+            CFG.TAX = defaultRule.rate_percent / 100;
+          }
+        }
         if (bundle && bundle.hardware) {
           if (bundle.hardware.printers) {
             savedPrinters = bundle.hardware.printers.map(p => ({
@@ -950,7 +957,7 @@ registerScene('settings', {
             matrix[cid] = Array.isArray(categoryRouting[cid]) ? categoryRouting[cid] : [categoryRouting[cid]];
         }
         events.push({
-            event_type: 'routing_matrix.updated',
+            event_type: 'routing.matrix_updated',
             payload: {
                 matrix: matrix
             }
@@ -960,7 +967,9 @@ registerScene('settings', {
             event_type: 'store.tax_rule_updated',
             payload: {
                 tax_rule_id: 'default',
-                rate: parseFloat(settings.financial.taxRate) / 100
+                name: 'Sales Tax',
+                rate_percent: parseFloat(settings.financial.taxRate),
+                applies_to: 'all'
             }
         });
         
