@@ -40,7 +40,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from backend.app.core.adapters.base_printer import (
+from app.core.adapters.base_printer import (
     PrinterConfig,
     PrinterType,
     PrinterStatus,
@@ -52,11 +52,11 @@ from backend.app.core.adapters.base_printer import (
     OrderContext,
     CutType,
 )
-from backend.app.core.adapters.mock_thermal import MockThermalPrinter
-from backend.app.core.adapters.mock_impact import MockImpactPrinter
-from backend.app.core.adapters.printer_manager import PrinterManager
-from backend.app.core.event_ledger import EventLedger
-from backend.app.core.events import EventType
+from app.core.adapters.mock_thermal import MockThermalPrinter
+from app.core.adapters.mock_impact import MockImpactPrinter
+from app.core.adapters.printer_manager import PrinterManager
+from app.core.event_ledger import EventLedger
+from app.core.events import EventType
 
 # Logging — show the manager's work
 logging.basicConfig(level=logging.INFO, format="%(message)s")
