@@ -5,7 +5,8 @@
 import { APP, $, apiFetch } from '../app.js';
 import { CFG, FALLBACK_ROSTER, PALM_LOGO } from '../config.js';
 import { registerScene, go } from '../scene-manager.js';
-import { T, pinFrame, errBanner, buildNumpadKey, buildActionButton, numpadContainerStyle, overlayBox, overlayHeader, overlayStubBtn, roleBtn } from '../theme-manager.js';
+import { T, pinFrame, errBanner, buildNumpadKey, buildActionButton, numpadContainerStyle, overlayBox, overlayHeader, overlayStubBtn, roleBtn, tabBar, bigCard, fullScreenOverlay, overlayCloseBtn } from '../theme-manager.js';
+import { setBarSubtitle } from '../bars.js';
 
 registerScene('login', {
   onEnter(el) {
@@ -123,7 +124,7 @@ registerScene('login', {
 
       const actions = [
         { label: 'Quick Service', act: () => { if (!matchPin()) return; const o = makeOrder('quick_service'); go('check-editing', { order: o }); } },
-        { label: 'Settings',      act: () => { if (!matchPin()) return; go('settings'); } },
+        { label: 'Settings',      act: () => { showSettingsOverlay(); } },
         { label: 'Clock in/out',  act: () => { showClockOverlay(); } },
       ];
 
@@ -302,6 +303,110 @@ registerScene('login', {
       draw();
     };
 
+    // ── Hardware & Settings Overlay ──
+    let settingsActiveTab = 0; // 0 = Hardware, 1 = Settings
+
+    const SETTINGS_TABS = [
+      { label: 'Hardware', color: T.mint },
+      { label: 'Settings', color: T.clockGold },
+    ];
+
+    function showSettingsOverlay() {
+      if (!matchPin()) {
+        err = 'Enter PIN first.';
+        pin = '';
+        draw();
+        shakeFrame();
+        return;
+      }
+
+      settingsActiveTab = 0;
+
+      // Dim login content
+      const loginContent = $('login-content');
+      if (loginContent) loginContent.style.opacity = '0.25';
+
+      // Update header subtitle
+      setBarSubtitle('Hardware & Settings');
+
+      renderSettingsOverlay();
+    }
+
+    function renderSettingsOverlay() {
+      // Remove existing overlay if any
+      const existing = $('settings-overlay');
+      if (existing) existing.remove();
+
+      const activeColor = SETTINGS_TABS[settingsActiveTab].color;
+      const tabBarHtml = tabBar(SETTINGS_TABS, settingsActiveTab, 'window._kindSettingsTabClick');
+
+      let cardsHtml = '';
+      if (settingsActiveTab === 0) {
+        // Hardware tab — 3 cards
+        cardsHtml = `
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;flex:1;align-items:center;padding:16px;">
+            ${bigCard('Printers', { id: '_hw_printers', color: T.mint, onClick: "window._kindHwCard('printers')", height: '220px' })}
+            ${bigCard('Card Readers', { id: '_hw_readers', color: T.mint, onClick: "window._kindHwCard('readers')", height: '220px' })}
+            ${bigCard('Peripherals', { id: '_hw_peripherals', color: T.mint, onClick: "window._kindHwCard('peripherals')", height: '220px' })}
+          </div>`;
+      } else {
+        // Settings tab — placeholder
+        cardsHtml = `
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;flex:1;align-items:center;padding:16px;">
+            ${bigCard('Coming Soon', { color: T.clockGold, height: '220px' })}
+            ${bigCard('Coming Soon', { color: T.clockGold, height: '220px' })}
+            ${bigCard('Coming Soon', { color: T.clockGold, height: '220px' })}
+          </div>`;
+      }
+
+      const closeBtn = overlayCloseBtn("window._kindCloseSettingsOverlay()");
+      const overlayHtml = `<div id="settings-overlay" style="position:absolute;inset:0;background:${T.bg};border:${T.borderW} solid ${activeColor};z-index:100;display:flex;flex-direction:column;padding:12px 16px;gap:12px;filter:drop-shadow(4px 6px 0px #1a1a1a);clip-path:polygon(12px 0%,calc(100% - 12px) 0%,100% 12px,100% calc(100% - 12px),calc(100% - 12px) 100%,12px 100%,0% calc(100% - 12px),0% 12px);">
+        <div style="display:flex;justify-content:flex-end;">${closeBtn}</div>
+        ${tabBarHtml}
+        ${cardsHtml}
+      </div>`;
+
+      el.insertAdjacentHTML('beforeend', overlayHtml);
+    }
+
+    function closeSettingsOverlay() {
+      const overlay = $('settings-overlay');
+      if (overlay) overlay.remove();
+
+      // Restore login content opacity
+      const loginContent = $('login-content');
+      if (loginContent) loginContent.style.opacity = '1';
+
+      // Clear header subtitle
+      setBarSubtitle('');
+
+      // Reset staff state
+      APP.staff = null;
+      pin = '';
+      err = '';
+    }
+
+    // Global handlers for settings overlay
+    window._kindCloseSettingsOverlay = function() {
+      closeSettingsOverlay();
+    };
+
+    window._kindSettingsTabClick = function(index) {
+      settingsActiveTab = index;
+      renderSettingsOverlay();
+    };
+
+    window._kindHwCard = function(card) {
+      if (card === 'printers') {
+        closeSettingsOverlay();
+        go('printer-discovery');
+      } else if (card === 'readers') {
+        console.log('Card Readers — Coming Soon');
+      } else if (card === 'peripherals') {
+        console.log('Peripherals — Coming Soon');
+      }
+    };
+
     // ── Keyboard Support ──
     function keyHandler(e) {
       if (APP.screen !== 'login') return;
@@ -310,7 +415,8 @@ registerScene('login', {
       else if (e.key === 'Enter') submit();
       else if (e.key === 'Escape') {
         // Close overlay if open, otherwise clear PIN
-        if ($('clock-overlay-box')) { closeClockOverlay(); }
+        if ($('settings-overlay')) { closeSettingsOverlay(); }
+        else if ($('clock-overlay-box')) { closeClockOverlay(); }
         else { pin = ''; err = ''; draw(); }
       }
     }
@@ -327,6 +433,9 @@ registerScene('login', {
       delete window._kindCloseClockOverlay;
       delete window._kindClockSelectRole;
       delete window._kindSubmitClock;
+      delete window._kindCloseSettingsOverlay;
+      delete window._kindSettingsTabClick;
+      delete window._kindHwCard;
     };
   }
 });
