@@ -1,0 +1,271 @@
+/* ═══════════════════════════════════════════════════
+   KINDpos Terminal Vz1 — Base Styles
+   ═══════════════════════════════════════════════════ */
+
+/* ── Reset ── */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #1a1a1a;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  width: 100vw;
+  font-family: var(--fb);
+  color: var(--mint);
+}
+
+/* ── App Shell ── */
+#app {
+  width: var(--app-w);
+  height: var(--app-h);
+  background: var(--bg);
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+#tbar {
+  height: var(--bar-h);
+  background: var(--mint);
+  color: var(--bg);
+  font-family: var(--fh);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+#scene {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+#sbar {
+  height: var(--bar-h);
+  background: var(--bg);
+  color: var(--mint);
+  border-top: 1px solid var(--mint);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+/* ── Button Hierarchy ── */
+.btn-p {
+  background: var(--mint);
+  color: var(--bg);
+  border: 2px solid #555;
+  border-top-color: #eee;
+  border-left-color: #eee;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-family: var(--fb);
+  font-size: 20px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  border-radius: 0;
+}
+.btn-p:active {
+  border: 2px solid #eee;
+  border-top-color: #555;
+  border-left-color: #555;
+}
+
+.btn-s {
+  background: var(--bg);
+  color: var(--mint);
+  border: 2px solid #555;
+  border-top-color: #eee;
+  border-left-color: #eee;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-family: var(--fb);
+  font-size: 20px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  border-radius: 0;
+}
+.btn-s:active {
+  border: 2px solid #eee;
+  border-top-color: #555;
+  border-left-color: #555;
+}
+
+.btn-d {
+  background: var(--red);
+  color: var(--bg);
+  border: 2px solid #555;
+  border-top-color: #eee;
+  border-left-color: #eee;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-family: var(--fb);
+  font-size: 20px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  border-radius: 0;
+}
+.btn-d:active {
+  border: 2px solid #eee;
+  border-top-color: #555;
+  border-left-color: #555;
+}
+.btn-d:hover { opacity: 0.3; }
+
+.btn-num {
+  background: var(--bg);
+  color: var(--mint);
+  border: 2px solid #555;
+  border-top-color: #eee;
+  border-left-color: #eee;
+  padding: 8px;
+  cursor: pointer;
+  font-family: var(--fb);
+  font-size: 20px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  border-radius: 0;
+}
+.btn-num:active {
+  border: 2px solid #eee;
+  border-top-color: #555;
+  border-left-color: #555;
+}
+
+.btn-off {
+  opacity: 0.35;
+  cursor: not-allowed !important;
+  pointer-events: none;
+}
+
+/* ── Overlays & Dialogs ── */
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.dialog {
+  background: var(--bg);
+  border: 2px solid #eee;
+  border-right-color: #555;
+  border-bottom-color: #555;
+  min-width: 300px;
+  max-width: 420px;
+  overflow: hidden;
+  border-radius: 0;
+}
+
+.dlg-h {
+  background: var(--mint);
+  color: var(--bg);
+  padding: 6px 10px;
+  font-family: var(--fh);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 20px;
+}
+
+.dlg-b {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dlg-f {
+  padding: 8px 14px;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  border-top: 1px solid var(--mint-dim);
+}
+
+/* ── Cards ── */
+.card {
+  border: 2px solid #eee;
+  border-right-color: #555;
+  border-bottom-color: #555;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-radius: 0;
+}
+
+.card-h {
+  background: var(--mint);
+  color: var(--bg);
+  padding: 4px 10px;
+  font-family: var(--fh);
+  font-size: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 28px;
+  cursor: pointer;
+}
+
+.card-b {
+  padding: 8px 10px;
+  font-size: 20px;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── Inputs ── */
+input[type="text"],
+input[type="number"] {
+  background: var(--bg2);
+  border: 1px solid var(--mint);
+  color: var(--mint);
+  padding: 6px 8px;
+  font-family: var(--fb);
+  font-size: 20px;
+  outline: none;
+  border-radius: 4px;
+  width: 100%;
+}
+
+/* ── Animations ── */
+@keyframes spin {
+  from { transform: rotateY(0deg); }
+  to   { transform: rotateY(360deg); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25%      { transform: translateX(-8px); }
+  75%      { transform: translateX(8px); }
+}
+
+@keyframes alertPulse {
+  0%, 100% { box-shadow: 0 0 4px var(--orange); }
+  50%      { box-shadow: 0 0 14px var(--orange), 0 0 20px rgba(255, 140, 0, 0.4); }
+}

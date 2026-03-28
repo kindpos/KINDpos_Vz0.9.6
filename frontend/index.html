@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KINDpos — Terminal Vz1</title>
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/base.css">
+</head>
+<body>
+  <div id="app">
+    <div id="tbar"></div>
+    <div id="scene"></div>
+    <div id="sbar"></div>
+  </div>
+
+  <script type="module">
+    // ═══════════════════════════════════════════════════
+    //  KINDpos Terminal Vz1 — Boot Sequence
+    //  Nice. Dependable. Yours.
+    // ═══════════════════════════════════════════════════
+
+    // Import scenes (each self-registers via registerScene)
+    import './js/scenes/login.js';
+    import './js/scenes/snapshot.js';
+    import './js/scenes/check-editing.js';
+    import './js/scenes/settings.js';
+
+    // Import navigation
+    import { go } from './js/scene-manager.js';
+
+    // Boot
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('  KINDpos — Nice. Dependable. Yours.');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('  Fallback PINs: Manager=0000  Server=9999');
+
+    go('login');
+  </script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+/* ═══════════════════════════════════════════════════
+   KINDpos Terminal Vz1 — CSS Variables
+   Nice. Dependable. Yours.
+   ═══════════════════════════════════════════════════ */
+
+@font-face {
+  font-family: 'Alien Encounters Solid Bold';
+  src: url('../assets/fonts/Alien-Encounters-Solid-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Sevastopol Interface';
+  src: url('../assets/fonts/Sevastopol-Interface.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
+:root {
+  /* ── Backgrounds ── */
+  --bg:     #333333;
+  --bg2:    #222222;
+  --bg3:    #444444;
+
+  /* ── Brand Colors ── */
+  --mint:       #C6FFBB;
+  --mint-dim:   rgba(198, 255, 187, 0.25);
+  --mint-hover: #d4ffca;
+  --yellow:     #ffff00;
+  --red:        #ff3355;
+  --cyan:       #33ffff;
+  --lavender:   #b48efa;
+  --gold:       #fcbe40;
+  --orange:     #ff8c00;
+
+  /* ── Typography ── */
+  --fh: 'Alien Encounters Solid Bold', 'Impact', 'Arial Black', sans-serif;
+  --fb: 'Sevastopol Interface', 'Courier New', 'Lucida Console', monospace;
+
+  /* ── Terminal Dimensions ── */
+  --app-w: 1024px;
+  --app-h: 600px;
+  --bar-h: 30px;
+}
