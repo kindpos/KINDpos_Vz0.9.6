@@ -17,9 +17,10 @@ from decimal import Decimal
 
 from .events import Event, EventType
 
-# Sentinel default: forces operators to configure tax rate via store settings.
+# Default tax rate — matches settings.tax_rate as single source of truth.
 # Imported by modules that need the configured rate.
-_DEFAULT_TAX_RATE: float = 0.0
+from app.config import settings as _settings
+_DEFAULT_TAX_RATE: float = _settings.tax_rate
 
 
 @dataclass

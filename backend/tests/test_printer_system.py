@@ -529,7 +529,7 @@ async def test_health_check(manager):
     print("  [PASS] Detected offline printer")
 
     kitchen.set_fail_mode(None)
-    kitchen.connect()
+    await kitchen.connect()
     print("  [PASS] TEST 11 PASSED")
 
 

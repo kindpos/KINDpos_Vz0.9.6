@@ -20,8 +20,8 @@ import os
 # Test database path
 TEST_DB = "./data/test_cash_and_tip_flows.db"
 
-# Use a fixed tax rate for predictable test calculations
-TEST_TAX_RATE = 0.08
+# Use the configured tax rate from settings for consistent calculations
+TEST_TAX_RATE = 0.07
 
 @pytest.fixture
 async def ledger(monkeypatch):
@@ -75,8 +75,8 @@ async def test_cash_payment_success(ledger):
     
     # Check for payment events
     # We use string literals for these because we're testing the system at the API level
-    initiated = [e for e in events if e.event_type == "payment.initiated"]
-    confirmed = [e for e in events if e.event_type == "payment.confirmed"]
+    initiated = [e for e in events if e.event_type == EventType.PAYMENT_INITIATED]
+    confirmed = [e for e in events if e.event_type == EventType.PAYMENT_CONFIRMED]
     
     assert len(initiated) == 1
     assert len(confirmed) == 1
@@ -111,7 +111,7 @@ async def test_cash_payment_with_tip(ledger):
     assert tips[0].payload["payment_id"] == response["payment_id"]
     
     # Verify initiated amount includes tip
-    initiated = [e for e in events if e.event_type == "payment.initiated"][0]
+    initiated = [e for e in events if e.event_type == EventType.PAYMENT_INITIATED][0]
     assert initiated.payload["amount"] == 25.00
 
 @pytest.mark.asyncio
@@ -127,10 +127,10 @@ async def test_cash_payment_auto_closes_order(ledger):
     events = await ledger.get_events_by_correlation(order_id)
     order = project_order(events, tax_rate=TEST_TAX_RATE)
     assert order.status == "open"
-    assert order.total == 16.20 # 15.00 * 1.08
-    
+    assert order.total == 16.05 # 15.00 * 1.07
+
     # Pay EXACT total (including tax)
-    request = CashPaymentRequest(order_id=order_id, amount=16.20)
+    request = CashPaymentRequest(order_id=order_id, amount=16.05)
     await process_cash_payment(request, ledger)
     
     events = await ledger.get_events_by_correlation(order_id)
@@ -147,7 +147,7 @@ async def test_cash_payment_auto_closes_order(ledger):
     # Check for ORDER_CLOSED event
     closed_evts = [e for e in events if e.event_type == EventType.ORDER_CLOSED]
     assert len(closed_evts) == 1
-    assert closed_evts[0].payload["total"] == 16.20
+    assert closed_evts[0].payload["total"] == 16.05
 
 @pytest.mark.asyncio
 async def test_tip_adjustment_success(ledger):
@@ -252,5 +252,5 @@ async def test_precision_gate_2dp(ledger):
     assert tip_evts[0].payload["tip_amount"] == 2.67
     
     # Check initiate event amount
-    init_evts = [e for e in events if e.event_type == "payment.initiated"]
+    init_evts = [e for e in events if e.event_type == EventType.PAYMENT_INITIATED]
     assert init_evts[0].payload["amount"] == 13.00

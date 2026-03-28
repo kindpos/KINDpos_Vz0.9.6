@@ -17,10 +17,10 @@
   ],
   "subtotal": 18.00,
   "tax_lines": [
-    {"label": "Sales Tax", "rate": 0.08, "amount": 1.44}
+    {"label": "Sales Tax", "rate": 0.07, "amount": 1.26}
   ],
   "tip_amount": 3.00,
-  "total": 22.44,
+  "total": 22.26,
   "payment_method": "card",
   "card_last_four": "1234",
   "copy_type": "customer",

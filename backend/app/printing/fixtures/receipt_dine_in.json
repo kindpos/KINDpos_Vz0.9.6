@@ -31,10 +31,10 @@
   ],
   "subtotal": 38.50,
   "tax_lines": [
-    { "label": "Sales Tax", "rate": 0.08, "amount": 3.08 }
+    { "label": "Sales Tax", "rate": 0.07, "amount": 2.70 }
   ],
   "tip_amount": 0.0,
-  "total": 41.58,
+  "total": 41.20,
   "tip_suggestion_percentages": [15, 18, 20],
   "tip_calculation_base": "pretax",
   "payment_method": "card",

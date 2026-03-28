@@ -49,18 +49,18 @@ def project_menu(events: List[Event]) -> MenuState:
         payload = event.payload
         
         # Legacy batch events (from Terminal prototype)
-        if event.event_type == "restaurant.configured":
+        if event.event_type == EventType.RESTAURANT_CONFIGURED:
             state.restaurant = {k: v for k, v in payload.items() if k != 'import_id'}
-            
-        elif event.event_type == "tax_rules.batch_created":
+
+        elif event.event_type == EventType.TAX_RULES_BATCH_CREATED:
             state.tax_rules = payload.get('tax_rules', [])
-            
-        elif event.event_type == "categories.batch_created":
+
+        elif event.event_type == EventType.CATEGORIES_BATCH_CREATED:
             cats = payload.get('categories', [])
             for cat in cats:
                 categories_map[cat['category_id']] = cat
-                
-        elif event.event_type == "items.batch_created":
+
+        elif event.event_type == EventType.ITEMS_BATCH_CREATED:
             items = payload.get('items', [])
             for item in items:
                 items_map[item['item_id']] = item

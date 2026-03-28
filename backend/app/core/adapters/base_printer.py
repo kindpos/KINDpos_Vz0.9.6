@@ -305,7 +305,7 @@ class BasePrinter(ABC):
     # -----------------------------------------------------------------
 
     @abstractmethod
-    def connect(self) -> bool:
+    async def connect(self) -> bool:
         """
         Establish connection to the physical printer.
 

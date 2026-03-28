@@ -84,7 +84,7 @@ class MockImpactPrinter(BasePrinter):
     # Connection
     # -----------------------------------------------------------------
 
-    def connect(self) -> bool:
+    async def connect(self) -> bool:
         """Simulate connecting to the printer."""
         if self._fail_mode == "offline":
             logger.warning(f"[MOCK IMPACT] '{self.name}' — Connection failed (simulated offline)")

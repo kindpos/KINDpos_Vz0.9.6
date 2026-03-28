@@ -129,7 +129,7 @@ class PrinterManager:
             return False
 
         # Try to connect
-        connected = printer.connect()
+        connected = await printer.connect()
         if not connected:
             logger.warning(
                 f"[MANAGER] Printer '{printer.name}' registered but failed to connect"
