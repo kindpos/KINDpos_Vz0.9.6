@@ -22,7 +22,7 @@ export function renderBars() {
 
   // ── TBar ──
   if (!APP.staff) {
-    t.innerHTML = `<span>${fmtTime()}</span><span></span>`;
+    t.innerHTML = `<span id="_tbar_clock">${fmtTime()}</span><span></span>`;
   } else {
     const badge = APP.staff.role === 'manager'
       ? `<span style="background:#44FF88;color:var(--bg);padding:0 5px;font-size:14px;">[MGR]</span>`
@@ -46,7 +46,7 @@ export function renderBars() {
     t.innerHTML = `
       <div style="display:flex;align-items:center;">
         ${backBtn}
-        <span style="font-size:16px;">${fmtTime()}${titlePart} // ${greeting()}, ${APP.staff.name}</span>
+        <span style="font-size:16px;"><span id="_tbar_clock">${fmtTime()}</span>${titlePart} // ${greeting()}, ${APP.staff.name}</span>
       </div>
       <div style="display:flex;align-items:center;gap:6px;">
         ${badge}
@@ -87,7 +87,10 @@ export function renderBars() {
     </span>`;
 }
 
-// Auto-refresh clock every 30s when logged in
+// Auto-refresh clock every 30s — only update the clock text, not the full DOM
 setInterval(() => {
-  if (APP.staff) renderBars();
+  if (APP.staff) {
+    const clockEl = $('_tbar_clock');
+    if (clockEl) clockEl.textContent = fmtTime();
+  }
 }, 30000);

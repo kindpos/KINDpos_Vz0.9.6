@@ -861,23 +861,25 @@ registerScene('snapshot',{
       el.querySelectorAll('.overlay').forEach(o=>o.remove());
       document.body.appendChild(ov);
 
-      // Wire events
-      ov.querySelector('#cd-close').addEventListener('click',()=>{ov.remove();draw();});
-      ov.querySelectorAll('[data-cdsel]').forEach(e=>e.addEventListener('click',()=>{cdSelEmp=cdSelEmp===e.dataset.cdsel?null:e.dataset.cdsel;cdEditTxn=null;ov.remove();drawCloseDay();}));
-      ov.querySelectorAll('[data-cdsort]').forEach(e=>e.addEventListener('click',()=>{cdSort=e.dataset.cdsort;ov.remove();drawCloseDay();}));
-      ov.querySelectorAll('[data-cdedit]').forEach(e=>e.addEventListener('click',()=>{cdEditTxn=e.dataset.cdedit;ov.remove();drawCloseDay();setTimeout(()=>{const inp=document.getElementById('cd-tipinput');if(inp)inp.focus();},50);}));
-      ov.querySelectorAll('[data-cdtipsave]').forEach(e=>e.addEventListener('click',(ev)=>{
-        ev.stopPropagation();const inp=document.getElementById('cd-tipinput');if(!inp)return;const val=parseFloat(inp.value);if(isNaN(val)||val<0)return;
-        for(const emp of MOCK_SERVERS){const txn=(emp.transactions||[]).find(t=>t.ref===e.dataset.cdtipsave);if(txn){txn.tip=val;txn.tipAdjusted=true;break;}}
-        cdEditTxn=null;ov.remove();drawCloseDay();
-      }));
-      ov.querySelectorAll('[data-cdzero]').forEach(e=>e.addEventListener('click',()=>{
-        const name=e.dataset.cdzero;const scope=name==='all'?MOCK_SERVERS:[MOCK_SERVERS.find(s=>s.name===name)];
-        scope.forEach(emp=>{if(emp)(emp.transactions||[]).forEach(t=>{if(!t.tipAdjusted){t.tip=0;t.tipAdjusted=true;}});});
-        cdEditTxn=null;ov.remove();drawCloseDay();
-      }));
-      const subBtn=ov.querySelector('#cd-submit');
-      if(subBtn)subBtn.addEventListener('click',()=>{ov.remove();cdSubmitBatch();});
+      // Wire events via single delegated handler on overlay (prevents listener leaks on dismiss)
+      ov.addEventListener('click',(ev)=>{
+        const t=ev.target.closest('[data-cdtipsave]');
+        if(t){ev.stopPropagation();const inp=document.getElementById('cd-tipinput');if(!inp)return;const val=parseFloat(inp.value);if(isNaN(val)||val<0)return;
+          for(const emp of MOCK_SERVERS){const txn=(emp.transactions||[]).find(tx=>tx.ref===t.dataset.cdtipsave);if(txn){txn.tip=val;txn.tipAdjusted=true;break;}}
+          cdEditTxn=null;ov.remove();drawCloseDay();return;}
+        if(ev.target.closest('#cd-close')){ov.remove();draw();return;}
+        if(ev.target.closest('#cd-submit')){ov.remove();cdSubmitBatch();return;}
+        const selEl=ev.target.closest('[data-cdsel]');
+        if(selEl){cdSelEmp=cdSelEmp===selEl.dataset.cdsel?null:selEl.dataset.cdsel;cdEditTxn=null;ov.remove();drawCloseDay();return;}
+        const sortEl=ev.target.closest('[data-cdsort]');
+        if(sortEl){cdSort=sortEl.dataset.cdsort;ov.remove();drawCloseDay();return;}
+        const editEl=ev.target.closest('[data-cdedit]');
+        if(editEl){cdEditTxn=editEl.dataset.cdedit;ov.remove();drawCloseDay();setTimeout(()=>{const inp=document.getElementById('cd-tipinput');if(inp)inp.focus();},50);return;}
+        const zeroEl=ev.target.closest('[data-cdzero]');
+        if(zeroEl){const name=zeroEl.dataset.cdzero;const scope=name==='all'?MOCK_SERVERS:[MOCK_SERVERS.find(s=>s.name===name)];
+          scope.forEach(emp=>{if(emp)(emp.transactions||[]).forEach(tx=>{if(!tx.tipAdjusted){tx.tip=0;tx.tipAdjusted=true;}});});
+          cdEditTxn=null;ov.remove();drawCloseDay();return;}
+      });
     }
 
     function cdSubmitBatch(){

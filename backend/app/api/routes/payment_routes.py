@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
+import asyncio
 import uuid
 
 # Correcting relative imports for app.api.routes
@@ -23,13 +24,17 @@ _manager: Optional[PaymentManager] = None
 _validator: Optional[PaymentValidator] = None
 
 _mock_initialized = False
+_mock_init_lock = asyncio.Lock()
 
 async def _ensure_mock_device(manager: PaymentManager):
     """Register a MockPaymentDevice if no devices are mapped."""
     global _mock_initialized
     if _mock_initialized:
         return
-    _mock_initialized = True
+    async with _mock_init_lock:
+        if _mock_initialized:
+            return
+        _mock_initialized = True
     mock = MockPaymentDevice()
     config = PaymentDeviceConfig(
         device_id="mock_001",

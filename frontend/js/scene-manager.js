@@ -50,11 +50,15 @@ export function go(screen, p = {}) {
   const scene = scenes[screen];
   if (scene && scene.onEnter) {
     const cleanup = scene.onEnter(el, p);
-    if (typeof cleanup === 'function') {
-      currentCleanup = cleanup;
-    }
-    if (scene.onExit) {
+    const hasCleanup = typeof cleanup === 'function';
+    const hasOnExit = typeof scene.onExit === 'function';
+    if (hasCleanup && hasOnExit) {
+      // Compose both: run cleanup from onEnter first, then onExit
+      currentCleanup = () => { cleanup(); scene.onExit(); };
+    } else if (hasOnExit) {
       currentCleanup = scene.onExit;
+    } else if (hasCleanup) {
+      currentCleanup = cleanup;
     }
   } else {
     // Placeholder for unregistered scenes
