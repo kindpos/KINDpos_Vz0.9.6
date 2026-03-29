@@ -18,8 +18,11 @@ import subprocess
 import threading
 from pathlib import Path
 from datetime import datetime
-from fastapi import APIRouter
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse, HTMLResponse
+
+from app.api.dependencies import get_diagnostic_collector
+from app.reports.entomology_report import EntomologyReportGenerator
 
 router = APIRouter(prefix="/system", tags=["system"])
 
@@ -170,4 +173,23 @@ async def run_tests():
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no"
         }
+    )
+
+
+@router.get("/entomology-report")
+async def entomology_report(
+    collector=Depends(get_diagnostic_collector),
+):
+    """
+    Generate and return the Entomology Diagnostic Report as downloadable HTML.
+
+    Full endpoint path: GET /api/v1/system/entomology-report
+    """
+    gen = EntomologyReportGenerator(collector)
+    html, filename = await gen.generate()
+    return HTMLResponse(
+        content=html,
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
     )

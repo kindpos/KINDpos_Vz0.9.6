@@ -117,3 +117,26 @@ async def manager(ledger):
     await mgr.register_printer(bar)
 
     yield mgr
+
+
+# ─── Diagnostic Collector Fixtures ──────────────────────
+
+from app.services.diagnostic_collector import DiagnosticCollector
+
+DIAG_TEST_DB = Path("./data/test_diagnostic.db")
+
+
+@pytest_asyncio.fixture
+async def collector():
+    """
+    Provide a fresh DiagnosticCollector connected to a test database.
+    Cleans up the db file after each test to ensure isolation.
+    """
+    if DIAG_TEST_DB.exists():
+        os.remove(DIAG_TEST_DB)
+
+    async with DiagnosticCollector(str(DIAG_TEST_DB), "terminal-test-01") as _collector:
+        yield _collector
+
+    if DIAG_TEST_DB.exists():
+        os.remove(DIAG_TEST_DB)

@@ -14,7 +14,10 @@ import os
 import sys
 
 from app.config import settings
-from app.api.dependencies import init_ledger, close_ledger
+from app.api.dependencies import (
+    init_ledger, close_ledger,
+    init_diagnostic_collector, close_diagnostic_collector,
+)
 from app.api.routes import orders
 from app.api.routes import system
 from app.api.routes import menu
@@ -38,12 +41,19 @@ async def lifespan(app: FastAPI):
 
     await init_ledger()
     print("  Event Ledger: initialized")
+
+    diag_collector = await init_diagnostic_collector()
+    diag_collector.start_heartbeat_loop()
+    print("  Diagnostic Collector: initialized (heartbeat started)")
+
     print(f"  Frontend:  {FRONTEND_PATH}")
     print("\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501")
 
     yield
 
     print("Shutting down...")
+    await close_diagnostic_collector()
+    print("Diagnostic Collector closed")
     await close_ledger()
     print("Event Ledger closed")
 
