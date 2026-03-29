@@ -1,0 +1,429 @@
+[
+  {
+    "section": "Ledger Integrity",
+    "checks": [
+      {
+        "name": "Hash chain intact",
+        "passed": true,
+        "detail": "All hashes verified"
+      },
+      {
+        "name": "Sequential IDs (no gaps)",
+        "passed": true,
+        "detail": "4894 sequential events"
+      },
+      {
+        "name": "No duplicate event IDs",
+        "passed": true,
+        "detail": "All event IDs unique"
+      },
+      {
+        "name": "2dp precision gate",
+        "passed": true,
+        "detail": "All amounts 2dp clean"
+      },
+      {
+        "name": "Monotonic timestamps per order",
+        "passed": true,
+        "detail": "All orders monotonic"
+      }
+    ],
+    "result": "PASS"
+  },
+  {
+    "section": "Financial Reconciliation",
+    "checks": [
+      {
+        "name": "Closed order count",
+        "passed": true,
+        "detail": "Projected: 344, Day-summary: 344"
+      },
+      {
+        "name": "Total sales consistency",
+        "passed": true,
+        "detail": "Computed: 29414.66, Day-summary: 29414.66"
+      },
+      {
+        "name": "Card total match",
+        "passed": true,
+        "detail": "Projected: 20746.16, Day-summary: 20746.16"
+      },
+      {
+        "name": "Cash total match",
+        "passed": true,
+        "detail": "Projected: 8668.50, Day-summary: 8668.50"
+      },
+      {
+        "name": "Tips total match",
+        "passed": true,
+        "detail": "Projected: 4154.22, Day-summary: 4154.22"
+      }
+    ],
+    "result": "PASS",
+    "financial_summary": {
+      "gross_sales": "27726.00",
+      "discounts_comps": "236.00",
+      "voids": "406.61",
+      "net_sales": "27490.00",
+      "tax": "1924.66",
+      "total_tips": "4154.22",
+      "card_payments": "20746.16",
+      "cash_payments": "8668.50",
+      "closed_orders": 344,
+      "voided_orders": 6
+    }
+  },
+  {
+    "section": "Performance Metrics",
+    "result": "METRICS",
+    "metrics": {
+      "wall_clock_s": 3.34,
+      "total_events": 4894,
+      "avg_write_ms": 0.595,
+      "p95_write_ms": 0.653,
+      "max_write_ms": 13.826,
+      "events_per_sec": 1463.2,
+      "avg_events_per_check": 14.0
+    },
+    "warnings": []
+  },
+  {
+    "section": "Menu Projection",
+    "checks": [
+      {
+        "name": "All categories present",
+        "passed": true,
+        "detail": "6 categories projected"
+      },
+      {
+        "name": "Item count matches",
+        "passed": true,
+        "detail": "Expected 40, got 40"
+      },
+      {
+        "name": "Modifier groups present",
+        "passed": true,
+        "detail": "Expected 3, got 3"
+      },
+      {
+        "name": "86 status (runtime check)",
+        "passed": true,
+        "detail": "86'd items tracked by simulation engine: still 86'd = {'mi_crab_cakes'}"
+      }
+    ],
+    "result": "PASS"
+  },
+  {
+    "section": "Server Snapshot",
+    "checks": [
+      {
+        "name": "get_server_sales(server_01)",
+        "passed": true,
+        "detail": "net=4130.00, covers=203"
+      },
+      {
+        "name": "get_server_tips(server_01)",
+        "passed": true,
+        "detail": "earned=652.45, pending=0.00"
+      },
+      {
+        "name": "get_server_sales(server_02)",
+        "passed": true,
+        "detail": "net=5159.00, covers=245"
+      },
+      {
+        "name": "get_server_tips(server_02)",
+        "passed": true,
+        "detail": "earned=722.66, pending=0.00"
+      },
+      {
+        "name": "get_server_sales(server_03)",
+        "passed": true,
+        "detail": "net=4959.50, covers=185"
+      },
+      {
+        "name": "get_server_tips(server_03)",
+        "passed": true,
+        "detail": "earned=633.13, pending=0.00"
+      },
+      {
+        "name": "get_server_sales(server_04)",
+        "passed": true,
+        "detail": "net=3869.00, covers=188"
+      },
+      {
+        "name": "get_server_tips(server_04)",
+        "passed": true,
+        "detail": "earned=521.01, pending=0.00"
+      },
+      {
+        "name": "get_server_sales(server_05)",
+        "passed": true,
+        "detail": "net=3651.00, covers=190"
+      },
+      {
+        "name": "get_server_tips(server_05)",
+        "passed": true,
+        "detail": "earned=643.90, pending=0.00"
+      },
+      {
+        "name": "get_server_sales(server_06)",
+        "passed": true,
+        "detail": "net=5957.50, covers=251"
+      },
+      {
+        "name": "get_server_tips(server_06)",
+        "passed": true,
+        "detail": "earned=981.07, pending=0.00"
+      },
+      {
+        "name": "calculate_tip_out()",
+        "passed": true,
+        "detail": "walk_with=652.45"
+      },
+      {
+        "name": "get_checkout_blockers() post-close",
+        "passed": true,
+        "detail": "open_checks=0, is_ready=False"
+      }
+    ],
+    "result": "PASS"
+  },
+  {
+    "section": "Close Day Execution",
+    "checks": [
+      {
+        "name": "DAY_CLOSED event emitted",
+        "passed": true,
+        "detail": "1 DAY_CLOSED event(s)"
+      },
+      {
+        "name": "BATCH_SUBMITTED event emitted",
+        "passed": true,
+        "detail": "1 BATCH_SUBMITTED event(s)"
+      },
+      {
+        "name": "No open orders after close day",
+        "passed": true,
+        "detail": "All orders closed or voided"
+      },
+      {
+        "name": "DAY_CLOSED sales match projection",
+        "passed": true,
+        "detail": "DAY_CLOSED: 29414.66, Projection: 29414.66"
+      }
+    ],
+    "result": "PASS"
+  },
+  {
+    "section": "Entomology System",
+    "checks": [
+      {
+        "name": "Heartbeat events recorded",
+        "passed": true,
+        "detail": "3 SYS-HEARTBEAT events"
+      },
+      {
+        "name": "Diagnostic hash chain intact",
+        "passed": true,
+        "detail": "Verified 7 diagnostic events"
+      },
+      {
+        "name": "Diagnostic event category breakdown",
+        "passed": true,
+        "detail": {
+          "SYSTEM": 3,
+          "DEVICE": 1,
+          "NETWORK": 1,
+          "PERIPHERAL": 1,
+          "RECOVERY": 1
+        }
+      },
+      {
+        "name": "No cross-contamination (separate DB)",
+        "passed": true,
+        "detail": "Diagnostic and business ledger use separate SQLite files"
+      },
+      {
+        "name": "Entomology report generated",
+        "passed": true,
+        "detail": "Saved to ./data/KINDpos_Bombard_entomology_2026-03-29.html (22997 bytes)"
+      },
+      {
+        "name": "Report has all 3 layers",
+        "passed": true,
+        "detail": "L1=True, L2=True, L3=True"
+      },
+      {
+        "name": "Scorecards populated",
+        "passed": true,
+        "detail": "Scorecard elements found"
+      }
+    ],
+    "result": "PASS",
+    "report_path": "./data/KINDpos_Bombard_entomology_2026-03-29.html"
+  },
+  {
+    "section": "Edge Case Verification",
+    "checks": [
+      {
+        "name": "Split tender",
+        "passed": true,
+        "detail": "41 split tenders"
+      },
+      {
+        "name": "Mid-check void",
+        "passed": true,
+        "detail": "18 item voids"
+      },
+      {
+        "name": "Full check void",
+        "passed": true,
+        "detail": "6 full voids"
+      },
+      {
+        "name": "Comp",
+        "passed": true,
+        "detail": "16 comps"
+      },
+      {
+        "name": "Second-round addition",
+        "passed": true,
+        "detail": "38 second rounds"
+      },
+      {
+        "name": "86'd item rejection",
+        "passed": true,
+        "detail": "13 rejections"
+      },
+      {
+        "name": "Un-86 mid-day",
+        "passed": true,
+        "detail": "Duck restored"
+      },
+      {
+        "name": "Modifier pricing",
+        "passed": true,
+        "detail": "403 modifiers"
+      },
+      {
+        "name": "2dp precision (high volume)",
+        "passed": true,
+        "detail": "Checked in ledger integrity"
+      },
+      {
+        "name": "Multiple servers active",
+        "passed": true,
+        "detail": "6 servers active"
+      },
+      {
+        "name": "Table reuse",
+        "passed": true,
+        "detail": "Max turns: 25"
+      },
+      {
+        "name": "Tip adjustment on card",
+        "passed": true,
+        "detail": "261 tip adjustments"
+      },
+      {
+        "name": "Cash payment with change",
+        "passed": true,
+        "detail": "Cash payments processed"
+      },
+      {
+        "name": "Zero-dollar comp",
+        "passed": true,
+        "detail": "Comps include zero-dollar items"
+      }
+    ],
+    "result": "PASS",
+    "summary": "14/14 passed"
+  },
+  {
+    "section": "Event Ledger Statistics",
+    "result": "STATISTICS",
+    "stats": {
+      "total_events": 4894,
+      "top10_types": [
+        [
+          "item.added",
+          1357
+        ],
+        [
+          "item.sent",
+          1357
+        ],
+        [
+          "item.modifier_applied",
+          403
+        ],
+        [
+          "payment.initiated",
+          385
+        ],
+        [
+          "payment.confirmed",
+          385
+        ],
+        [
+          "order.created",
+          350
+        ],
+        [
+          "order.closed",
+          344
+        ],
+        [
+          "payment.tip_adjusted",
+          261
+        ],
+        [
+          "item.removed",
+          18
+        ],
+        [
+          "discount.approved",
+          16
+        ]
+      ],
+      "events_per_hour": {
+        "13": 4894
+      },
+      "avg_events_per_check": 13.9,
+      "distribution": {
+        "order_lifecycle": "700 (14.3%)",
+        "items": "3135 (64.1%)",
+        "payments": "1031 (21.1%)",
+        "other": "28"
+      },
+      "table_turns": {
+        "table_01": 13,
+        "table_02": 16,
+        "table_03": 10,
+        "table_04": 15,
+        "table_05": 11,
+        "table_06": 25,
+        "table_07": 13,
+        "table_08": 17,
+        "table_09": 13,
+        "table_10": 9,
+        "table_11": 17,
+        "table_12": 14,
+        "table_13": 10,
+        "table_14": 13,
+        "table_15": 15,
+        "table_16": 13,
+        "table_17": 7,
+        "table_18": 18,
+        "table_19": 14,
+        "table_20": 14,
+        "table_21": 18,
+        "table_22": 14,
+        "table_23": 13,
+        "table_24": 15,
+        "table_25": 13
+      }
+    }
+  }
+]
