@@ -19,6 +19,13 @@ const HEX_SIZES = Object.freeze({
 const GAP_MULTIPLIER = 1.06;
 const BORDER_WIDTH = 3;
 
+// ── Cascade Positioning ──
+// Face iteration order: prefer downward-right cascade, siblings cluster tight.
+// Face 2 = 5 o'clock, Face 3 = 7 o'clock, Face 1 = 3 o'clock,
+// Face 0 = 2 o'clock, Face 4 = 9 o'clock, Face 5 = 11 o'clock
+const CASCADE_FACE_ORDER = [2, 3, 1, 0, 4, 5];
+const ORIGIN_MARGIN = 16;
+
 // ── Derived: outer dimensions including border ──
 const OUTER = Object.freeze({
   category: {
@@ -94,6 +101,75 @@ function secondRingPositions(cx, cy, centerRadius, ringRadius) {
 }
 
 /**
+ * Generate honeycomb grid positions starting from top-left.
+ * Pointy-top hex tessellation with offset odd rows.
+ * @param {number} startX - X of first hex center
+ * @param {number} startY - Y of first hex center
+ * @param {{w:number, h:number}} outerSize - Outer dimensions of the hex
+ * @param {number} count - Number of positions needed
+ * @param {number} maxWidth - Container width (for row wrapping)
+ * @param {number} margin - Edge margin
+ * @returns {Array<{x:number, y:number}>}
+ */
+function honeycombGridPositions(startX, startY, outerSize, count, maxWidth, margin) {
+  const colSpacing = outerSize.w * GAP_MULTIPLIER;
+  const rowSpacing = outerSize.h * 0.75 * GAP_MULTIPLIER;
+  const positions = [];
+
+  let row = 0;
+  let col = 0;
+  while (positions.length < count) {
+    const isOddRow = row % 2 === 1;
+    const xOffset = isOddRow ? colSpacing / 2 : 0;
+    const x = startX + col * colSpacing + xOffset;
+    const y = startY + row * rowSpacing;
+
+    // If this hex goes beyond the right edge, wrap to next row
+    if (x + outerSize.w / 2 > maxWidth - margin && col > 0) {
+      row++;
+      col = 0;
+      continue;
+    }
+
+    positions.push({ x, y });
+    col++;
+  }
+  return positions;
+}
+
+/**
+ * Order candidate positions by greedy nearest-neighbor from a cascade seed.
+ * First position is the first in the candidates array (cascade-preferred face).
+ * Each subsequent position is the candidate closest to the last placed one.
+ * This keeps siblings clustered tight together.
+ * @param {Array<{x,y,face}>} candidates - Positions in cascade face order
+ * @returns {Array<{x,y,face}>} Reordered positions
+ */
+function clusterByProximity(candidates) {
+  if (candidates.length <= 1) return candidates;
+
+  const remaining = candidates.slice();
+  const ordered = [remaining.shift()]; // Seed with first cascade candidate
+
+  while (remaining.length > 0) {
+    const last = ordered[ordered.length - 1];
+    let bestIdx = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < remaining.length; i++) {
+      const dx = remaining[i].x - last.x;
+      const dy = remaining[i].y - last.y;
+      const dist = dx * dx + dy * dy;
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestIdx = i;
+      }
+    }
+    ordered.push(remaining.splice(bestIdx, 1)[0]);
+  }
+  return ordered;
+}
+
+/**
  * Detect which of a hex's 6 faces are occupied by existing neighbors.
  * Uses 1.2× combined radii as the neighbor distance threshold.
  * @param {{x,y,radius}} targetHex - Target hex with actual radius
@@ -132,13 +208,15 @@ function getOccupiedFaces(targetHex, allHexagons, itemRadius) {
  * @param {{x,y,radius}} parentHex - Parent hex with actual radius
  * @param {boolean[]} occupiedFaces - 6-element array from getOccupiedFaces
  * @param {number} childRadius - Radius of the child hexes being placed
+ * @param {number[]} [faceOrder] - Face iteration order (default 0-5)
  * @returns {Array<{x,y,face}>} Available positions
  */
-function getPositionsForEmptyFaces(parentHex, occupiedFaces, childRadius) {
+function getPositionsForEmptyFaces(parentHex, occupiedFaces, childRadius, faceOrder) {
+  const order = faceOrder || [0, 1, 2, 3, 4, 5];
   const positions = [];
   const distance = (parentHex.radius + childRadius) * 1.05;
 
-  for (let face = 0; face < 6; face++) {
+  for (const face of order) {
     if (occupiedFaces[face]) continue;
     const angle = -Math.PI / 2 + (Math.PI / 3) * face + (Math.PI / 6);
     positions.push({
@@ -272,6 +350,13 @@ export class HexEngine {
     const rect = this.container.getBoundingClientRect();
     this._cx = rect.width / 2;
     this._cy = rect.height / 2;
+    this._containerW = rect.width;
+    this._containerH = rect.height;
+
+    // Top-left origin: first hex center position
+    const outerSize = this._outer[sizeKeyForDepth(0)];
+    this._originX = ORIGIN_MARGIN + outerSize.w / 2;
+    this._originY = ORIGIN_MARGIN + outerSize.h / 2;
   }
 
   /** Remove ALL hex elements and context headers from the container. Full wipe. */
@@ -303,35 +388,23 @@ export class HexEngine {
     }
   }
 
-  /** Render root-level items in ring layout around container center. */
+  /** Render root-level items in honeycomb grid from top-left corner. */
   _renderRootItems() {
     const items = this.data;
     if (!items || items.length === 0) return;
 
-    const outerSize = this._outer[sizeKeyForDepth(0)];
-    const hexRadius = outerSize.w / 2;
-
-    let positions;
-    if (items.length === 1) {
-      positions = [{ x: this._cx, y: this._cy }];
-    } else if (items.length <= 7) {
-      positions = [{ x: this._cx, y: this._cy }];
-      const ring = firstRingPositions(this._cx, this._cy, hexRadius, hexRadius);
-      positions.push(...ring.slice(0, items.length - 1));
-    } else {
-      positions = [{ x: this._cx, y: this._cy }];
-      const ring1 = firstRingPositions(this._cx, this._cy, hexRadius, hexRadius);
-      positions.push(...ring1);
-      const ring2 = secondRingPositions(this._cx, this._cy, hexRadius, hexRadius);
-      positions.push(...ring2.slice(0, items.length - 7));
-    }
-
     const currentSizeKey = sizeKeyForDepth(0);
+    const outerSize = this._outer[currentSizeKey];
+
+    const positions = honeycombGridPositions(
+      this._originX, this._originY,
+      outerSize, items.length,
+      this._containerW, ORIGIN_MARGIN
+    );
+
     const maxItems = Math.min(items.length, positions.length);
     for (let i = 0; i < maxItems; i++) {
-      const item = items[i];
-      const pos = positions[i];
-      this._placeHex(item, pos, currentSizeKey, false);
+      this._placeHex(items[i], positions[i], currentSizeKey, false);
     }
   }
 
@@ -391,12 +464,12 @@ export class HexEngine {
       label: parentSel.item.label,
     };
 
-    // Detect occupied faces using all placed hexes with actual radii
+    // Detect occupied faces, iterate in cascade order (lower-right first)
     const occupied = getOccupiedFaces(parentHex, allHexagons, childRadius);
-    let positions = getPositionsForEmptyFaces(parentHex, occupied, childRadius);
+    let candidates = getPositionsForEmptyFaces(parentHex, occupied, childRadius, CASCADE_FACE_ORDER);
 
     // Global collision check: reject candidates too close to any locked hex
-    positions = positions.filter(pos => {
+    candidates = candidates.filter(pos => {
       return !allHexagons.some(lp => {
         const dx = pos.x - lp.x;
         const dy = pos.y - lp.y;
@@ -404,6 +477,9 @@ export class HexEngine {
         return dist < (childRadius + lp.radius) * 1.05;
       });
     });
+
+    // Sibling-cluster packing: reorder so each child is nearest to previous sibling
+    let positions = clusterByProximity(candidates);
 
     // Overflow into second ring if needed
     if (positions.length < currentChildren.length) {
@@ -414,7 +490,7 @@ export class HexEngine {
       const allPlaced = allHexagons.concat(
         positions.map(p => ({ x: p.x, y: p.y, radius: childRadius }))
       );
-      const safeRing2 = ring2.filter(rp => {
+      let safeRing2 = ring2.filter(rp => {
         return !allPlaced.some(placed => {
           const dx = rp.x - placed.x;
           const dy = rp.y - placed.y;
@@ -422,6 +498,8 @@ export class HexEngine {
           return dist < (childRadius + placed.radius) * 1.05;
         });
       });
+      // Sort ring-2 overflow to prefer lower-right cascade direction
+      safeRing2.sort((a, b) => (b.y + b.x * 0.5) - (a.y + a.x * 0.5));
       positions.push(...safeRing2.slice(0, currentChildren.length - positions.length));
     }
 
