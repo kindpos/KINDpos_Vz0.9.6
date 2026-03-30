@@ -256,50 +256,55 @@ export class HexEngine {
   }
 
   /**
-   * Shift all positions as a group so the entire bloom fits within
-   * the container bounds with minimum padding.
+   * Center the bloom group in the container then clamp to bounds.
+   * @param {Array} positions - Mutable child position objects
+   * @param {{w,h}} outerSize - Outer dimensions of the child hexes
+   * @param {Array} [extraPositions] - Additional positions (locked hexes)
+   *   included in bounding-box but not mutated here; returns the shift
+   *   vector so caller can update their DOM separately.
+   * @returns {{shiftX: number, shiftY: number}}
    */
-  _clampPositions(positions, outerSize) {
-    if (positions.length === 0) return positions;
+  _clampPositions(positions, outerSize, extraPositions) {
+    const all = extraPositions ? positions.concat(extraPositions) : positions;
+    if (all.length === 0) return { shiftX: 0, shiftY: 0 };
 
     const rect = this.container.getBoundingClientRect();
     const pad = 16;
     const halfW = outerSize.w / 2;
     const halfH = outerSize.h / 2;
 
+    // Bounding box of all hex centers
     let minX = Infinity, maxX = -Infinity;
     let minY = Infinity, maxY = -Infinity;
-    for (const pos of positions) {
+    for (const pos of all) {
       minX = Math.min(minX, pos.x);
       maxX = Math.max(maxX, pos.x);
       minY = Math.min(minY, pos.y);
       maxY = Math.max(maxY, pos.y);
     }
 
-    const leftEdge = minX - halfW;
-    const rightEdge = maxX + halfW;
-    const topEdge = minY - halfH;
-    const bottomEdge = maxY + halfH;
+    // Always center the bloom group in the container
+    const groupCx = (minX + maxX) / 2;
+    const groupCy = (minY + maxY) / 2;
+    let shiftX = (rect.width / 2) - groupCx;
+    let shiftY = (rect.height / 2) - groupCy;
 
-    let shiftX = 0, shiftY = 0;
+    // After centering, clamp so no hex exceeds container bounds
+    const newMinX = minX + shiftX;
+    const newMaxX = maxX + shiftX;
+    const newMinY = minY + shiftY;
+    const newMaxY = maxY + shiftY;
 
-    const bloomW = rightEdge - leftEdge;
-    const bloomH = bottomEdge - topEdge;
-
-    if (bloomW > rect.width - pad * 2) {
-      shiftX = (rect.width / 2) - (minX + maxX) / 2;
-    } else if (leftEdge < pad) {
-      shiftX = pad - leftEdge;
-    } else if (rightEdge > rect.width - pad) {
-      shiftX = (rect.width - pad) - rightEdge;
+    if (newMinX - halfW < pad) {
+      shiftX += pad - (newMinX - halfW);
+    } else if (newMaxX + halfW > rect.width - pad) {
+      shiftX -= (newMaxX + halfW) - (rect.width - pad);
     }
 
-    if (bloomH > rect.height - pad * 2) {
-      shiftY = (rect.height / 2) - (minY + maxY) / 2;
-    } else if (topEdge < pad) {
-      shiftY = pad - topEdge;
-    } else if (bottomEdge > rect.height - pad) {
-      shiftY = (rect.height - pad) - bottomEdge;
+    if (newMinY - halfH < pad) {
+      shiftY += pad - (newMinY - halfH);
+    } else if (newMaxY + halfH > rect.height - pad) {
+      shiftY -= (newMaxY + halfH) - (rect.height - pad);
     }
 
     if (shiftX !== 0 || shiftY !== 0) {
@@ -308,7 +313,7 @@ export class HexEngine {
         pos.y += shiftY;
       }
     }
-    return positions;
+    return { shiftX, shiftY };
   }
 
   _clear() {
@@ -551,8 +556,16 @@ export class HexEngine {
       positions.push(...safeRing2.slice(0, children.length - positions.length));
     }
 
-    // Clamp positions to keep bloom within container bounds
-    this._clampPositions(positions, outerSize);
+    // Center the bloom group (locked parents + children) in container
+    const { shiftX, shiftY } = this._clampPositions(positions, outerSize, lockedPositions);
+
+    // Shift locked parent hex DOM positions to match
+    if (shiftX !== 0 || shiftY !== 0) {
+      for (const el of this._elements) {
+        el.style.left = (parseFloat(el.style.left) + shiftX) + 'px';
+        el.style.top = (parseFloat(el.style.top) + shiftY) + 'px';
+      }
+    }
 
     // Update context header
     const existingHeader = this.container.querySelector('[data-hex-context-header]');
