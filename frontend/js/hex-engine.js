@@ -107,13 +107,20 @@ function secondRingPositions(cx, cy, centerRadius, ringRadius) {
  * Detect which of a hex's 6 faces are occupied by existing neighbors.
  * @param {number} targetX - Target hex center X
  * @param {number} targetY - Target hex center Y
- * @param {Array<{x: number, y: number}>} neighbors - Existing neighbor positions
+ * @param {number} targetRadius - Target hex radius (half outer width)
+ * @param {Array<{x: number, y: number, radius: number}>} neighbors - Neighbor positions with radii
  * @returns {Set<number>} Set of occupied face indices (0=top, clockwise)
  */
-function occupiedFaces(targetX, targetY, neighbors) {
+function occupiedFaces(targetX, targetY, targetRadius, neighbors) {
   const occupied = new Set();
   for (const n of neighbors) {
-    const angle = Math.atan2(n.y - targetY, n.x - targetX);
+    const dx = n.x - targetX;
+    const dy = n.y - targetY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const maxNeighborDist = (targetRadius + n.radius) * 1.3;
+    if (distance > maxNeighborDist) continue;
+
+    const angle = Math.atan2(dy, dx);
     const normalized = ((angle + Math.PI / 2) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
     const face = Math.round(normalized / (Math.PI / 3)) % 6;
     occupied.add(face);
@@ -218,8 +225,20 @@ export class HexEngine {
     if (this._stack.length === 0) {
       this._render(this.data, null);
     } else {
+      // Re-render previous level's children while preserving locked ancestors.
+      // Remove non-locked elements (current level's children) and the last
+      // locked hex (the one being "unlocked" by going back).
+      const lastLocked = [...this._elements].reverse().find(el => el._hexLocked);
+      if (lastLocked) {
+        if (lastLocked.parentNode) lastLocked.parentNode.removeChild(lastLocked);
+        this._elements = this._elements.filter(el => el !== lastLocked);
+      }
+      const toRemove = this._elements.filter(el => !el._hexLocked);
+      toRemove.forEach(el => { if (el.parentNode) el.parentNode.removeChild(el); });
+      this._elements = this._elements.filter(el => el._hexLocked);
+
       const prev = this._stack[this._stack.length - 1];
-      this._render(prev.children, prev.parentPos);
+      this._renderChildren(prev.children, prev.parentPos);
     }
     return true;
   }
@@ -289,7 +308,7 @@ export class HexEngine {
     let shiftX = (rect.width / 2) - groupCx;
     let shiftY = (rect.height / 2) - groupCy;
 
-    // After centering, clamp so no hex exceeds container bounds
+    // After centering, clamp so no hex exceeds container bounds (both edges)
     const newMinX = minX + shiftX;
     const newMaxX = maxX + shiftX;
     const newMinY = minY + shiftY;
@@ -297,13 +316,15 @@ export class HexEngine {
 
     if (newMinX - halfW < pad) {
       shiftX += pad - (newMinX - halfW);
-    } else if (newMaxX + halfW > rect.width - pad) {
+    }
+    if (newMaxX + halfW > rect.width - pad) {
       shiftX -= (newMaxX + halfW) - (rect.width - pad);
     }
 
     if (newMinY - halfH < pad) {
       shiftY += pad - (newMinY - halfH);
-    } else if (newMaxY + halfH > rect.height - pad) {
+    }
+    if (newMaxY + halfH > rect.height - pad) {
       shiftY -= (newMaxY + halfH) - (rect.height - pad);
     }
 
@@ -313,6 +334,19 @@ export class HexEngine {
         pos.y += shiftY;
       }
     }
+
+    // Reject individual child positions that still exceed bounds after shift
+    const minBoundX = pad + halfW;
+    const maxBoundX = rect.width - pad - halfW;
+    const minBoundY = pad + halfH;
+    const maxBoundY = rect.height - pad - halfH;
+    for (let i = positions.length - 1; i >= 0; i--) {
+      const p = positions[i];
+      if (p.x < minBoundX || p.x > maxBoundX || p.y < minBoundY || p.y > maxBoundY) {
+        positions.splice(i, 1);
+      }
+    }
+
     return { shiftX, shiftY };
   }
 
@@ -367,11 +401,12 @@ export class HexEngine {
       const siblingPositions = this._elements
         .filter(el => el._hexLocked)
         .map(el => ({
-          x: parseFloat(el.style.left) + this._outer[parentSizeKey].w / 2,
-          y: parseFloat(el.style.top) + this._outer[parentSizeKey].h / 2,
+          x: parseFloat(el.style.left) + (el._hexOuterW || this._outer[parentSizeKey].w) / 2,
+          y: parseFloat(el.style.top) + (el._hexOuterH || this._outer[parentSizeKey].h) / 2,
+          radius: (el._hexOuterW || this._outer[parentSizeKey].w) / 2,
         }));
 
-      const occupied = occupiedFaces(parentPos.x, parentPos.y, siblingPositions);
+      const occupied = occupiedFaces(parentPos.x, parentPos.y, parentRadius, siblingPositions);
       positions = emptyFacePositions(
         parentPos.x, parentPos.y,
         parentRadius, hexRadius, occupied
@@ -496,6 +531,8 @@ export class HexEngine {
     newEl.style.left = (parseFloat(el.style.left) - bwDiff) + 'px';
     newEl.style.top = (parseFloat(el.style.top) - bwDiff) + 'px';
     newEl._hexLocked = true;
+    newEl._hexOuterW = lockedOuterW;
+    newEl._hexOuterH = lockedOuterH;
 
     el.parentNode.replaceChild(newEl, el);
     this._elements[index] = newEl;
@@ -532,25 +569,40 @@ export class HexEngine {
     const parentRadius = parentOuterW / 2;
 
     const lockedPositions = this._elements.map(el => ({
-      x: parseFloat(el.style.left) + parentOuterW / 2,
-      y: parseFloat(el.style.top) + parentOuterH / 2,
+      x: parseFloat(el.style.left) + (el._hexOuterW || parentOuterW) / 2,
+      y: parseFloat(el.style.top) + (el._hexOuterH || parentOuterH) / 2,
+      radius: (el._hexOuterW || parentOuterW) / 2,
     }));
 
-    const occupied = occupiedFaces(parentPos.x, parentPos.y, lockedPositions);
+    const occupied = occupiedFaces(parentPos.x, parentPos.y, parentRadius, lockedPositions);
     let positions = emptyFacePositions(
       parentPos.x, parentPos.y,
       parentRadius, childRadius, occupied
     );
 
+    // Global collision check: reject candidates too close to any locked hex
+    positions = positions.filter(pos => {
+      return !lockedPositions.some(lp => {
+        const dx = pos.x - lp.x;
+        const dy = pos.y - lp.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        return dist < (childRadius + lp.radius) * 1.05;
+      });
+    });
+
     if (positions.length < children.length) {
       const ring2 = secondRingPositions(
         parentPos.x, parentPos.y, parentRadius, childRadius
       );
+      const allPlaced = lockedPositions.concat(
+        positions.map(p => ({ x: p.x, y: p.y, radius: childRadius }))
+      );
       const safeRing2 = ring2.filter(rp => {
-        return !lockedPositions.some(lp => {
-          const dx = rp.x - lp.x;
-          const dy = rp.y - lp.y;
-          return Math.sqrt(dx * dx + dy * dy) < outerSize.w * 0.8;
+        return !allPlaced.some(placed => {
+          const dx = rp.x - placed.x;
+          const dy = rp.y - placed.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          return dist < (childRadius + placed.radius) * 1.05;
         });
       });
       positions.push(...safeRing2.slice(0, children.length - positions.length));
