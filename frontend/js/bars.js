@@ -20,7 +20,6 @@ export function setBarSubtitle(subtitle) {
 const SCREEN_TITLES = {
   'snapshot':       'Snapshot',
   'check-overview': 'Check Overview',
-  'check-editing':  'Check Editing',
   'add-item':       'Add Item',
   'add-items':      'Add Items',
   'modify':         'Modify',

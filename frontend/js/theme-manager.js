@@ -120,7 +120,7 @@ export function tbarLoggedIn({ timeStr, titlePart, staffName, role, screen, msgC
             id="_tbar_settings">Settings</span>`
     : '';
 
-  const backBtn = (screen === 'check-editing' || screen === 'check-overview' || screen === 'add-items')
+  const backBtn = (screen === 'check-overview' || screen === 'add-items')
     ? `<span style="background:${T.bg};color:${T.mint};padding:0 8px;height:28px;display:flex;align-items:center;justify-content:center;font-size:16px;font-family:${T.fb};cursor:pointer;margin-right:8px;"
             id="_tbar_back">\u2190</span>`
     : '';

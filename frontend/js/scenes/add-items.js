@@ -62,6 +62,12 @@ registerScene('add-items', {
     let activePrefix = 'ADD';
     let hexEngine = null;
 
+    // If editing modifiers on a specific existing item, pre-load it
+    if (p.targetItem) {
+      stagedItems.push({ ...p.targetItem, modifiers: p.targetItem.modifiers || [] });
+      activeMode = 'modifiers';
+    }
+
     el.style.position = 'relative';
 
     // Build seat label
