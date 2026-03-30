@@ -20,6 +20,12 @@ from typing import Optional
 
 import aiosqlite
 
+try:
+    import psutil
+    _PSUTIL_AVAILABLE = True
+except ImportError:
+    _PSUTIL_AVAILABLE = False
+
 from app.models.diagnostic_event import (
     DEFAULT_RETENTION_DAYS,
     GENESIS_HASH,
@@ -77,6 +83,9 @@ class DiagnosticCollector:
         await self._db.execute("PRAGMA journal_mode=WAL")
         await self._db.execute("PRAGMA synchronous=NORMAL")
         await self._db.execute("PRAGMA cache_size=10000")
+        await self._db.execute("PRAGMA mmap_size=268435456")      # 256MB memory-mapped I/O
+        await self._db.execute("PRAGMA journal_size_limit=67108864")  # 64MB WAL size cap
+        await self._db.execute("PRAGMA temp_store=MEMORY")
 
         await self._db.execute("""
             CREATE TABLE IF NOT EXISTS diagnostic_events (
@@ -495,9 +504,11 @@ class DiagnosticCollector:
             "uptime_hours": 0.0,
         }
 
-        try:
-            import psutil
+        if not _PSUTIL_AVAILABLE:
+            logger.warning("psutil not available — system metrics will be zeros")
+            return metrics
 
+        try:
             mem = psutil.virtual_memory()
             metrics["memory_used_pct"] = round(mem.percent, 1)
 
@@ -529,8 +540,6 @@ class DiagnosticCollector:
             metrics["uptime_hours"] = round(
                 uptime.total_seconds() / 3600, 1
             )
-        except ImportError:
-            logger.warning("psutil not available — system metrics will be zeros")
         except Exception as e:
             logger.error(f"Error collecting system metrics: {e}")
 

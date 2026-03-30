@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
-from app.api.dependencies import get_ledger
+from app.api.dependencies import get_ledger, get_snapshot_service
 from app.core.event_ledger import EventLedger
 from app.core.events import user_logged_in, user_logged_out, EventType
 from app.config import settings
@@ -38,16 +38,14 @@ async def get_servers(ledger: EventLedger = Depends(get_ledger)):
 # =============================================================================
 
 @router.get("/{server_id}/snapshot")
-async def get_server_snapshot(server_id: str, ledger: EventLedger = Depends(get_ledger)):
+async def get_server_snapshot(
+    server_id: str,
+    ledger: EventLedger = Depends(get_ledger),
+    service: ServerSnapshotService = Depends(get_snapshot_service),
+):
     """Get all data for the server snapshot screen."""
-    service = ServerSnapshotService(ledger)
     config_service = OverseerConfigService(ledger)
-    
-    # Boundary: since last day close
-    boundary_seq = await ledger.get_last_day_close_sequence()
-    # We'll need to get the timestamp of that event if we want a datetime since.
-    # For now, let's just use 0 as since is handled inside service as getting all events.
-    
+
     sales = await service.get_server_sales(server_id)
     checks = await service.get_server_checks(server_id)
     tips = await service.get_server_tips(server_id)
@@ -79,8 +77,10 @@ class TipAdjustmentRequest(BaseModel):
     tip_amount: float
 
 @router.post("/tip-adjustment")
-async def adjust_server_tip(request: TipAdjustmentRequest, ledger: EventLedger = Depends(get_ledger)):
-    service = ServerSnapshotService(ledger)
+async def adjust_server_tip(
+    request: TipAdjustmentRequest,
+    service: ServerSnapshotService = Depends(get_snapshot_service),
+):
     try:
         event = await service.adjust_tip(
             terminal_id=settings.terminal_id,

@@ -25,6 +25,10 @@ class PrintJobQueue:
         self._db = await aiosqlite.connect(str(self.db_path))
         await self._db.execute("PRAGMA journal_mode=WAL")
         await self._db.execute("PRAGMA synchronous=NORMAL")
+        await self._db.execute("PRAGMA cache_size=10000")
+        await self._db.execute("PRAGMA mmap_size=268435456")      # 256MB memory-mapped I/O
+        await self._db.execute("PRAGMA journal_size_limit=67108864")  # 64MB WAL size cap
+        await self._db.execute("PRAGMA temp_store=MEMORY")
 
         await self._db.execute("""
             CREATE TABLE IF NOT EXISTS print_queue (
@@ -41,6 +45,10 @@ class PrintJobQueue:
                 created_at      TEXT NOT NULL,
                 completed_at    TEXT
             )
+        """)
+        await self._db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_pq_status
+            ON print_queue(status)
         """)
         await self._db.commit()
 

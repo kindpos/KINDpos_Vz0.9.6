@@ -9,12 +9,14 @@ from typing import AsyncGenerator
 from app.core.event_ledger import EventLedger
 from app.core.adapters.printer_manager import PrinterManager
 from app.services.diagnostic_collector import DiagnosticCollector
+from app.services.server_snapshot_service import ServerSnapshotService
 from app.config import settings
 
 # Global ledger instance (initialized on startup)
 _ledger: EventLedger | None = None
 _printer_manager: PrinterManager | None = None
 _diagnostic_collector: DiagnosticCollector | None = None
+_snapshot_service: ServerSnapshotService | None = None
 
 
 async def get_ledger() -> EventLedger:
@@ -75,3 +77,19 @@ async def close_diagnostic_collector() -> None:
     if _diagnostic_collector:
         await _diagnostic_collector.close()
         _diagnostic_collector = None
+
+
+# ── Server Snapshot Service (application-scoped, C-1 optimization) ──
+
+def init_snapshot_service(ledger: EventLedger) -> ServerSnapshotService:
+    """Initialize the application-scoped ServerSnapshotService."""
+    global _snapshot_service
+    _snapshot_service = ServerSnapshotService(ledger)
+    return _snapshot_service
+
+
+async def get_snapshot_service() -> ServerSnapshotService:
+    """Dependency that provides the application-scoped ServerSnapshotService."""
+    if _snapshot_service is None:
+        raise RuntimeError("ServerSnapshotService not initialized")
+    return _snapshot_service

@@ -1,3 +1,4 @@
+import time
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from app.config import settings
@@ -6,21 +7,36 @@ from app.core.events import EventType, tip_adjusted
 from app.core.projections import project_orders, Order
 from app.models.config_events import TipoutRule
 
+# Cache TTL in seconds — snapshot data tolerates slight staleness
+_CACHE_TTL_S = 5
+
+
 class ServerSnapshotService:
     def __init__(self, ledger: EventLedger):
         self.ledger = ledger
         self._orders_cache: Optional[Dict[str, Order]] = None
+        self._cache_timestamp: float = 0.0
 
     async def _get_all_orders(self) -> Dict[str, Order]:
-        """Fetch and project all orders once, then cache for reuse."""
-        if self._orders_cache is None:
-            events = await self.ledger.get_events_since(0, limit=10000)
-            self._orders_cache = project_orders(events, tax_rate=settings.tax_rate)
+        """Fetch and project orders for the current business day, with TTL cache.
+
+        C-1 optimization: scoped to day boundary + 5-second TTL cache.
+        """
+        now = time.monotonic()
+        if self._orders_cache is not None and (now - self._cache_timestamp) < _CACHE_TTL_S:
+            return self._orders_cache
+
+        # Scope to current business day instead of all-time (fixes 10K limit issue)
+        boundary = await self.ledger.get_last_day_close_sequence()
+        events = await self.ledger.get_events_since(boundary, limit=50000)
+        self._orders_cache = project_orders(events, tax_rate=settings.tax_rate)
+        self._cache_timestamp = now
         return self._orders_cache
 
     def invalidate_cache(self):
         """Clear the cached orders (call after writes like adjust_tip)."""
         self._orders_cache = None
+        self._cache_timestamp = 0.0
 
     async def get_server_orders(self, server_id: str, since: Optional[datetime] = None) -> List[Order]:
         """Get all orders for a specific server since a given time."""

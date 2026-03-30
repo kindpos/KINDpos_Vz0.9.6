@@ -37,6 +37,7 @@ class EventLedger:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._db: Optional[aiosqlite.Connection] = None
         self._write_lock = asyncio.Lock()
+        self._last_checksum: str = ""  # Cached for hot-path append; init from DB on connect
 
     async def connect(self) -> None:
         """Open database connection and initialize schema."""
@@ -46,6 +47,9 @@ class EventLedger:
         await self._db.execute("PRAGMA journal_mode=WAL")
         await self._db.execute("PRAGMA synchronous=NORMAL")
         await self._db.execute("PRAGMA cache_size=10000")
+        await self._db.execute("PRAGMA mmap_size=268435456")      # 256MB memory-mapped I/O
+        await self._db.execute("PRAGMA journal_size_limit=67108864")  # 64MB WAL size cap
+        await self._db.execute("PRAGMA temp_store=MEMORY")
 
         # Create events table
         await self._db.execute("""
@@ -86,6 +90,14 @@ class EventLedger:
 
         await self._db.commit()
 
+        # Initialize cached checksum from DB for hot-path append (C-2 optimization).
+        # Safe under single-writer assumption: only this process appends events.
+        cursor = await self._db.execute(
+            "SELECT checksum FROM events ORDER BY sequence_number DESC LIMIT 1"
+        )
+        row = await cursor.fetchone()
+        self._last_checksum = row[0] if row else ""
+
     async def close(self) -> None:
         """Close database connection."""
         if self._db:
@@ -112,18 +124,17 @@ class EventLedger:
         - Returns the complete event
         """
         async with self._write_lock:
-            # Get previous checksum for hash chain
-            cursor = await self._db.execute(
-                "SELECT checksum FROM events ORDER BY sequence_number DESC LIMIT 1"
-            )
-            row = await cursor.fetchone()
-            previous_checksum = row[0] if row else ""
+            # Use cached checksum instead of SELECT query (C-2 optimization)
+            previous_checksum = self._last_checksum
 
             # Compute checksum
             checksum = event.compute_checksum(previous_checksum)
 
+            # Serialize payload once for both INSERT and hash (H-3 optimization)
+            payload_json = json.dumps(event.payload)
+
             # Insert event
-            await self._db.execute(
+            cursor = await self._db.execute(
                 """
                 INSERT INTO events (
                     event_id, timestamp, terminal_id, event_type, payload,
@@ -135,7 +146,7 @@ class EventLedger:
                     event.timestamp.isoformat(),
                     event.terminal_id,
                     event.event_type.value,
-                    json.dumps(event.payload),
+                    payload_json,
                     event.user_id,
                     event.user_role,
                     event.correlation_id,
@@ -144,15 +155,13 @@ class EventLedger:
                 )
             )
 
-            # Get assigned sequence number
-            cursor = await self._db.execute(
-                "SELECT sequence_number FROM events WHERE event_id = ?",
-                (event.event_id,)
-            )
-            row = await cursor.fetchone()
-            sequence_number = row[0]
+            # Use lastrowid instead of SELECT query (C-2 optimization)
+            sequence_number = cursor.lastrowid
 
             await self._db.commit()
+
+            # Update cached checksum for next append
+            self._last_checksum = checksum
 
             # Return complete event with sequence number and checksum
             return Event(
@@ -173,20 +182,17 @@ class EventLedger:
         """Append multiple events atomically."""
         results = []
         async with self._write_lock:
+            # Use cached checksum instead of SELECT query (C-2 optimization)
+            previous_checksum = self._last_checksum
+
             for event in events:
-                # Get previous checksum
                 if results:
                     previous_checksum = results[-1].checksum
-                else:
-                    cursor = await self._db.execute(
-                        "SELECT checksum FROM events ORDER BY sequence_number DESC LIMIT 1"
-                    )
-                    row = await cursor.fetchone()
-                    previous_checksum = row[0] if row else ""
 
                 checksum = event.compute_checksum(previous_checksum)
+                payload_json = json.dumps(event.payload)
 
-                await self._db.execute(
+                cursor = await self._db.execute(
                     """
                     INSERT INTO events (
                         event_id, timestamp, terminal_id, event_type, payload,
@@ -198,7 +204,7 @@ class EventLedger:
                         event.timestamp.isoformat(),
                         event.terminal_id,
                         event.event_type.value,
-                        json.dumps(event.payload),
+                        payload_json,
                         event.user_id,
                         event.user_role,
                         event.correlation_id,
@@ -206,12 +212,6 @@ class EventLedger:
                         checksum,
                     )
                 )
-
-                cursor = await self._db.execute(
-                    "SELECT sequence_number FROM events WHERE event_id = ?",
-                    (event.event_id,)
-                )
-                row = await cursor.fetchone()
 
                 results.append(Event(
                     event_id=event.event_id,
@@ -222,12 +222,16 @@ class EventLedger:
                     user_id=event.user_id,
                     user_role=event.user_role,
                     correlation_id=event.correlation_id,
-                    sequence_number=row[0],
+                    sequence_number=cursor.lastrowid,
                     previous_checksum=previous_checksum,
                     checksum=checksum,
                 ))
 
             await self._db.commit()
+
+            # Update cached checksum to last event in batch
+            if results:
+                self._last_checksum = results[-1].checksum
 
         return results
 
@@ -480,18 +484,20 @@ async def get_order_events(ledger: EventLedger, order_id: str) -> list[Event]:
 
 async def get_open_orders(ledger: EventLedger) -> list[str]:
     """Get IDs of orders that are still open (created but not closed/voided)."""
-    # Get all ORDER_CREATED events
-    created_events = await ledger.get_events_by_type(EventType.ORDER_CREATED)
-    created_order_ids = {e.payload["order_id"] for e in created_events}
+    # Single query for all three event types instead of three separate queries
+    events = await ledger.get_events_by_types(
+        [EventType.ORDER_CREATED, EventType.ORDER_CLOSED, EventType.ORDER_VOIDED],
+        limit=10000,
+    )
 
-    # Get all ORDER_CLOSED and ORDER_VOIDED events
-    closed_events = await ledger.get_events_by_type(EventType.ORDER_CLOSED)
-    voided_events = await ledger.get_events_by_type(EventType.ORDER_VOIDED)
+    created_order_ids: set[str] = set()
+    closed_order_ids: set[str] = set()
 
-    closed_order_ids = {e.payload["order_id"] for e in closed_events}
-    voided_order_ids = {e.payload["order_id"] for e in voided_events}
+    for e in events:
+        order_id = e.payload["order_id"]
+        if e.event_type == EventType.ORDER_CREATED:
+            created_order_ids.add(order_id)
+        else:
+            closed_order_ids.add(order_id)
 
-    # Open orders = created - closed - voided
-    open_order_ids = created_order_ids - closed_order_ids - voided_order_ids
-
-    return list(open_order_ids)
+    return list(created_order_ids - closed_order_ids)

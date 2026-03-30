@@ -17,6 +17,7 @@ from app.config import settings
 from app.api.dependencies import (
     init_ledger, close_ledger,
     init_diagnostic_collector, close_diagnostic_collector,
+    init_snapshot_service,
 )
 from app.api.routes import orders
 from app.api.routes import system
@@ -39,8 +40,11 @@ async def lifespan(app: FastAPI):
     print(f"  Version:  {settings.app_version}")
     print(f"  Database: {settings.database_path}")
 
-    await init_ledger()
+    ledger = await init_ledger()
     print("  Event Ledger: initialized")
+
+    init_snapshot_service(ledger)
+    print("  Snapshot Service: initialized (app-scoped)")
 
     diag_collector = await init_diagnostic_collector()
     diag_collector.start_heartbeat_loop()
