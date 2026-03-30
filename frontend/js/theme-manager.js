@@ -524,6 +524,49 @@ export function snapshotOverlay(title, contentHtml, onCloseAttr) {
   </div>`;
 }
 
+// ── Seat Tab (chamfered tab for check-editing) ──
+
+export function seatTab(label, subtitle, opts = {}) {
+  const isActive = opts.active || false;
+  const color = opts.color || T.mint;
+  const bg = isActive ? color : T.bg;
+  const textColor = isActive ? T.bg : color;
+  const id = opts.id ? ` id="${opts.id}"` : '';
+  const dataAttr = opts.data !== undefined ? ` data-id="${opts.data}"` : '';
+  return `<div${id}${dataAttr} class="seat-tab" style="
+    flex:0 0 auto;padding:6px 14px;
+    background:${bg};color:${textColor};
+    font-family:${T.fb};font-size:13px;cursor:pointer;
+    clip-path:${chamfer('sm')};border:2px solid ${color};
+    text-align:center;user-select:none;white-space:nowrap;
+  ">
+    <div style="font-weight:bold;">${label}</div>
+    ${subtitle ? `<div style="font-size:10px;opacity:0.7;">${subtitle}</div>` : ''}
+  </div>`;
+}
+
+// ── Actions Card (expandable sidebar panel) ──
+
+export function actionsCard(inner, opts = {}) {
+  const id = opts.id ? ` id="${opts.id}"` : '';
+  const expanded = opts.expanded || false;
+  return `<div${id} style="
+    flex:1;background:${T.bg2};
+    border:${T.borderW} solid ${T.mint};
+    clip-path:${chamfer('lg')};
+    display:flex;flex-direction:column;overflow:hidden;
+    ${expanded ? '' : 'max-height:44px;'}
+    transition:max-height 0.15s ease;
+  ">${inner}</div>`;
+}
+
+// ── Button Wrap (HTML string helper for btn-wrap class) ──
+
+export function btnWrap(inner, opts = {}) {
+  const id = opts.id ? ` id="${opts.id}"` : '';
+  return `<div class="btn-wrap"${id}>${inner}</div>`;
+}
+
 // ── Message Button (header notification) ──
 
 export function msgButton(count, onClickAttr) {
