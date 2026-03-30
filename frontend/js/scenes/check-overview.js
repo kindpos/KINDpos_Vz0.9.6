@@ -1,28 +1,63 @@
+// ──────────────────────────────────────────────────────────
+//  KINDpos · Check Overview Scene  (Vz1.0)
+//  Two-column live check management screen
+// ──────────────────────────────────────────────────────────
+
 import { registerScene, go } from '../scene-manager.js';
-import { T, chamfer, seatTab, overlayBox, overlayCloseBtn, buildNumpadKey, btnWrap } from '../theme-manager.js';
-import { FALLBACK_ROSTER } from '../config.js';
+import { APP, $, fmtTime } from '../app.js';
+import {
+  T, chamfer, footerLogo, footerTerminalId,
+} from '../theme-manager.js';
 
 registerScene('check-overview', {
   onEnter(el, p) {
     // ── State ──
-    let currentCheck = p.check || p.order || null;
-    let currentSeat = p.seat || 0;
+    const state = {
+      checkId:      p.check_id || (p.check && p.check.id) || (p.order && p.order.id) || null,
+      seats:        ['ALL', 'S1', 'S2'],
+      activeSeat:   'S1',
+      openDropdown: null,
+      items:        [],
+    };
 
-    // Ensure check has a seats structure
+    // Resolve check object from params or APP.orders
+    let currentCheck = p.check || p.order || null;
+    if (!currentCheck && state.checkId) {
+      currentCheck = (APP.orders || []).find(o => o.id === state.checkId) || null;
+    }
+
+    // Ensure seats structure
     if (currentCheck && !currentCheck.seats) {
       currentCheck.seats = [{ items: [] }];
+    }
+
+    // Sync seat tabs from check data
+    if (currentCheck && currentCheck.seats) {
+      state.seats = ['ALL'];
+      currentCheck.seats.forEach((_, i) => state.seats.push(`S${i + 1}`));
+    }
+
+    // Restore active seat from params
+    if (p.seat !== undefined) {
+      if (typeof p.seat === 'number') {
+        state.activeSeat = p.seat === 0 ? 'ALL' : `S${p.seat}`;
+      } else {
+        state.activeSeat = p.seat;
+      }
     }
 
     // If returning from add-items with staged items
     if (p.fromAddItems && p.stagedItems && p.stagedItems.length) {
       if (!currentCheck) {
-        currentCheck = { id: 'C-NEW', seats: [{ items: [] }] };
+        currentCheck = { id: state.checkId || 'C-NEW', seats: [{ items: [] }] };
+        state.seats = ['ALL', 'S1'];
       }
-      if (!currentCheck.seats[currentSeat]) {
-        currentCheck.seats[currentSeat] = { items: [] };
+      const seatIdx = seatIndex(state.activeSeat);
+      if (!currentCheck.seats[seatIdx]) {
+        currentCheck.seats[seatIdx] = { items: [] };
       }
       p.stagedItems.forEach(item => {
-        currentCheck.seats[currentSeat].items.push({
+        currentCheck.seats[seatIdx].items.push({
           ...item,
           id: crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).substr(2, 9),
           state: 'unsent',
@@ -30,149 +65,129 @@ registerScene('check-overview', {
       });
     }
 
-    el.style.position = 'relative';
+    el.style.cssText = 'position:relative;height:100%;display:flex;flex-direction:column;';
 
-    // ── Build Layout ──
-    el.innerHTML = `
-      <div style="display:flex;height:100%;gap:8px;padding:8px;font-family:${T.fb};">
-        ${buildLeftPanel()}
-        ${buildCenterPanel()}
-        ${buildRightPanel()}
-      </div>
-    `;
+    render();
 
-    renderSeatTabs();
-    renderTicketPanel();
-    renderTotals();
+    // Dismiss dropdown on outside click
+    const dismissDropdown = (e) => {
+      if (state.openDropdown !== null && !e.target.closest('.seat-dropdown') && !e.target.closest('.seat-tile')) {
+        state.openDropdown = null;
+        renderSeatZone();
+      }
+    };
+    document.addEventListener('click', dismissDropdown);
 
+    // Toast for added items
     if (p.fromAddItems && p.stagedItems && p.stagedItems.length) {
       showToast(`${p.stagedItems.length} item(s) added`);
     }
 
-    bindButtons();
-
-    // ── Back navigation ──
-    window.onBackRequested = () => {
-      const hasUnsent = currentCheck && currentCheck.seats &&
-        currentCheck.seats.some(s => s.items && s.items.some(i => i.state === 'unsent'));
-      if (hasUnsent) {
-        showExitDialog();
-      } else {
-        go('snapshot');
-      }
-    };
-
     return () => {
-      window.onBackRequested = null;
+      document.removeEventListener('click', dismissDropdown);
     };
 
-    // ═══════════════════════════════════════
-    //  LEFT PANEL (~280px)
-    // ═══════════════════════════════════════
+    // ═══════════════════════════════════════════════════
+    //  HELPERS
+    // ═══════════════════════════════════════════════════
 
-    function buildLeftPanel() {
-      return `<div style="width:280px;display:flex;flex-direction:column;gap:0;">
-        <div style="background:${T.bg2};border:${T.borderW} solid ${T.mint};clip-path:${chamfer('lg')};display:flex;flex-direction:column;flex:1;overflow:hidden;">
-          <div id="co-seat-tabs" style="display:flex;gap:4px;padding:6px 8px;flex-shrink:0;overflow-x:auto;"></div>
-          <div id="co-ticket-items" style="flex:1;overflow-y:auto;padding:6px 10px;"></div>
-          <div id="co-totals" style="padding:8px 10px;border-top:2px solid rgba(198,255,187,0.15);flex-shrink:0;"></div>
-        </div>
-      </div>`;
+    function seatIndex(label) {
+      if (label === 'ALL') return -1;
+      return parseInt(label.replace('S', ''), 10) - 1;
     }
 
-    // ═══════════════════════════════════════
-    //  CENTER PANEL (flex:1)
-    // ═══════════════════════════════════════
-
-    function buildCenterPanel() {
-      return `<div style="flex:1;background:${T.bg};border:${T.borderW} solid ${T.mint};clip-path:${chamfer('lg')};display:flex;align-items:center;justify-content:center;">
-        <span style="color:${T.mintDim};font-family:${T.fb};font-size:20px;user-select:none;">Select action or add items</span>
-      </div>`;
-    }
-
-    // ═══════════════════════════════════════
-    //  RIGHT PANEL (~280px)
-    // ═══════════════════════════════════════
-
-    function buildRightPanel() {
-      return `<div style="width:280px;display:flex;flex-direction:column;gap:8px;">
-        ${buildBtn('co-btn-send', 'SEND', T.mint, T.bg, '56px')}
-        <div style="display:flex;gap:8px;">
-          ${buildBtn('co-btn-hold', 'HOLD', T.yellow, T.bg, '48px', 'flex:1;')}
-          ${buildBtn('co-btn-fire', 'FIRE', T.cyan, T.bg, '48px', 'flex:1;')}
-        </div>
-        ${buildBtn('co-btn-add-item', 'ADD ITEM', T.mint, T.bg, '56px')}
-        <div style="flex:1;"></div>
-        ${buildBtn('co-btn-transfer', 'TRANSFER', T.lavender, T.bg, '42px')}
-        <div style="display:flex;gap:8px;">
-          ${buildBtn('co-btn-pay', 'PAY', T.gold, T.bg, '48px', 'flex:1;')}
-          ${buildBtn('co-btn-print', 'PRINT', T.mint, T.bg, '48px', 'flex:1;')}
-        </div>
-        <div style="display:flex;gap:8px;">
-          ${buildBtn('co-btn-void', 'VOID', T.clrRed, T.mint, '48px', 'flex:1;')}
-          ${buildBtn('co-btn-disc', 'DISC', T.gold, T.bg, '48px', 'flex:1;')}
-        </div>
-      </div>`;
-    }
-
-    function buildBtn(id, label, bg, color, height, extra) {
-      return `<div class="btn-wrap" style="${extra || ''}">
-        <div id="${id}" style="background:${bg};color:${color};font-family:${T.fb};font-size:28px;height:${height};display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;clip-path:${chamfer('md')};">${label}</div>
-      </div>`;
-    }
-
-    // ═══════════════════════════════════════
-    //  TARGETED RENDERS
-    // ═══════════════════════════════════════
-
-    function renderSeatTabs() {
-      const container = document.getElementById('co-seat-tabs');
-      if (!container) return;
-
-      let html = seatTab('ALL', null, { active: currentSeat === 0, data: 'all' });
-
-      if (currentCheck && currentCheck.seats) {
-        currentCheck.seats.forEach((seat, i) => {
-          const isActive = currentSeat === i + 1;
-          const itemCount = seat.items ? seat.items.filter(it => it.state !== 'voided').length : 0;
-          const sub = seat.items ? seat.items.filter(it => it.state !== 'voided').reduce((s, it) => s + (it.price || 0) * (it.qty || 1), 0) : 0;
-          html += seatTab(`S${i + 1}`, `${itemCount} · $${sub.toFixed(2)}`, { active: isActive, data: i + 1 });
-        });
+    function getVisibleItems() {
+      if (!currentCheck || !currentCheck.seats) return [];
+      if (state.activeSeat === 'ALL') {
+        return currentCheck.seats.flatMap(s => s.items || []).filter(i => i.state !== 'voided');
       }
-
-      html += `<div id="co-add-seat" style="
-        flex:0 0 auto;padding:6px 12px;
-        background:${T.bg};color:rgba(198,255,187,0.4);
-        font-family:${T.fb};font-size:13px;cursor:pointer;
-        clip-path:${chamfer('sm')};border:2px dashed rgba(198,255,187,0.3);
-        text-align:center;user-select:none;
-      ">+</div>`;
-
-      container.innerHTML = html;
-
-      container.querySelectorAll('.seat-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-          const d = tab.dataset.id;
-          currentSeat = d === 'all' ? 0 : parseInt(d, 10);
-          renderSeatTabs();
-          renderTicketPanel();
-          renderTotals();
-        });
-      });
-
-      const addSeatBtn = document.getElementById('co-add-seat');
-      if (addSeatBtn) {
-        addSeatBtn.addEventListener('click', () => {
-          if (!currentCheck) return;
-          if (!currentCheck.seats) currentCheck.seats = [];
-          currentCheck.seats.push({ items: [] });
-          currentSeat = currentCheck.seats.length;
-          renderSeatTabs();
-          renderTicketPanel();
-          renderTotals();
-        });
-      }
+      const idx = seatIndex(state.activeSeat);
+      const seat = currentCheck.seats[idx];
+      return seat ? (seat.items || []).filter(i => i.state !== 'voided') : [];
     }
+
+    function seatTotal(label) {
+      if (!currentCheck || !currentCheck.seats) return 0;
+      if (label === 'ALL') {
+        return currentCheck.seats.reduce((sum, s) =>
+          sum + (s.items || []).filter(i => i.state !== 'voided').reduce((a, i) => a + (i.price || 0) * (i.qty || 1), 0), 0);
+      }
+      const idx = seatIndex(label);
+      const seat = currentCheck.seats[idx];
+      if (!seat) return 0;
+      return (seat.items || []).filter(i => i.state !== 'voided').reduce((a, i) => a + (i.price || 0) * (i.qty || 1), 0);
+    }
+
+    function showToast(message) {
+      const toast = document.createElement('div');
+      toast.style.cssText = `position:absolute;top:16px;left:50%;transform:translateX(-50%);z-index:200;
+        background:rgba(0,0,0,0.85);color:${T.mint};font-family:${T.fb};font-size:18px;
+        padding:8px 24px;clip-path:${chamfer('md')};pointer-events:none;`;
+      toast.textContent = message;
+      el.appendChild(toast);
+      setTimeout(() => toast.remove(), 2000);
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  FULL RENDER
+    // ═══════════════════════════════════════════════════
+
+    function render() {
+      const now = fmtTime();
+      const checkLabel = state.checkId || 'NEW';
+
+      el.innerHTML = `
+        <!-- TOPBAR -->
+        <div style="height:38px;background:${T.mint};display:flex;align-items:center;justify-content:space-between;padding:0 14px;flex-shrink:0;">
+          <span style="color:${T.bg};font-family:${T.fh};font-size:20px;">
+            ${now} &lt;&gt; ${checkLabel} // Check Overview
+          </span>
+        </div>
+
+        <!-- BODY: two columns -->
+        <div style="flex:1;display:flex;overflow:hidden;">
+          <!-- LEFT: TICKET COLUMN 38% -->
+          <div style="width:38%;display:flex;flex-direction:column;border-right:3px solid ${T.mint};">
+            <div id="co-ticket-items" style="flex:1;overflow-y:auto;padding:8px 12px;"></div>
+            <div id="co-totals" style="padding:8px 12px;border-top:2px solid rgba(198,255,187,0.15);flex-shrink:0;"></div>
+          </div>
+
+          <!-- RIGHT COLUMN -->
+          <div style="flex:1;display:flex;flex-direction:column;">
+            <!-- SEAT ZONE (top, flex:1) -->
+            <div id="co-seat-zone" style="flex:1;padding:10px;overflow-y:auto;position:relative;"></div>
+
+            <!-- ACTION CLUSTER (bottom, 160px) -->
+            <div id="co-action-cluster" style="height:160px;flex-shrink:0;border-top:3px solid ${T.mint};"></div>
+          </div>
+        </div>
+
+        <!-- FOOTER -->
+        <div style="height:38px;background:${T.bg2};border-top:3px solid ${T.mint};display:flex;align-items:center;padding:0;flex-shrink:0;">
+          <div style="min-width:180px;padding:0 12px;border-right:3px solid ${T.mint};display:flex;gap:16px;align-items:center;height:100%;">
+            <span style="font-family:${T.fb};font-size:12px;color:rgba(198,255,187,0.5);">Card</span>
+            <span style="font-family:${T.fb};font-size:14px;color:${T.gold};">$0.00</span>
+            <span style="font-family:${T.fb};font-size:12px;color:rgba(198,255,187,0.5);">Cash</span>
+            <span style="font-family:${T.fb};font-size:14px;color:${T.gold};">$0.00</span>
+          </div>
+          <div style="flex:1;"></div>
+          <div style="padding:0 12px;border-left:3px solid ${T.mint};display:flex;align-items:center;gap:8px;height:100%;">
+            ${footerTerminalId()}
+            <span style="background:${T.clockGold};color:${T.bg};padding:2px 8px;font-family:${T.fb};font-size:12px;font-weight:bold;clip-path:${chamfer('sm')};">[ mgr ]</span>
+            ${footerLogo()}
+          </div>
+        </div>
+      `;
+
+      renderTicketPanel();
+      renderTotals();
+      renderSeatZone();
+      renderActionCluster();
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  TICKET COLUMN (left)
+    // ═══════════════════════════════════════════════════
 
     function renderTicketPanel() {
       const container = document.getElementById('co-ticket-items');
@@ -181,23 +196,21 @@ registerScene('check-overview', {
       const items = getVisibleItems();
 
       if (items.length === 0) {
-        container.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:${T.mintDim};font-family:${T.fb};font-size:18px;user-select:none;">NO ITEMS</div>`;
+        container.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(198,255,187,0.35);font-family:${T.fb};font-size:18px;user-select:none;">NO ITEMS</div>`;
         return;
       }
 
       container.innerHTML = items.map(item => {
         const stateColor = item.state === 'unsent' ? 'rgba(198,255,187,0.5)' : T.mint;
-        let html = `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:22px;">
-          <span style="color:${stateColor};">x${item.qty || 1} ${item.name}</span>
-          <span style="color:${T.gold};">$${((item.price || 0) * (item.qty || 1)).toFixed(2)}</span>
+        let html = `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:18px;">
+          <span style="color:${stateColor};font-family:${T.fb};">x${item.qty || 1} ${item.name}</span>
+          <span style="color:${T.gold};font-family:${T.fb};">$${((item.price || 0) * (item.qty || 1)).toFixed(2)}</span>
         </div>`;
         if (item.modifiers && item.modifiers.length) {
           item.modifiers.forEach(mod => {
             html += `<div style="padding:1px 0 1px 16px;">
-              <span style="background:${T.gold};color:${T.bg};font-size:18px;padding:1px 6px;clip-path:${chamfer('sm')};">
-                ${mod.prefix || ''} ${mod.name}
-              </span>
-              ${mod.price > 0 ? `<span style="color:${T.gold};font-size:18px;margin-left:6px;">$${mod.price.toFixed(2)}</span>` : ''}
+              <span style="color:${T.gold};font-family:${T.fb};font-size:13px;">${mod.prefix || ''} ${mod.name}</span>
+              ${mod.price > 0 ? `<span style="color:${T.gold};font-family:${T.fb};font-size:13px;margin-left:6px;">$${mod.price.toFixed(2)}</span>` : ''}
             </div>`;
           });
         }
@@ -217,418 +230,232 @@ registerScene('check-overview', {
       }, 0);
       const sub = subtotal + modTotal;
       const tax = sub * 0.08;
-      const total = sub + tax;
 
       container.innerHTML = `
-        <div style="display:flex;justify-content:space-between;font-size:16px;">
-          <span style="color:${T.mint};">Subtotal</span>
-          <span style="color:${T.gold};">$${sub.toFixed(2)}</span>
+        <div style="display:flex;justify-content:space-between;font-size:14px;">
+          <span style="color:rgba(198,255,187,0.5);font-family:${T.fb};">Subtotal</span>
+          <span style="color:${T.gold};font-family:${T.fb};">$${sub.toFixed(2)}</span>
         </div>
-        <div style="display:flex;justify-content:space-between;font-size:16px;">
-          <span style="color:${T.mint};">Tax</span>
-          <span style="color:${T.gold};">$${tax.toFixed(2)}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:20px;font-weight:bold;margin-top:4px;">
-          <span style="color:${T.mint};">Total</span>
-          <span style="color:${T.gold};">$${total.toFixed(2)}</span>
-        </div>
-        <div style="margin-top:6px;border-top:1px solid rgba(198,255,187,0.1);padding-top:4px;">
-          <div style="display:flex;justify-content:space-between;font-size:14px;">
-            <span style="color:${T.mint};">Card Total</span>
-            <span style="color:${T.gold};">$0.00</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:14px;">
-            <span style="color:${T.mint};">Cash Total</span>
-            <span style="color:${T.gold};">$0.00</span>
-          </div>
+        <div style="display:flex;justify-content:space-between;font-size:14px;">
+          <span style="color:rgba(198,255,187,0.5);font-family:${T.fb};">Tax</span>
+          <span style="color:${T.gold};font-family:${T.fb};">$${tax.toFixed(2)}</span>
         </div>
       `;
     }
 
-    // ═══════════════════════════════════════
-    //  HELPERS
-    // ═══════════════════════════════════════
+    // ═══════════════════════════════════════════════════
+    //  SEAT ZONE (right top)
+    // ═══════════════════════════════════════════════════
 
-    function getVisibleItems() {
-      if (!currentCheck || !currentCheck.seats) return [];
-      if (currentSeat === 0) {
-        return currentCheck.seats.flatMap(s => s.items || []).filter(i => i.state !== 'voided');
-      }
-      const seat = currentCheck.seats[currentSeat - 1];
-      return seat ? (seat.items || []).filter(i => i.state !== 'voided') : [];
-    }
+    function renderSeatZone() {
+      const zone = document.getElementById('co-seat-zone');
+      if (!zone) return;
 
-    function showToast(message) {
-      const toast = document.createElement('div');
-      toast.style.cssText = `position:absolute;top:16px;left:50%;transform:translateX(-50%);z-index:200;
-        background:rgba(0,0,0,0.8);color:${T.mint};font-family:${T.fb};font-size:20px;
-        padding:8px 24px;clip-path:${chamfer('md')};pointer-events:none;`;
-      toast.textContent = message;
-      el.appendChild(toast);
-      setTimeout(() => toast.remove(), 2000);
-    }
+      // Seat tiles row
+      let tilesHtml = '';
+      state.seats.forEach(label => {
+        const isActive = label === state.activeSeat;
+        const total = seatTotal(label);
+        const border = isActive ? `7px solid ${T.mint}` : '3px solid #555';
+        const bg = isActive ? '#1a2e1a' : T.bg2;
 
-    function createOverlay() {
-      const overlay = document.createElement('div');
-      overlay.style.cssText = `position:absolute;inset:0;z-index:150;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);`;
-      return overlay;
-    }
+        tilesHtml += `<div class="seat-tile" data-seat="${label}" style="
+          width:110px;height:100px;
+          border:${border};background:${bg};
+          display:flex;flex-direction:column;align-items:center;justify-content:center;
+          cursor:pointer;user-select:none;flex-shrink:0;
+        ">
+          <span style="font-family:${T.fb};font-size:18px;color:${T.mint};font-weight:900;letter-spacing:2px;">${label}</span>
+          <span style="font-family:${T.fb};font-size:14px;color:${T.gold};margin-top:4px;">$${total.toFixed(2)}</span>
+        </div>`;
+      });
 
-    // ═══════════════════════════════════════
-    //  MODALS
-    // ═══════════════════════════════════════
+      // Add seat tile (+)
+      tilesHtml += `<div id="co-add-seat-tile" style="
+        width:110px;height:100px;
+        border:3px dashed #555;background:${T.bg2};
+        display:flex;align-items:center;justify-content:center;
+        cursor:pointer;user-select:none;flex-shrink:0;
+        color:rgba(198,255,187,0.4);font-family:${T.fb};font-size:32px;
+      ">+</div>`;
 
-    // 1. Exit Dialog — unsent items warning
-    function showExitDialog() {
-      const overlay = createOverlay();
-      const inner = `
-        <div style="color:${T.mint};font-family:${T.fb};font-size:22px;text-align:center;margin-bottom:8px;">
-          You have unsent items
+      zone.innerHTML = `
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          ${tilesHtml}
         </div>
-        <div style="display:flex;flex-direction:column;gap:10px;">
-          ${btnWrap(`<div id="exit-send" style="background:${T.goGreen};color:${T.bg};font-family:${T.fb};font-size:26px;height:50px;display:flex;align-items:center;justify-content:center;cursor:pointer;clip-path:${chamfer('md')};">Send All & Exit</div>`)}
-          ${btnWrap(`<div id="exit-discard" style="background:${T.clrRed};color:${T.mint};font-family:${T.fb};font-size:26px;height:50px;display:flex;align-items:center;justify-content:center;cursor:pointer;clip-path:${chamfer('md')};">Discard & Exit</div>`)}
-        </div>
+        <div id="co-dropdown-anchor" style="position:relative;"></div>
       `;
-      overlay.innerHTML = overlayBox(inner, { width: '400px' });
 
-      // Close button
-      const closeDiv = document.createElement('div');
-      closeDiv.style.cssText = `position:absolute;top:12px;right:12px;z-index:160;`;
-      closeDiv.innerHTML = overlayCloseBtn();
-      closeDiv.addEventListener('click', () => overlay.remove());
-      overlay.querySelector('[style*="position:absolute"]')?.appendChild(closeDiv) || overlay.appendChild(closeDiv);
-
-      el.appendChild(overlay);
-
-      overlay.querySelector('#exit-send')?.addEventListener('click', () => {
-        if (currentCheck && currentCheck.seats) {
-          currentCheck.seats.forEach(s => {
-            if (s.items) s.items.forEach(i => { if (i.state === 'unsent') i.state = 'sent'; });
-          });
-        }
-        overlay.remove();
-        go('snapshot');
-      });
-
-      overlay.querySelector('#exit-discard')?.addEventListener('click', () => {
-        if (currentCheck && currentCheck.seats) {
-          currentCheck.seats.forEach(s => {
-            s.items = (s.items || []).filter(i => i.state !== 'unsent');
-          });
-        }
-        overlay.remove();
-        go('snapshot');
-      });
-
-      // Close on clicking backdrop
-      overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) overlay.remove();
-      });
-    }
-
-    // 2. Transfer Modal — select server to transfer check
-    function showTransferModal() {
-      const overlay = createOverlay();
-      const serverBtns = FALLBACK_ROSTER.map(s =>
-        `${btnWrap(`<div class="transfer-pick" data-id="${s.id}" style="background:${T.mint};color:${T.bg};font-family:${T.fb};font-size:24px;height:46px;display:flex;align-items:center;justify-content:center;cursor:pointer;clip-path:${chamfer('md')};">${s.name} [${s.role}]</div>`)}`
-      ).join('');
-
-      const inner = `
-        <div style="color:${T.mint};font-family:${T.fb};font-size:22px;text-align:center;margin-bottom:8px;">
-          Transfer to Server
-        </div>
-        <div style="display:flex;flex-direction:column;gap:8px;">
-          ${serverBtns}
-        </div>
-      `;
-      overlay.innerHTML = overlayBox(inner, { width: '380px' });
-
-      const closeDiv = document.createElement('div');
-      closeDiv.style.cssText = `position:absolute;top:12px;right:12px;z-index:160;`;
-      closeDiv.innerHTML = overlayCloseBtn();
-      closeDiv.addEventListener('click', () => overlay.remove());
-      overlay.appendChild(closeDiv);
-
-      el.appendChild(overlay);
-
-      overlay.querySelectorAll('.transfer-pick').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const serverId = btn.dataset.id;
-          const server = FALLBACK_ROSTER.find(s => s.id === serverId);
-          if (currentCheck && server) {
-            currentCheck.server = server.name;
+      // Bind tile clicks
+      zone.querySelectorAll('.seat-tile').forEach(tile => {
+        tile.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const label = tile.dataset.seat;
+          if (state.activeSeat !== label) {
+            state.activeSeat = label;
+            renderTicketPanel();
+            renderTotals();
           }
-          overlay.remove();
-          showToast(`Transferred to ${server ? server.name : 'server'}`);
+          state.openDropdown = state.openDropdown === label ? null : label;
+          renderSeatZone();
         });
       });
 
-      overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) overlay.remove();
+      // Add seat
+      document.getElementById('co-add-seat-tile')?.addEventListener('click', () => {
+        if (!currentCheck) return;
+        if (!currentCheck.seats) currentCheck.seats = [];
+        currentCheck.seats.push({ items: [] });
+        const newLabel = `S${currentCheck.seats.length}`;
+        state.seats.push(newLabel);
+        state.activeSeat = newLabel;
+        state.openDropdown = null;
+        renderSeatZone();
+        renderTicketPanel();
+        renderTotals();
       });
+
+      // Render dropdown if open
+      if (state.openDropdown !== null) {
+        renderDropdownCard(state.openDropdown);
+      }
     }
 
-    // 3. PIN Gate — manager PIN required for protected actions
-    function showPinGate(onSuccess) {
-      const overlay = createOverlay();
-      let pin = '';
+    function renderDropdownCard(seatLabel) {
+      const anchor = document.getElementById('co-dropdown-anchor');
+      if (!anchor) return;
 
-      function renderPinUI() {
-        const dots = Array.from({ length: 4 }, (_, i) =>
-          `<div style="width:36px;height:40px;background:${i < pin.length ? T.mint : '#444'};border:2px solid ${T.mint};clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);display:flex;align-items:center;justify-content:center;"></div>`
-        ).join('');
+      const isAll = seatLabel === 'ALL';
 
-        const inner = `
-          <div style="color:${T.mint};font-family:${T.fb};font-size:20px;text-align:center;margin-bottom:8px;">
-            Manager PIN Required
+      const buttons = isAll
+        ? [
+            { label: 'PRINT',    border: T.mint,     color: T.mint,     bg: T.bg2 },
+            { label: 'TRANSFER', border: '#8a5eba',   color: T.bg2,      bg: T.lavender },
+            { label: 'COMP',     border: T.gold,      color: T.gold,     bg: T.bg2 },
+            { label: 'VOID',     border: '#900',      color: '#fff',     bg: T.red },
+          ]
+        : [
+            { label: 'PRINT',       border: T.mint,     color: T.mint,     bg: T.bg2 },
+            { label: 'TRANSFER',    border: '#8a5eba',   color: T.bg2,      bg: T.lavender },
+            { label: 'MOVE ITEMS',  border: T.cyan,      color: T.cyan,     bg: T.bg2 },
+            { label: 'COMP',        border: T.gold,      color: T.gold,     bg: T.bg2 },
+            { label: 'VOID',        border: '#900',      color: '#fff',     bg: T.red },
+            { label: 'REMOVE SEAT', border: T.red,       color: T.red,      bg: T.bg2 },
+          ];
+
+      const btnHtml = buttons.map(b => `
+        <div class="dropdown-action" data-action="${b.label}" style="
+          width:100%;padding:9px 0;
+          border:2px solid ${b.border};
+          color:${b.color};background:${b.bg};
+          font-family:${T.fb};font-size:12px;font-weight:900;letter-spacing:2px;
+          text-align:center;cursor:pointer;user-select:none;
+        ">${b.label}</div>
+      `).join('');
+
+      anchor.innerHTML = `
+        <div class="seat-dropdown" style="
+          background:${T.bg2};border:2px solid ${T.mint};padding:8px;
+          margin-top:8px;max-width:260px;
+          display:flex;flex-direction:column;gap:6px;
+        ">
+          <div style="background:${T.mint};color:${T.bg};font-family:${T.fb};font-size:12px;font-weight:900;letter-spacing:2px;padding:4px 8px;text-align:center;">
+            ${seatLabel} OPTIONS
           </div>
-          <div id="pin-dots" style="display:flex;justify-content:center;gap:8px;margin-bottom:12px;">
-            ${dots}
-          </div>
-          <div id="pin-error" style="min-height:24px;text-align:center;"></div>
-          <div id="pin-pad" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;"></div>
-        `;
-        overlay.innerHTML = overlayBox(inner, { width: '320px' });
+          ${btnHtml}
+        </div>
+      `;
 
-        const closeDiv = document.createElement('div');
-        closeDiv.style.cssText = `position:absolute;top:12px;right:12px;z-index:160;`;
-        closeDiv.innerHTML = overlayCloseBtn();
-        closeDiv.addEventListener('click', () => overlay.remove());
-        overlay.appendChild(closeDiv);
+      // Bind dropdown actions
+      anchor.querySelectorAll('.dropdown-action').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const action = btn.dataset.action;
+          state.openDropdown = null;
 
-        // Build numpad
-        const pad = overlay.querySelector('#pin-pad');
-        if (pad) {
-          const keys = ['1','2','3','4','5','6','7','8','9','CLR','0','>>>'];
-          keys.forEach(key => {
-            const k = buildNumpadKey(key, {
-              onPress: () => {
-                if (key === 'CLR') {
-                  pin = '';
-                  renderPinUI();
-                } else if (key === '>>>') {
-                  validatePin();
-                } else if (pin.length < 4) {
-                  pin += key;
-                  renderPinUI();
-                  if (pin.length === 4) setTimeout(validatePin, 150);
-                }
+          if (action === 'REMOVE SEAT') {
+            const idx = seatIndex(seatLabel);
+            if (currentCheck && currentCheck.seats && idx >= 0) {
+              currentCheck.seats.splice(idx, 1);
+              state.seats = ['ALL'];
+              currentCheck.seats.forEach((_, i) => state.seats.push(`S${i + 1}`));
+              if (state.activeSeat === seatLabel) {
+                state.activeSeat = state.seats.length > 1 ? state.seats[1] : 'ALL';
               }
-            });
-            pad.appendChild(k);
-          });
-        }
-      }
-
-      function validatePin() {
-        const manager = FALLBACK_ROSTER.find(s => s.role === 'manager' && s.pin === pin);
-        if (manager) {
-          overlay.remove();
-          onSuccess();
-        } else {
-          pin = '';
-          renderPinUI();
-          const errEl = overlay.querySelector('#pin-error');
-          if (errEl) {
-            errEl.innerHTML = `<span style="color:${T.red};font-family:${T.fb};font-size:16px;">Invalid PIN</span>`;
+            }
+            renderSeatZone();
+            renderTicketPanel();
+            renderTotals();
+          } else {
+            showToast(`${action} — ${seatLabel}`);
+            renderSeatZone();
           }
-        }
-      }
-
-      el.appendChild(overlay);
-      renderPinUI();
-
-      overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) overlay.remove();
-      });
-    }
-
-    // 4. Comp Dialog — apply comp reason to item(s)
-    function showCompDialog() {
-      const overlay = createOverlay();
-      const reasons = ['Manager Comp', 'Food Quality', 'Service Issue', 'Regular Guest', 'Promo'];
-      const reasonBtns = reasons.map(r =>
-        `${btnWrap(`<div class="comp-reason" data-reason="${r}" style="background:${T.gold};color:${T.bg};font-family:${T.fb};font-size:22px;height:44px;display:flex;align-items:center;justify-content:center;cursor:pointer;clip-path:${chamfer('md')};">${r}</div>`)}`
-      ).join('');
-
-      const inner = `
-        <div style="color:${T.mint};font-family:${T.fb};font-size:22px;text-align:center;margin-bottom:8px;">
-          Select Comp Reason
-        </div>
-        <div style="display:flex;flex-direction:column;gap:8px;">
-          ${reasonBtns}
-        </div>
-      `;
-      overlay.innerHTML = overlayBox(inner, { width: '380px' });
-
-      const closeDiv = document.createElement('div');
-      closeDiv.style.cssText = `position:absolute;top:12px;right:12px;z-index:160;`;
-      closeDiv.innerHTML = overlayCloseBtn();
-      closeDiv.addEventListener('click', () => overlay.remove());
-      overlay.appendChild(closeDiv);
-
-      el.appendChild(overlay);
-
-      overlay.querySelectorAll('.comp-reason').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const reason = btn.dataset.reason;
-          overlay.remove();
-          showToast(`Comp applied: ${reason}`);
         });
       });
-
-      overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) overlay.remove();
-      });
     }
 
-    // 5. Payment Overlay
-    function showPaymentOverlay() {
-      const overlay = createOverlay();
-      const items = getVisibleItems();
-      const subtotal = items.reduce((s, i) => s + (i.price || 0) * (i.qty || 1), 0);
-      const modTotal = items.reduce((s, i) => {
-        if (!i.modifiers) return s;
-        return s + i.modifiers.reduce((ms, m) => ms + (m.price || 0), 0);
-      }, 0);
-      const total = (subtotal + modTotal) * 1.08;
+    // ═══════════════════════════════════════════════════
+    //  ACTION CLUSTER (right bottom, 160px)
+    // ═══════════════════════════════════════════════════
 
-      const inner = `
-        <div style="color:${T.mint};font-family:${T.fb};font-size:22px;text-align:center;margin-bottom:4px;">
-          Payment — $${total.toFixed(2)}
-        </div>
-        <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px;">
-          ${btnWrap(`<div id="pay-card" style="background:${T.gold};color:${T.bg};font-family:${T.fb};font-size:26px;height:54px;display:flex;align-items:center;justify-content:center;cursor:pointer;clip-path:${chamfer('md')};">CARD</div>`)}
-          ${btnWrap(`<div id="pay-cash" style="background:${T.goGreen};color:${T.bg};font-family:${T.fb};font-size:26px;height:54px;display:flex;align-items:center;justify-content:center;cursor:pointer;clip-path:${chamfer('md')};">CASH</div>`)}
-          ${btnWrap(`<div id="pay-split" style="background:${T.cyan};color:${T.bg};font-family:${T.fb};font-size:26px;height:54px;display:flex;align-items:center;justify-content:center;cursor:pointer;clip-path:${chamfer('md')};">SPLIT</div>`)}
+    function renderActionCluster() {
+      const cluster = document.getElementById('co-action-cluster');
+      if (!cluster) return;
+
+      cluster.innerHTML = `
+        <div style="display:grid;grid-template-columns:2fr 1.2fr 2fr;height:100%;">
+          <!-- ADD ITEM (left, spans both rows) -->
+          <div id="co-btn-add-item" style="
+            background:${T.mint};color:${T.bg};
+            font-family:${T.fb};font-size:16px;font-weight:900;
+            display:flex;align-items:center;justify-content:center;
+            cursor:pointer;user-select:none;
+            border-right:3px solid ${T.mint};
+          ">ADD ITEM</div>
+
+          <!-- CENTER: HOLD + FIRE stacked -->
+          <div style="display:flex;flex-direction:column;border-right:3px solid ${T.mint};">
+            <div id="co-btn-hold" style="
+              flex:1;background:${T.cyan};color:${T.bg};
+              font-family:${T.fb};font-size:15px;font-weight:900;
+              display:flex;align-items:center;justify-content:center;
+              cursor:pointer;user-select:none;
+              border-bottom:2px solid ${T.mint};
+            ">HOLD</div>
+            <div id="co-btn-fire" style="
+              flex:1;background:${T.red};color:#fff;
+              font-family:${T.fb};font-size:15px;font-weight:900;
+              display:flex;align-items:center;justify-content:center;
+              cursor:pointer;user-select:none;
+            ">FIRE</div>
+          </div>
+
+          <!-- SEND (right, spans both rows) -->
+          <div id="co-btn-send" style="
+            background:#3a9a3a;color:${T.mint};
+            font-family:${T.fb};font-size:22px;font-weight:900;
+            display:flex;align-items:center;justify-content:center;
+            cursor:pointer;user-select:none;
+          ">SEND</div>
         </div>
       `;
-      overlay.innerHTML = overlayBox(inner, { width: '380px' });
 
-      const closeDiv = document.createElement('div');
-      closeDiv.style.cssText = `position:absolute;top:12px;right:12px;z-index:160;`;
-      closeDiv.innerHTML = overlayCloseBtn();
-      closeDiv.addEventListener('click', () => overlay.remove());
-      overlay.appendChild(closeDiv);
-
-      el.appendChild(overlay);
-
-      overlay.querySelector('#pay-card')?.addEventListener('click', () => {
-        overlay.remove();
-        showToast('Card payment processing...');
-      });
-      overlay.querySelector('#pay-cash')?.addEventListener('click', () => {
-        overlay.remove();
-        showToast('Cash payment processing...');
-      });
-      overlay.querySelector('#pay-split')?.addEventListener('click', () => {
-        overlay.remove();
-        showToast('Split payment processing...');
-      });
-
-      overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) overlay.remove();
-      });
-    }
-
-    // 6. Move to Seat Menu
-    function showMoveToSeatMenu(item) {
-      if (!currentCheck || !currentCheck.seats) return;
-      const overlay = createOverlay();
-
-      const seatBtns = currentCheck.seats.map((s, i) =>
-        `${btnWrap(`<div class="seat-move-pick" data-seat="${i}" style="background:${T.mint};color:${T.bg};font-family:${T.fb};font-size:22px;height:42px;display:flex;align-items:center;justify-content:center;cursor:pointer;clip-path:${chamfer('md')};">Seat ${i + 1}</div>`)}`
-      ).join('');
-
-      const inner = `
-        <div style="color:${T.mint};font-family:${T.fb};font-size:20px;text-align:center;margin-bottom:8px;">
-          Move "${item.name}" to Seat
-        </div>
-        <div style="display:flex;flex-direction:column;gap:8px;">
-          ${seatBtns}
-        </div>
-      `;
-      overlay.innerHTML = overlayBox(inner, { width: '340px' });
-
-      const closeDiv = document.createElement('div');
-      closeDiv.style.cssText = `position:absolute;top:12px;right:12px;z-index:160;`;
-      closeDiv.innerHTML = overlayCloseBtn();
-      closeDiv.addEventListener('click', () => overlay.remove());
-      overlay.appendChild(closeDiv);
-
-      el.appendChild(overlay);
-
-      overlay.querySelectorAll('.seat-move-pick').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const targetSeatIdx = parseInt(btn.dataset.seat, 10);
-          // Remove item from current seat
-          for (const s of currentCheck.seats) {
-            const idx = (s.items || []).indexOf(item);
-            if (idx > -1) { s.items.splice(idx, 1); break; }
-          }
-          // Add to target seat
-          if (!currentCheck.seats[targetSeatIdx]) {
-            currentCheck.seats[targetSeatIdx] = { items: [] };
-          }
-          currentCheck.seats[targetSeatIdx].items.push(item);
-          overlay.remove();
-          renderSeatTabs();
-          renderTicketPanel();
-          renderTotals();
-          showToast(`Moved to Seat ${targetSeatIdx + 1}`);
-        });
-      });
-
-      overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) overlay.remove();
-      });
-    }
-
-    // ═══════════════════════════════════════
-    //  BUTTON BINDINGS
-    // ═══════════════════════════════════════
-
-    function bindButtons() {
+      // Bind action buttons
       document.getElementById('co-btn-add-item')?.addEventListener('click', () => {
-        go('add-items', { check: currentCheck, seat: currentSeat, mode: 'items' });
-      });
-
-      document.getElementById('co-btn-send')?.addEventListener('click', () => {
-        handleSend();
+        const seatIdx = state.activeSeat === 'ALL' ? 0 : seatIndex(state.activeSeat);
+        go('add-items', { check: currentCheck, seat: seatIdx, mode: 'items' });
       });
 
       document.getElementById('co-btn-hold')?.addEventListener('click', () => {
-        console.log('HOLD tapped');
         showToast('Hold applied');
       });
 
       document.getElementById('co-btn-fire')?.addEventListener('click', () => {
-        console.log('FIRE tapped');
         showToast('Fire sent');
       });
 
-      document.getElementById('co-btn-pay')?.addEventListener('click', () => {
-        showPaymentOverlay();
-      });
-
-      document.getElementById('co-btn-print')?.addEventListener('click', () => {
-        console.log('PRINT tapped');
-        showToast('Printing...');
-      });
-
-      document.getElementById('co-btn-void')?.addEventListener('click', () => {
-        showPinGate(() => {
-          showToast('Void applied');
-        });
-      });
-
-      document.getElementById('co-btn-disc')?.addEventListener('click', () => {
-        showPinGate(() => showCompDialog());
-      });
-
-      document.getElementById('co-btn-transfer')?.addEventListener('click', () => {
-        showTransferModal();
+      document.getElementById('co-btn-send')?.addEventListener('click', () => {
+        handleSend();
       });
     }
 
