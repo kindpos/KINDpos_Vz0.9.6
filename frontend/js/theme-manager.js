@@ -585,3 +585,102 @@ export function msgButton(count, onClickAttr) {
     justify-content:center;
   "${handler}>msg(${count})</div>`;
 }
+
+// ═══════════════════════════════════════════════════
+//  Payment Components
+// ═══════════════════════════════════════════════════
+
+// ── Denomination Button (cash quick-select) ──
+
+export function denomBtn(amount, opts = {}) {
+  const w = opts.width || '100px';
+  const h = opts.height || '64px';
+  const handler = opts.onClick
+    ? ` onclick="${opts.onClick}"`
+    : ` onclick="addCashAmount(${amount})"`;
+  return `<div style="
+    width:${w};
+    height:${h};
+    background:${T.mint};
+    color:${T.bg2};
+    font-family:${T.fb};
+    font-size:28px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    user-select:none;
+    clip-path:${chamfer('md')};
+  "${handler}>$${amount}</div>`;
+}
+
+// ── Amount Display (gold readout in sunken panel) ──
+
+export function amountDisplay(value, opts = {}) {
+  const w = opts.width || '100%';
+  const fs = opts.fontSize || '36px';
+  return `<div style="
+    width:${w};
+    background:${T.bg2};
+    border:2px solid ${T.gold};
+    color:${T.gold};
+    font-family:${T.fb};
+    font-size:${fs};
+    padding:12px 16px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    clip-path:${chamfer('lg')};
+  ">$${typeof value === 'number' ? value.toFixed(2) : value}</div>`;
+}
+
+// ── Tender Summary (subtotal/tax + card/cash totals) ──
+
+export function tenderSummary(subtotal, tax, cardTotal, cashTotal) {
+  const row = (label, val) => `<div style="display:flex;justify-content:space-between;align-items:center;">
+    <span style="color:${T.mint};font-family:${T.fb};font-size:15px;">${label}</span>
+    <span style="color:${T.gold};font-family:${T.fb};font-size:15px;">$${val.toFixed(2)}</span>
+  </div>`;
+  const panel = (inner) => `<div style="
+    background:${T.bg2};
+    border:2px solid ${T.mint};
+    clip-path:${chamfer('md')};
+    padding:10px 14px;
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+  ">${inner}</div>`;
+  return `<div style="display:flex;flex-direction:column;gap:8px;">
+    ${panel(row('Subtotal', subtotal) + row('Tax', tax))}
+    ${panel(row('Card Total', cardTotal) + row('Cash Total', cashTotal))}
+  </div>`;
+}
+
+// ── Payment Method Button (CARD or CASH) ──
+
+export function paymentMethodBtn(method, opts = {}) {
+  const id = opts.id ? ` id="${opts.id}"` : '';
+  const handler = opts.onClick ? ` onclick="${opts.onClick}"` : '';
+  const w = opts.width || '100%';
+  const h = opts.height || '64px';
+  const isCard = method.toUpperCase() === 'CARD';
+  const bg = isCard ? T.bg : T.goGreen;
+  const color = isCard ? T.cyan : T.bg;
+  const border = isCard ? `border:2px solid ${T.cyan};` : 'border:none;';
+  const inner = `<div${id} style="
+    width:${w};
+    height:${h};
+    background:${bg};
+    color:${color};
+    ${border}
+    font-family:${T.fb};
+    font-size:28px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    user-select:none;
+    clip-path:${chamfer('lg')};
+  "${handler}>${method.toUpperCase()}</div>`;
+  return btnWrap(inner);
+}
