@@ -176,6 +176,23 @@ export class HexEngine {
     this.onBack = opts.onBack || (() => {});
     this.sizeKey = opts.sizeKey || 'category';
 
+    // Per-level hex dimensions (caller can override defaults)
+    this._sizes = opts.sizes || HEX_SIZES;
+    this._outer = Object.freeze({
+      category: {
+        w: this._sizes.category.w + BORDER_WIDTH * 2,
+        h: this._sizes.category.h + BORDER_WIDTH * 2,
+      },
+      item: {
+        w: this._sizes.item.w + BORDER_WIDTH * 2,
+        h: this._sizes.item.h + BORDER_WIDTH * 2,
+      },
+      modifier: {
+        w: this._sizes.modifier.w + BORDER_WIDTH * 2,
+        h: this._sizes.modifier.h + BORDER_WIDTH * 2,
+      },
+    });
+
     this._stack = [];
     this._elements = [];
 
@@ -261,7 +278,7 @@ export class HexEngine {
     const depth = this._stack.length;
     const sizeKeys = ['category', 'item', 'modifier'];
     const currentSizeKey = sizeKeys[Math.min(depth, sizeKeys.length - 1)];
-    const outerSize = OUTER[currentSizeKey];
+    const outerSize = this._outer[currentSizeKey];
     const hexRadius = outerSize.w / 2;
 
     let positions;
@@ -327,8 +344,8 @@ export class HexEngine {
       const el = buildHexButton(item.label, {
         color: item.color || T.mint,
         disabled: item.disabled || false,
-        width: HEX_SIZES[currentSizeKey].w + 'px',
-        height: HEX_SIZES[currentSizeKey].h + 'px',
+        width: this._sizes[currentSizeKey].w + 'px',
+        height: this._sizes[currentSizeKey].h + 'px',
         data: item,
         onClick: () => this._onHexClick(item, pos, i),
       });
@@ -388,13 +405,13 @@ export class HexEngine {
     const newEl = buildHexButton(item.label, {
       color: item.color || T.mint,
       selected: true,
-      width: HEX_SIZES[currentSizeKey].w + 'px',
-      height: HEX_SIZES[currentSizeKey].h + 'px',
+      width: this._sizes[currentSizeKey].w + 'px',
+      height: this._sizes[currentSizeKey].h + 'px',
       data: item,
       onClick: () => this._onHexClick(item,
         {
-          x: parseFloat(el.style.left) + OUTER[currentSizeKey].w / 2,
-          y: parseFloat(el.style.top) + OUTER[currentSizeKey].h / 2,
+          x: parseFloat(el.style.left) + this._outer[currentSizeKey].w / 2,
+          y: parseFloat(el.style.top) + this._outer[currentSizeKey].h / 2,
         },
         index
       ),
@@ -426,7 +443,7 @@ export class HexEngine {
     const depth = this._stack.length;
     const sizeKeys = ['category', 'item', 'modifier'];
     const childSizeKey = sizeKeys[Math.min(depth, sizeKeys.length - 1)];
-    const outerSize = OUTER[childSizeKey];
+    const outerSize = this._outer[childSizeKey];
     const hexRadius = outerSize.w / 2;
 
     const lockedPositions = this._elements.map(el => ({
@@ -480,8 +497,8 @@ export class HexEngine {
       const el = buildHexButton(item.label, {
         color: item.color || T.mint,
         disabled: item.disabled || false,
-        width: HEX_SIZES[childSizeKey].w + 'px',
-        height: HEX_SIZES[childSizeKey].h + 'px',
+        width: this._sizes[childSizeKey].w + 'px',
+        height: this._sizes[childSizeKey].h + 'px',
         data: item,
         onClick: () => this._onHexClick(item, pos, this._elements.indexOf(el)),
       });

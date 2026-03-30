@@ -6,6 +6,66 @@
 import { APP, $, fmtTime, greeting, calcOrder } from '../app.js';
 import { registerScene, go } from '../scene-manager.js';
 import { CFG, FALLBACK_MENU, MODIFIERS, MOD_PREFIXES } from '../config.js';
+import { HexEngine } from '../hex-engine.js';
+import { T, chamfer, overlayCloseBtn } from '../theme-manager.js';
+
+// ── Category color palette for hex navigation ──
+const CAT_COLORS = ['#FF8C00', '#00CED1', '#E84040', '#7ac943', '#fcbe40', '#b48efa'];
+
+/** Transform FALLBACK_MENU into HexEngine data shape */
+function menuToHexData(menu) {
+  return Object.keys(menu).map((catName, i) => {
+    const catColor = CAT_COLORS[i % CAT_COLORS.length];
+    const catData = menu[catName];
+
+    // Flat category (array of items, no subcategories)
+    if (Array.isArray(catData)) {
+      return {
+        id: catName.toLowerCase().replace(/\s+/g, '-'),
+        label: catName,
+        color: catColor,
+        children: catData.map(item => ({
+          id: `${catName}-${item.name}`.toLowerCase().replace(/\s+/g, '-'),
+          label: item.name,
+          price: item.price,
+          color: catColor,
+          disabled: item.is86 || false,
+          _src: item,
+        })),
+      };
+    }
+
+    // Nested category (subcategories → items)
+    return {
+      id: catName.toLowerCase().replace(/\s+/g, '-'),
+      label: catName,
+      color: catColor,
+      children: Object.keys(catData).map(subName => ({
+        id: `${catName}-${subName}`.toLowerCase().replace(/\s+/g, '-'),
+        label: subName,
+        color: catColor,
+        children: catData[subName].map(item => ({
+          id: `${catName}-${subName}-${item.name}`.toLowerCase().replace(/\s+/g, '-'),
+          label: item.name,
+          price: item.price,
+          color: catColor,
+          disabled: item.is86 || false,
+          _src: item,
+        })),
+      })),
+    };
+  });
+}
+
+/** Transform MODIFIERS into flat HexEngine data */
+function modifiersToHexData(modifiers) {
+  return modifiers.map(mod => ({
+    id: `mod-${mod.name}`.toLowerCase().replace(/\s+/g, '-'),
+    label: mod.name,
+    price: mod.price,
+    color: T.mint,
+  }));
+}
 
 registerScene('check-editing', {
   onEnter(el, params) {
@@ -927,324 +987,260 @@ registerScene('check-editing', {
 
     function showAddItemOverlay() {
       const ov = document.createElement('div');
-      ov.style.cssText = 'position:fixed; inset:0; background:var(--bg); z-index:150; display:flex; flex-direction:column; font-family:var(--fb);';
+      ov.style.cssText = `position:absolute; inset:0; background:${T.bg}; z-index:150; display:flex; flex-direction:column; font-family:${T.fb};`;
 
       let stagedItems = [];
-      let selectedStaged = new Set();
-      let navPath = []; // [category, subcategory]
-      let navPositions = {}; // stores {name: {x, y}} for anchoring
-      let currentLevel = 'categories'; // categories, subcategories, items
+      let activeToggle = 'items'; // 'items' | 'modifiers'
+      let currentPrefix = MOD_PREFIXES[0] || 'ADD';
+      let hexEngine = null;
 
-      const renderOverlay = () => {
-        const activeSeatLabel = isAllSeats ? 'Seat 1' : `Seat ${activeSeatId}`;
-        ov.innerHTML = `
-          <!-- TBar -->
-          <div style="height:var(--bar-h); background:var(--mint); color:var(--bg); font-family:var(--fh); display:flex; align-items:center; justify-content:space-between; padding:0 10px; font-size:20px;">
-            <div style="display:flex; align-items:center; gap:10px;">
-               <div id="add-cancel" class="btn-s" style="height:24px; font-size:14px; background:var(--bg); color:var(--mint);">CANCEL</div>
-               <span>Adding Items \u2014 ${activeSeatLabel}</span>
+      // ── Format header date ──
+      const now = new Date();
+      const dd = String(now.getDate()).padStart(2, '0');
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const yy = String(now.getFullYear()).slice(-2);
+      let hh = now.getHours();
+      const ampm = hh >= 12 ? 'pm' : 'am';
+      hh = hh % 12 || 12;
+      const min = String(now.getMinutes()).padStart(2, '0');
+      const seatList = check.seats.map(s => `s${s.id}`).join(', ');
+
+      // ── Chamfer styles (clip-path property + polygon value) ──
+      const chamferLg = `clip-path:${chamfer('lg')}`;
+      const chamferMd = `clip-path:${chamfer('md')}`;
+
+      // ── Drop shadow & tap animation styles ──
+      const btnShadow = 'filter:drop-shadow(2px 3px 0px #1a1a1a);';
+      const btnTapStyle = 'transition:transform 50ms, filter 50ms;';
+
+      // ── Build overlay DOM ──
+      ov.innerHTML = `
+        <!-- Header Bar -->
+        <div style="height:${T.barH}; background:${T.mint}; color:${T.bg}; font-family:${T.fh}; display:flex; align-items:center; justify-content:space-between; padding:0 12px; font-size:28px; flex-shrink:0;">
+          <span>${dd}/${mm}/${yy} // ${hh}:${min} ${ampm} <> ${check.id} // Seat(s): ${seatList} // Add Item(s)</span>
+          <div id="add-close-btn" style="width:44px; height:44px; background:${T.clrRed}; ${chamferMd}; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#fff; font-family:${T.fh}; font-size:24px; ${btnShadow} ${btnTapStyle}">\u2715</div>
+        </div>
+
+        <!-- Two-Panel Layout -->
+        <div style="flex:1; display:flex; overflow:hidden; gap:0;">
+
+          <!-- Left Ticket Panel -->
+          <div style="width:310px; flex-shrink:0; border:${T.borderW} solid ${T.mint}; ${chamferLg}; background:${T.bg2}; display:flex; flex-direction:column; overflow:hidden;">
+            <div id="add-ticket-panel" style="flex:1; overflow-y:auto; padding:8px 10px;">
             </div>
           </div>
-          
-          <div style="flex:1; display:flex; overflow:hidden;">
-            <!-- Left: Running List -->
-            <div style="width:300px; border-right:2px solid #444; background:#1a1a1a; display:flex; flex-direction:column;">
-              <div id="staged-list" style="flex:1; overflow-y:auto; padding:10px;">
-                ${stagedItems.map((item, idx) => {
-                  let itemTotal = item.price;
-                  if (item.mods) item.mods.forEach(m => { if (m.price) itemTotal += m.price; });
-                  return `
-                    <div class="staged-item" data-idx="${idx}" style="padding:4px 8px; border-bottom:1px solid #333; cursor:pointer; ${selectedStaged.has(idx) ? 'background:var(--mint); color:#222;' : 'color:var(--cyan);'}">
-                      <div style="display:flex; justify-content:space-between;">
-                        <span style="font-size:14px;">${idx + 1}. ${item.name}</span>
-                        <span style="font-size:14px;">$${itemTotal.toFixed(2)}</span>
-                      </div>
-                      ${item.mods ? item.mods.map(m => `
-                        <div style="display:flex; justify-content:space-between; font-size:11px; opacity:0.7; margin-left:15px; margin-top:1px;">
-                          <span>${m.prefix} ${m.name}</span>
-                          ${m.price > 0 ? `<span style="color:#fcbe40;">$${m.price.toFixed(2)}</span>` : ''}
-                        </div>
-                      `).join('') : ''}
-                    </div>
-                  `;
-                }).join('')}
-              </div>
-              <div style="padding:10px; border-top:1px solid #444; display:flex; justify-content:space-between; align-items:center;">
-                <span style="font-size:14px; color:var(--mint);">Items: ${stagedItems.length}</span>
-                ${selectedStaged.size > 0 ? `<div id="staged-modify" class="btn-s" style="font-size:12px; padding:4px 8px;">MODIFY</div>` : ''}
-              </div>
+
+          <!-- Right Hex Workspace -->
+          <div style="flex:1; border:${T.borderW} solid ${T.mint}; ${chamferLg}; background:${T.bg}; display:flex; flex-direction:column; overflow:hidden;">
+            <!-- Hex Container -->
+            <div id="add-hex-container" style="flex:1; position:relative; overflow:hidden;">
             </div>
 
-            <!-- Right: Hex Nav Panel -->
-            <div style="flex:1; display:flex; flex-direction:column;">
-              <div id="hex-panel" style="flex:1; position:relative; overflow:hidden; background:var(--bg2);">
-                <svg id="hex-svg" width="100%" height="100%" style="display:block;"></svg>
-              </div>
-              <!-- Bottom action bar -->
-              <div style="height:50px; border-top:2px solid #444; background:var(--bg); display:flex; align-items:center; justify-content:flex-end; gap:10px; padding:0 10px;">
-                <div id="clr-btn" class="btn-s" style="padding:8px 24px; font-size:16px; border:2px solid var(--red); color:var(--red); ${stagedItems.length === 0 ? 'opacity:0.5; pointer-events:none;' : ''}">CLR</div>
-                <div id="add-confirm" class="btn-p" style="padding:8px 24px; font-size:16px; ${stagedItems.length === 0 ? 'opacity:0.5; pointer-events:none;' : ''}">CONFIRM</div>
-              </div>
+            <!-- Prefix Row (hidden by default, shown in modifier mode) -->
+            <div id="add-prefix-row" style="display:none; padding:4px 10px; gap:6px; flex-shrink:0; background:${T.bg2}; border-top:2px solid ${T.bg3};">
+            </div>
+
+            <!-- Action Bar -->
+            <div style="height:52px; flex-shrink:0; display:flex; align-items:center; padding:0 10px; gap:10px; border-top:${T.borderW} solid ${T.mint}; background:${T.bg2};">
+              <div id="add-toggle-items" style="font-family:${T.fb}; font-size:28px; padding:4px 16px; cursor:pointer; background:${T.mint}; color:${T.bg}; ${chamferMd}; ${btnShadow} ${btnTapStyle}">+ Items</div>
+              <div id="add-toggle-mods" style="font-family:${T.fb}; font-size:28px; padding:4px 16px; cursor:pointer; border:${T.borderW} solid ${T.gold}; color:${T.gold}; background:transparent; ${chamferMd}; ${btnShadow} ${btnTapStyle}">+ Modifiers</div>
+              <div style="flex:1;"></div>
+              <div id="add-back-btn" style="width:44px; height:44px; background:${T.clrRed}; ${chamferMd}; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#fff; font-family:${T.fh}; font-size:20px; ${btnShadow} ${btnTapStyle}">\u2190</div>
+              <div id="add-fwd-btn" style="width:44px; height:44px; background:${T.goGreen}; ${chamferMd}; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#fff; font-family:${T.fh}; font-size:20px; ${btnShadow} ${btnTapStyle}">>>></div>
             </div>
           </div>
-        `;
-
-        renderHexGrid();
-        bindOverlayEvents();
-      };
-
-      const bindOverlayEvents = () => {
-        $('add-confirm').onclick = (e) => {
-          e.stopPropagation();
-          const targetSeatId = isAllSeats ? 1 : activeSeatId;
-          const targetSeat = check.seats.find(s => s.id === targetSeatId);
-          stagedItems.forEach(item => {
-            item.id = `item-${Date.now()}-${Math.random()}`;
-            item.state = 'unsent';
-            targetSeat.items.push(item);
-          });
-          ov.remove();
-          draw();
-        };
-
-        $('add-cancel').onclick = (e) => {
-          e.stopPropagation();
-          if (stagedItems.length > 0) {
-            if (confirm(`Discard ${stagedItems.length} items?`)) ov.remove();
-          } else {
-            ov.remove();
-          }
-        };
-
-        $('clr-btn').onclick = (e) => {
-          e.stopPropagation();
-          stagedItems.pop();
-          selectedStaged.clear();
-          renderOverlay();
-        };
-
-        ov.querySelectorAll('.staged-item').forEach(el => {
-          el.onclick = () => {
-            const idx = parseInt(el.dataset.idx);
-            if (selectedStaged.has(idx)) selectedStaged.delete(idx);
-            else selectedStaged.add(idx);
-            renderOverlay();
-          };
-        });
-
-        const modifyBtn = $('staged-modify');
-        if (modifyBtn) {
-          modifyBtn.onclick = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const items = Array.from(selectedStaged).map(idx => stagedItems[idx]);
-            const hexPanel = ov.querySelector('#hex-panel');
-            showModifierModal(items, null, {
-              container: hexPanel,
-              closeMod: () => {
-                selectedStaged.clear();
-                renderOverlay();
-              }
-            });
-          };
-        }
-      };
-
-      const renderHexGrid = () => {
-        const svg = ov.querySelector('#hex-svg');
-        if (!svg) return;
-        svg.innerHTML = '';
-
-        const GAP = 1.05;
-        const CAT_R = 55;   // category radius
-        const SUB_R = 42;   // subcategory radius
-        const ITEM_R = 32;  // item radius
-        const categories = Object.keys(FALLBACK_MENU);
-        const colors = ['#FF8C00', '#00CED1', '#39b54a', '#E84040', '#fcbe40', '#b48efa'];
-
-        // ── Ring positions (pointy-top, starting at 3 o'clock) ──
-        // Places children around a parent, skipping occupied faces
-        function getChildPositions(px, py, parentR, childR, count, occupiedAngles) {
-          const dist = (parentR + childR) * GAP;
-          const positions = [];
-          // 6 face positions at 60° intervals starting at 0° (3 o'clock)
-          for (let face = 0; face < 6 && positions.length < count; face++) {
-            const angle = (Math.PI / 3) * face;
-            // Check if face is occupied
-            let skip = false;
-            if (occupiedAngles) {
-              for (const oa of occupiedAngles) {
-                const diff = Math.abs(angle - oa);
-                if (diff < 0.3 || Math.abs(diff - 2 * Math.PI) < 0.3) { skip = true; break; }
-              }
-            }
-            if (!skip) {
-              positions.push({
-                x: px + dist * Math.cos(angle),
-                y: py + dist * Math.sin(angle)
-              });
-            }
-          }
-          // Ring 2 if needed (12 positions at 30° intervals)
-          if (positions.length < count) {
-            const dist2 = (parentR + childR) * 2.1;
-            for (let i = 0; i < 12 && positions.length < count; i++) {
-              const angle = (Math.PI / 6) * i;
-              positions.push({
-                x: px + dist2 * Math.cos(angle),
-                y: py + dist2 * Math.sin(angle)
-              });
-            }
-          }
-          return positions.slice(0, count);
-        }
-
-        // ── Compute angle from parent to child (for face occupancy) ──
-        function angleBetween(px, py, cx, cy) {
-          let a = Math.atan2(cy - py, cx - px);
-          if (a < 0) a += 2 * Math.PI;
-          return a;
-        }
-
-        // ── Category honeycomb (pointy-top, starts at 3 o'clock) ──
-        function catPositions(sx, sy, r, count) {
-          const pos = [{ x: sx, y: sy }];
-          const dist = r * 2 * GAP;
-          for (let i = 0; i < Math.min(count - 1, 6); i++) {
-            const angle = (Math.PI / 3) * i;
-            pos.push({ x: sx + dist * Math.cos(angle), y: sy + dist * Math.sin(angle) });
-          }
-          return pos.slice(0, count);
-        }
-
-        const startX = 180, startY = 180;
-
-        // ═════════════════════════════
-        //  LEVEL: Categories
-        // ═════════════════════════════
-        if (currentLevel === 'categories') {
-          const positions = catPositions(startX, startY, CAT_R, categories.length);
-          navPositions = {};
-          categories.forEach((cat, i) => {
-            const p = positions[i];
-            navPositions[cat] = { x: p.x, y: p.y };
-            drawHex(svg, p.x, p.y, CAT_R, cat, colors[i % colors.length], () => {
-              navPath = [cat];
-              const catData = FALLBACK_MENU[cat];
-              currentLevel = Array.isArray(catData) ? 'items' : 'subcategories';
-              renderOverlay();
-            });
-          });
-        }
-
-        // ═════════════════════════════
-        //  LEVEL: Subcategories
-        // ═════════════════════════════
-        else if (currentLevel === 'subcategories') {
-          const catName = navPath[0];
-          const catIdx = categories.indexOf(catName);
-          const catColor = colors[catIdx % colors.length];
-          const ax = navPositions[catName]?.x || startX;
-          const ay = navPositions[catName]?.y || startY;
-
-          // Draw category ancestor (filled)
-          drawHex(svg, ax, ay, CAT_R, catName, catColor, () => {
-            currentLevel = 'categories';
-            navPath = [];
-            renderOverlay();
-          }, true);
-
-          // Bloom subcategories around category (no occupied faces at this level)
-          const subcats = Object.keys(FALLBACK_MENU[catName]);
-          const subPositions = getChildPositions(ax, ay, CAT_R, SUB_R, subcats.length, null);
-
-          subcats.forEach((sub, i) => {
-            const p = subPositions[i];
-            navPositions[sub] = { x: p.x, y: p.y };
-            drawHex(svg, p.x, p.y, SUB_R, sub, catColor, () => {
-              navPath = [catName, sub];
-              currentLevel = 'items';
-              renderOverlay();
-            });
-          });
-        }
-
-        // ═════════════════════════════
-        //  LEVEL: Items
-        // ═════════════════════════════
-        else if (currentLevel === 'items') {
-          const catName = navPath[0];
-          const catIdx = categories.indexOf(catName);
-          const catColor = colors[catIdx % colors.length];
-          const catData = FALLBACK_MENU[catName];
-          const ax = navPositions[catName]?.x || startX;
-          const ay = navPositions[catName]?.y || startY;
-
-          // Draw category ancestor (filled)
-          drawHex(svg, ax, ay, CAT_R, catName, catColor, () => {
-            currentLevel = 'categories';
-            navPath = [];
-            renderOverlay();
-          }, true);
-
-          let items, parentX, parentY, parentR, occupiedAngles;
-
-          if (Array.isArray(catData)) {
-            // Flat category — items bloom directly around category
-            items = catData;
-            parentX = ax; parentY = ay; parentR = CAT_R;
-            occupiedAngles = null;
-          } else {
-            // Has subcategories — draw subcat ancestor (filled), items bloom around it
-            const subName = navPath[1];
-            const sx = navPositions[subName]?.x || ax + 120;
-            const sy = navPositions[subName]?.y || ay + 80;
-
-            drawHex(svg, sx, sy, SUB_R, subName, catColor, () => {
-              currentLevel = 'subcategories';
-              navPath = [catName];
-              renderOverlay();
-            }, true);
-
-            items = catData[subName] || [];
-            parentX = sx; parentY = sy; parentR = SUB_R;
-            // The face toward the category ancestor is occupied
-            occupiedAngles = [angleBetween(sx, sy, ax, ay)];
-          }
-
-          // Bloom items around parent, avoiding occupied faces
-          const itemPositions = getChildPositions(parentX, parentY, parentR, ITEM_R, items.length, occupiedAngles);
-
-          items.forEach((item, i) => {
-            const p = itemPositions[i];
-            const is86 = item.is86 || false;
-            const isSpecial = item.isSpecial || false;
-
-            drawHex(svg, p.x, p.y, ITEM_R, item.name,
-              is86 ? '#666' : (isSpecial ? '#fcbe40' : catColor),
-              () => {
-                if (is86) return;
-                const newItem = {...item};
-                if (item.requiresMod) {
-                  const hexPanel = ov.querySelector('#hex-panel');
-                  showModifierModal([newItem], null, {
-                    container: hexPanel,
-                    closeMod: (isCancel) => {
-                      if (!isCancel) stagedItems.push(newItem);
-                      renderOverlay();
-                    }
-                  });
-                } else {
-                  stagedItems.push(newItem);
-                  renderOverlay();
-                }
-              }, false, is86, isSpecial);
-          });
-        }
-      };
+        </div>
+      `;
 
       el.appendChild(ov);
-      renderOverlay();
+
+      // ── Targeted re-render: ticket panel only ──
+      function renderTicketPanel() {
+        const panel = ov.querySelector('#add-ticket-panel');
+        if (!panel) return;
+
+        if (stagedItems.length === 0) {
+          panel.innerHTML = '';
+          return;
+        }
+
+        panel.innerHTML = stagedItems.map((item, idx) => {
+          let itemTotal = item.price;
+          if (item.mods) item.mods.forEach(m => { if (m.price) itemTotal += m.price; });
+          return `
+            <div style="display:flex; justify-content:space-between; align-items:baseline; padding:4px 0; font-family:${T.fb}; font-size:28px; color:${T.mint};">
+              <span>x${item.qty || 1}  ${item.name}</span>
+              <span style="color:${T.gold};">$${itemTotal.toFixed(2)}</span>
+            </div>
+            ${item.mods ? item.mods.map(m => `
+              <div style="margin-left:20px; margin-bottom:2px;">
+                <span style="font-family:${T.fb}; font-size:22px; background:${T.gold}; color:${T.bg}; padding:1px 6px; clip-path:${chamfer('sm')};">${m.prefix} ${m.name}${m.price > 0 ? ` +$${m.price.toFixed(2)}` : ''}</span>
+              </div>
+            `).join('') : ''}
+          `;
+        }).join('');
+      }
+
+      // ── Update toggle button styles ──
+      function updateToggleStyles() {
+        const itemsBtn = ov.querySelector('#add-toggle-items');
+        const modsBtn = ov.querySelector('#add-toggle-mods');
+        const prefixRow = ov.querySelector('#add-prefix-row');
+
+        if (activeToggle === 'items') {
+          itemsBtn.style.background = T.mint;
+          itemsBtn.style.color = T.bg;
+          itemsBtn.style.border = 'none';
+          modsBtn.style.background = 'transparent';
+          modsBtn.style.color = T.gold;
+          modsBtn.style.border = `${T.borderW} solid ${T.gold}`;
+          prefixRow.style.display = 'none';
+        } else {
+          itemsBtn.style.background = 'transparent';
+          itemsBtn.style.color = T.mint;
+          itemsBtn.style.border = `${T.borderW} solid ${T.mint}`;
+          modsBtn.style.background = T.gold;
+          modsBtn.style.color = T.bg;
+          modsBtn.style.border = 'none';
+          prefixRow.style.display = 'flex';
+          renderPrefixRow();
+        }
+      }
+
+      // ── Render modifier prefix toggles ──
+      function renderPrefixRow() {
+        const row = ov.querySelector('#add-prefix-row');
+        if (!row) return;
+        row.innerHTML = MOD_PREFIXES.map(p => `
+          <div class="prefix-toggle" data-prefix="${p}" style="font-family:${T.fb}; font-size:22px; padding:4px 12px; cursor:pointer; ${currentPrefix === p ? `background:${T.gold}; color:${T.bg};` : `background:transparent; color:${T.gold}; border:2px solid ${T.gold};`} clip-path:${chamfer('sm')};">${p}</div>
+        `).join('');
+
+        row.querySelectorAll('.prefix-toggle').forEach(btn => {
+          btn.onclick = () => {
+            currentPrefix = btn.dataset.prefix;
+            renderPrefixRow();
+          };
+        });
+      }
+
+      // ── Handle item/modifier selection ──
+      function handleItemSelect(item) {
+        if (activeToggle === 'items') {
+          // Check if same item already staged → increment qty
+          const existing = stagedItems.find(s => s.name === item.label && !s.mods?.length);
+          if (existing) {
+            existing.qty = (existing.qty || 1) + 1;
+          } else {
+            stagedItems.push({
+              name: item.label,
+              price: item.price || 0,
+              qty: 1,
+              mods: [],
+              category_id: item.id,
+              _src: item._src || null,
+            });
+          }
+        } else {
+          // Modifier mode — apply to last staged item
+          if (stagedItems.length === 0) return;
+          const lastItem = stagedItems[stagedItems.length - 1];
+          lastItem.mods = lastItem.mods || [];
+          const existingIdx = lastItem.mods.findIndex(m => m.name === item.label);
+          if (existingIdx !== -1) {
+            lastItem.mods.splice(existingIdx, 1);
+          } else {
+            lastItem.mods.push({
+              prefix: currentPrefix,
+              name: item.label,
+              price: currentPrefix === 'NO' ? 0 : (item.price || 0),
+            });
+          }
+        }
+        renderTicketPanel();
+      }
+
+      // ── Bind action bar events ──
+      ov.querySelector('#add-close-btn').onclick = () => {
+        if (stagedItems.length > 0) {
+          if (!confirm(`Discard ${stagedItems.length} item(s)?`)) return;
+        }
+        if (hexEngine) hexEngine.destroy();
+        ov.remove();
+      };
+
+      ov.querySelector('#add-toggle-items').onclick = () => {
+        if (activeToggle === 'items') return;
+        activeToggle = 'items';
+        updateToggleStyles();
+        if (hexEngine) hexEngine.setData(menuToHexData(FALLBACK_MENU));
+      };
+
+      ov.querySelector('#add-toggle-mods').onclick = () => {
+        if (activeToggle === 'modifiers') return;
+        activeToggle = 'modifiers';
+        updateToggleStyles();
+        if (hexEngine) hexEngine.setData(modifiersToHexData(MODIFIERS));
+      };
+
+      ov.querySelector('#add-back-btn').onclick = () => {
+        if (hexEngine) hexEngine.back();
+      };
+
+      ov.querySelector('#add-fwd-btn').onclick = () => {
+        if (stagedItems.length === 0) return;
+        const targetSeatId = isAllSeats ? 1 : activeSeatId;
+        const targetSeat = check.seats.find(s => s.id === targetSeatId);
+        stagedItems.forEach(item => {
+          // Expand qty into individual items for the check
+          const count = item.qty || 1;
+          for (let q = 0; q < count; q++) {
+            targetSeat.items.push({
+              ...item,
+              id: `item-${Date.now()}-${Math.random()}`,
+              state: 'unsent',
+              qty: 1,
+            });
+          }
+        });
+        if (hexEngine) hexEngine.destroy();
+        ov.remove();
+        draw();
+      };
+
+      // Add tap animation to all action buttons
+      ov.querySelectorAll('#add-close-btn, #add-back-btn, #add-fwd-btn, #add-toggle-items, #add-toggle-mods').forEach(btn => {
+        btn.addEventListener('pointerdown', () => {
+          btn.style.transform = 'translate(2px, 3px)';
+          btn.style.filter = 'none';
+        });
+        btn.addEventListener('pointerup', () => {
+          btn.style.transform = '';
+          btn.style.filter = 'drop-shadow(2px 3px 0px #1a1a1a)';
+        });
+        btn.addEventListener('pointerleave', () => {
+          btn.style.transform = '';
+          btn.style.filter = 'drop-shadow(2px 3px 0px #1a1a1a)';
+        });
+      });
+
+      // ── Initialize HexEngine after layout ──
+      requestAnimationFrame(() => {
+        const container = ov.querySelector('#add-hex-container');
+        if (!container) return;
+        hexEngine = new HexEngine({
+          container,
+          data: menuToHexData(FALLBACK_MENU),
+          onSelect: (item) => handleItemSelect(item),
+          onBack: () => {},
+          sizes: {
+            category:  { w: 140, h: 154 },
+            item:      { w: 100, h: 110 },
+            modifier:  { w: 80,  h: 88 },
+          },
+        });
+      });
+
+      renderTicketPanel();
     }
 
     function showPaymentPanel() {
