@@ -35,20 +35,26 @@ export const FALLBACK_MENU = {
   "Desserts": [{ name: "Brownie", price: 6 }, { name: "Ice Cream", price: 5 }, { name: "Cheesecake", price: 8 }],
 };
 
-export const MODIFIERS = [
-  { name: "Onions", price: 0 },
-  { name: "Jalapeños", price: 0.5 },
-  { name: "Cheese", price: 1.0 },
-  { name: "Bacon", price: 2.0 },
-  { name: "Avocado", price: 1.5 },
-  { name: "Lettuce", price: 0 },
-  { name: "Tomato", price: 0 },
-  { name: "Pickles", price: 0 },
-  { name: "Mayo", price: 0 },
-  { name: "Mustard", price: 0 },
-  { name: "Ketchup", price: 0 },
-  { name: "Hot Sauce", price: 0 }
-];
+export const MODIFIERS = {
+  "Produce": [
+    { name: "Lettuce", price: 0 },
+    { name: "Tomato", price: 0 },
+    { name: "Onions", price: 0 },
+    { name: "Jalapeños", price: 0.5 },
+    { name: "Avocado", price: 1.5 },
+    { name: "Pickles", price: 0 },
+  ],
+  "Protein": [
+    { name: "Cheese", price: 1.0 },
+    { name: "Bacon", price: 2.0 },
+  ],
+  "Sauce": [
+    { name: "Mayo", price: 0 },
+    { name: "Mustard", price: 0 },
+    { name: "Ketchup", price: 0 },
+    { name: "Hot Sauce", price: 0 },
+  ],
+};
 
 export const MOD_PREFIXES = ["ADD", "NO", "ON SIDE", "LITE", "EXTRA"];
 

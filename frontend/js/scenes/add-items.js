@@ -43,13 +43,23 @@ function menuToHexData(menu) {
   });
 }
 
+const MOD_COLORS = ['#fcbe40', '#b48efa', '#00CED1'];
+
 function modifiersToHexData(modifiers) {
-  return modifiers.map(mod => ({
-    id: mod.name.toLowerCase().replace(/\s+/g, '-'),
-    label: mod.name,
-    price: mod.price,
-    color: T.mint,
-  }));
+  return Object.entries(modifiers).map(([catName, items], i) => {
+    const color = MOD_COLORS[i % MOD_COLORS.length];
+    return {
+      id: catName.toLowerCase().replace(/\s+/g, '-'),
+      label: catName,
+      color,
+      children: items.map(mod => ({
+        id: mod.name.toLowerCase().replace(/\s+/g, '-'),
+        label: mod.name,
+        price: mod.price,
+        color,
+      }))
+    };
+  });
 }
 
 registerScene('add-items', {
@@ -78,22 +88,32 @@ registerScene('add-items', {
       </div>
     `;
 
-    // Instantiate HexEngine after DOM laid out
-    requestAnimationFrame(() => {
+    const ITEM_SIZES = {
+      category: { w: 140, h: 158 },
+      item:     { w: 90, h: 102 },
+      modifier: { w: 80, h: 90 },
+    };
+    const MOD_SIZES = {
+      category: { w: 90, h: 102 },
+      item:     { w: 60, h: 68 },
+      modifier: { w: 60, h: 68 },
+    };
+
+    function initHexEngine(mode) {
       const container = document.getElementById('hex-workspace');
       if (!container) return;
+      if (hexEngine) { hexEngine.destroy(); hexEngine = null; }
       hexEngine = new HexEngine({
         container,
-        data: activeMode === 'items' ? menuToHexData(FALLBACK_MENU) : modifiersToHexData(MODIFIERS),
-        sizes: {
-          category: { w: 140, h: 158 },
-          item:     { w: 90, h: 102 },
-          modifier: { w: 80, h: 90 },
-        },
+        data: mode === 'items' ? menuToHexData(FALLBACK_MENU) : modifiersToHexData(MODIFIERS),
+        sizes: mode === 'items' ? ITEM_SIZES : MOD_SIZES,
         onSelect: handleItemSelected,
         onBack: () => {},
       });
-    });
+    }
+
+    // Instantiate HexEngine after DOM laid out
+    requestAnimationFrame(() => initHexEngine(activeMode));
 
     bindActionBar();
     updateToggleStyles();
@@ -126,8 +146,8 @@ registerScene('add-items', {
 
     function buildRightArea() {
       return `<div style="flex:1;display:flex;flex-direction:column;gap:0;padding:8px 8px 8px 8px;">
+        <div id="prefix-row" style="display:none;height:48px;align-items:center;gap:10px;padding:4px 12px;flex-shrink:0;"></div>
         <div id="hex-workspace" style="flex:1;background:${T.bg};border:${T.borderW} solid ${T.mint};clip-path:${chamfer('lg')};position:relative;overflow:hidden;"></div>
-        <div id="prefix-row" style="display:none;height:36px;align-items:center;gap:8px;padding:4px 12px;"></div>
         ${buildActionBar()}
       </div>`;
     }
@@ -201,7 +221,7 @@ registerScene('add-items', {
         const bg = isActive ? T.mint : 'transparent';
         const color = isActive ? T.bg : T.mint;
         const border = isActive ? 'none' : `2px solid ${T.mint}`;
-        return `<div class="btn-wrap"><div class="prefix-pick" data-prefix="${prefix}" style="background:${bg};color:${color};border:${border};font-family:${T.fb};font-size:18px;height:30px;padding:0 10px;display:flex;align-items:center;justify-content:center;cursor:pointer;clip-path:${chamfer('sm')};">${prefix}</div></div>`;
+        return `<div class="btn-wrap"><div class="prefix-pick" data-prefix="${prefix}" style="background:${bg};color:${color};border:${border};font-family:${T.fb};font-size:24px;height:40px;padding:0 16px;display:flex;align-items:center;justify-content:center;cursor:pointer;clip-path:${chamfer('sm')};">${prefix}</div></div>`;
       }).join('');
 
       row.querySelectorAll('.prefix-pick').forEach(btn => {
@@ -214,14 +234,11 @@ registerScene('add-items', {
 
     function setMode(mode) {
       activeMode = mode;
-      if (hexEngine) {
-        if (mode === 'items') {
-          hexEngine.setData(menuToHexData(FALLBACK_MENU));
-          hidePrefixRow();
-        } else {
-          hexEngine.setData(modifiersToHexData(MODIFIERS));
-          showPrefixRow();
-        }
+      initHexEngine(mode);
+      if (mode === 'items') {
+        hidePrefixRow();
+      } else {
+        showPrefixRow();
       }
       updateToggleStyles();
     }
