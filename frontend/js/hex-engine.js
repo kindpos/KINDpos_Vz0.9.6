@@ -5,7 +5,7 @@
 // ═══════════════════════════════════════════════════
 
 import {
-  T, buildHexButton, hexContextHeader
+  T, buildHexButton,
 } from './theme-manager.js';
 
 // ── Hex Sizing ──
@@ -359,14 +359,12 @@ export class HexEngine {
     this._originY = ORIGIN_MARGIN + outerSize.h / 2;
   }
 
-  /** Remove ALL hex elements and context headers from the container. Full wipe. */
+  /** Remove ALL hex elements from the container. Full wipe. */
   _clear() {
     for (const el of this._elements) {
       if (el.parentNode) el.parentNode.removeChild(el);
     }
     this._elements = [];
-    const header = this.container.querySelector('[data-hex-context-header]');
-    if (header) header.remove();
   }
 
   /**
@@ -435,20 +433,6 @@ export class HexEngine {
       });
     }
 
-    // Render context header
-    const lastSel = this._selections[this._selections.length - 1];
-    const headerEl = document.createElement('div');
-    headerEl.setAttribute('data-hex-context-header', '');
-    headerEl.innerHTML = hexContextHeader(lastSel.item.label);
-    headerEl.style.cssText = `
-      position: absolute;
-      top: 4px;
-      left: 0;
-      right: 0;
-      z-index: 10;
-    `;
-    this.container.appendChild(headerEl);
-
     // Items bloom ONLY around the last selected parent (subcat parent only)
     const parentSel = this._selections[this._selections.length - 1];
     const parentSizeKey = sizeKeyForDepth(depth - 1);
@@ -467,16 +451,6 @@ export class HexEngine {
     // Detect occupied faces, iterate in cascade order (lower-right first)
     const occupied = getOccupiedFaces(parentHex, allHexagons, childRadius);
     let candidates = getPositionsForEmptyFaces(parentHex, occupied, childRadius, CASCADE_FACE_ORDER);
-
-    // Global collision check: reject candidates too close to any locked hex
-    candidates = candidates.filter(pos => {
-      return !allHexagons.some(lp => {
-        const dx = pos.x - lp.x;
-        const dy = pos.y - lp.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        return dist < (childRadius + lp.radius) * 1.05;
-      });
-    });
 
     // Sibling-cluster packing: reorder so each child is nearest to previous sibling
     let positions = clusterByProximity(candidates);
