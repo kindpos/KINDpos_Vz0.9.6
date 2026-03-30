@@ -255,6 +255,62 @@ export class HexEngine {
     this._cy = rect.height / 2;
   }
 
+  /**
+   * Shift all positions as a group so the entire bloom fits within
+   * the container bounds with minimum padding.
+   */
+  _clampPositions(positions, outerSize) {
+    if (positions.length === 0) return positions;
+
+    const rect = this.container.getBoundingClientRect();
+    const pad = 16;
+    const halfW = outerSize.w / 2;
+    const halfH = outerSize.h / 2;
+
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
+    for (const pos of positions) {
+      minX = Math.min(minX, pos.x);
+      maxX = Math.max(maxX, pos.x);
+      minY = Math.min(minY, pos.y);
+      maxY = Math.max(maxY, pos.y);
+    }
+
+    const leftEdge = minX - halfW;
+    const rightEdge = maxX + halfW;
+    const topEdge = minY - halfH;
+    const bottomEdge = maxY + halfH;
+
+    let shiftX = 0, shiftY = 0;
+
+    const bloomW = rightEdge - leftEdge;
+    const bloomH = bottomEdge - topEdge;
+
+    if (bloomW > rect.width - pad * 2) {
+      shiftX = (rect.width / 2) - (minX + maxX) / 2;
+    } else if (leftEdge < pad) {
+      shiftX = pad - leftEdge;
+    } else if (rightEdge > rect.width - pad) {
+      shiftX = (rect.width - pad) - rightEdge;
+    }
+
+    if (bloomH > rect.height - pad * 2) {
+      shiftY = (rect.height / 2) - (minY + maxY) / 2;
+    } else if (topEdge < pad) {
+      shiftY = pad - topEdge;
+    } else if (bottomEdge > rect.height - pad) {
+      shiftY = (rect.height - pad) - bottomEdge;
+    }
+
+    if (shiftX !== 0 || shiftY !== 0) {
+      for (const pos of positions) {
+        pos.x += shiftX;
+        pos.y += shiftY;
+      }
+    }
+    return positions;
+  }
+
   _clear() {
     for (const el of this._elements) {
       if (el.parentNode) el.parentNode.removeChild(el);
@@ -318,6 +374,9 @@ export class HexEngine {
         positions.push(...ring2.slice(0, items.length - positions.length));
       }
     }
+
+    // Clamp positions to keep bloom within container bounds
+    this._clampPositions(positions, outerSize);
 
     // Render context header if drilled in
     if (this._stack.length > 0) {
@@ -402,6 +461,12 @@ export class HexEngine {
     const sizeKeys = ['category', 'item', 'modifier'];
     const currentSizeKey = sizeKeys[Math.min(depth, sizeKeys.length - 1)];
 
+    // Selected hex uses wider border (5px vs 3px) for highlight ring
+    const selectedBw = 5;
+    const lockedOuterW = this._sizes[currentSizeKey].w + selectedBw * 2;
+    const lockedOuterH = this._sizes[currentSizeKey].h + selectedBw * 2;
+    const bwDiff = selectedBw - BORDER_WIDTH;
+
     const newEl = buildHexButton(item.label, {
       color: item.color || T.mint,
       selected: true,
@@ -410,15 +475,16 @@ export class HexEngine {
       data: item,
       onClick: () => this._onHexClick(item,
         {
-          x: parseFloat(el.style.left) + this._outer[currentSizeKey].w / 2,
-          y: parseFloat(el.style.top) + this._outer[currentSizeKey].h / 2,
+          x: parseFloat(newEl.style.left) + lockedOuterW / 2,
+          y: parseFloat(newEl.style.top) + lockedOuterH / 2,
         },
-        index
+        this._elements.indexOf(newEl)
       ),
     });
 
-    newEl.style.left = el.style.left;
-    newEl.style.top = el.style.top;
+    // Shift position to keep hex centered at same point despite wider border
+    newEl.style.left = (parseFloat(el.style.left) - bwDiff) + 'px';
+    newEl.style.top = (parseFloat(el.style.top) - bwDiff) + 'px';
     newEl._hexLocked = true;
 
     el.parentNode.replaceChild(newEl, el);
@@ -430,15 +496,16 @@ export class HexEngine {
    * Removes non-locked siblings, then blooms children on empty faces.
    */
   _renderChildren(children, parentPos) {
-    const kept = [];
-    for (const el of this._elements) {
-      if (el._hexLocked) {
-        kept.push(el);
-      } else {
-        if (el.parentNode) el.parentNode.removeChild(el);
-      }
+    // Walk actual DOM children to remove all non-locked hex elements,
+    // preventing orphaned elements from persisting across state transitions.
+    const toRemove = [];
+    for (const child of this.container.children) {
+      if (child.hasAttribute && child.hasAttribute('data-hex-context-header')) continue;
+      if (child._hexLocked) continue;
+      toRemove.push(child);
     }
-    this._elements = kept;
+    toRemove.forEach(el => el.remove());
+    this._elements = this._elements.filter(el => el._hexLocked);
 
     const depth = this._stack.length;
     const sizeKeys = ['category', 'item', 'modifier'];
@@ -446,10 +513,16 @@ export class HexEngine {
     const outerSize = this._outer[childSizeKey];
     const hexRadius = outerSize.w / 2;
 
-    const lockedPositions = this._elements.map(el => ({
-      x: parseFloat(el.style.left) + outerSize.w / 2,
-      y: parseFloat(el.style.top) + outerSize.h / 2,
-    }));
+    // Locked hexes have wider border (5px vs 3px), so use their actual outer size
+    const selectedBw = 5;
+    const lockedPositions = this._elements.map(el => {
+      const elSizeKey = sizeKeys[Math.min(this._stack.length - 1, sizeKeys.length - 1)];
+      const elOuter = { w: this._sizes[elSizeKey].w + selectedBw * 2, h: this._sizes[elSizeKey].h + selectedBw * 2 };
+      return {
+        x: parseFloat(el.style.left) + elOuter.w / 2,
+        y: parseFloat(el.style.top) + elOuter.h / 2,
+      };
+    });
 
     const occupied = occupiedFaces(parentPos.x, parentPos.y, lockedPositions);
     let positions = emptyFacePositions(
@@ -470,6 +543,9 @@ export class HexEngine {
       });
       positions.push(...safeRing2.slice(0, children.length - positions.length));
     }
+
+    // Clamp positions to keep bloom within container bounds
+    this._clampPositions(positions, outerSize);
 
     // Update context header
     const existingHeader = this.container.querySelector('[data-hex-context-header]');

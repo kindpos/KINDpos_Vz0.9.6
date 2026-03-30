@@ -369,7 +369,7 @@ export function hexBtnOuter(color, innerHtml, opts = {}) {
 
 export function buildHexButton(label, opts = {}) {
   const color = opts.color || T.mint;
-  const bw = parseInt(opts.borderWidth || '3');
+  const bw = opts.selected ? 5 : parseInt(opts.borderWidth || '3');
   const innerW = opts.width || '60px';
   const innerH = opts.height || '68px';
   const outerW = (parseInt(innerW) + bw * 2) + 'px';
@@ -384,7 +384,8 @@ export function buildHexButton(label, opts = {}) {
     height: innerH,
   });
 
-  const outer = hexBtnOuter(color, inner, {
+  const borderColor = opts.selected ? T.cyan : color;
+  const outer = hexBtnOuter(borderColor, inner, {
     width: outerW,
     height: outerH,
   });
@@ -395,6 +396,7 @@ export function buildHexButton(label, opts = {}) {
     transition: filter 0.05s ease, transform 0.05s ease;
     cursor: pointer;
     position: absolute;
+    outline: none;
   `;
   wrapper.innerHTML = outer;
 

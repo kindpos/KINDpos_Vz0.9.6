@@ -39,8 +39,15 @@ export function renderBars() {
     t.innerHTML = tbarLoggedOut(timeDisplay);
   } else {
     const title = SCREEN_TITLES[APP.screen] || '';
-    const orderRef = (APP.p && APP.p.order) ? ` ${APP.p.order.id}` : '';
-    const titlePart = title ? ` // ${title}${orderRef}` : '';
+    let contextRef = '';
+    if (APP.p && APP.p.order) {
+      contextRef = ` ${APP.p.order.id}`;
+    } else if (APP.screen === 'add-items' && APP.p) {
+      const chkId = APP.p.check ? APP.p.check.id : 'NEW';
+      const seatLbl = APP.p.seat === 0 ? 'ALL' : `S${APP.p.seat}`;
+      contextRef = ` <> ${chkId} // Seat(s): ${seatLbl}`;
+    }
+    const titlePart = title ? ` // ${title}${contextRef}` : '';
 
     t.innerHTML = tbarLoggedIn({
       timeStr: fmtTime(),

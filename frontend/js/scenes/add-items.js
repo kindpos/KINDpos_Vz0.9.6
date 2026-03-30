@@ -2,7 +2,6 @@ import { registerScene, go } from '../scene-manager.js';
 import { T, chamfer, overlayCloseBtn, btnWrap } from '../theme-manager.js';
 import { HexEngine } from '../hex-engine.js';
 import { FALLBACK_MENU, MODIFIERS, MOD_PREFIXES } from '../config.js';
-import { fmtTime } from '../app.js';
 
 const CAT_COLORS = ['#FF8C00', '#00CED1', '#E84040', '#7ac943', '#fcbe40', '#b48efa'];
 
@@ -70,13 +69,8 @@ registerScene('add-items', {
 
     el.style.position = 'relative';
 
-    // Build seat label
-    const seatLabel = currentSeat === 0 ? 'ALL' : `S${currentSeat}`;
-    const checkId = currentCheck ? currentCheck.id : 'NEW';
-
     el.innerHTML = `
       <div style="display:flex;flex-direction:column;height:100%;">
-        ${buildHeader()}
         <div style="display:flex;flex:1;gap:0;overflow:hidden;">
           ${buildTicketPanel()}
           ${buildRightArea()}
@@ -123,15 +117,6 @@ registerScene('add-items', {
     // ═══════════════════════════════════════
     //  LAYOUT BUILDERS
     // ═══════════════════════════════════════
-
-    function buildHeader() {
-      return `<div style="height:46px;background:${T.mint};display:flex;align-items:center;justify-content:space-between;padding:0 12px;flex-shrink:0;">
-        <span style="color:${T.bg};font-family:${T.fh};font-size:24px;">
-          ${fmtTime()} &lt;&gt; ${checkId} // Seat(s): ${seatLabel} // Add Item(s)
-        </span>
-        <div id="add-close-btn" style="width:44px;height:44px;background:${T.clrRed};color:${T.mint};font-family:${T.fb};font-size:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;clip-path:${chamfer('md')};">X</div>
-      </div>`;
-    }
 
     function buildTicketPanel() {
       return `<div style="width:310px;flex-shrink:0;background:${T.bg2};border:${T.borderW} solid ${T.mint};clip-path:${chamfer('lg')};display:flex;flex-direction:column;overflow:hidden;margin:8px 0 8px 8px;">
@@ -371,13 +356,6 @@ registerScene('add-items', {
         });
       });
 
-      document.getElementById('add-close-btn')?.addEventListener('click', () => {
-        if (stagedItems.length === 0) {
-          go('check-overview', { check: currentCheck, seat: currentSeat });
-        } else {
-          showDiscardDialog();
-        }
-      });
     }
   }
 });
