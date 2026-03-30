@@ -184,6 +184,82 @@ export function buildNumpadKey(key, { onPress, onLongPress }) {
   return wrap;
 }
 
+// ── Button Wrap (drop-shadow + tap animation wrapper) ──
+
+export function btnWrap(innerHtml, opts = {}) {
+  const id = opts.id ? ` id="${opts.id}"` : '';
+  const onClick = opts.onClick ? ` onclick="${opts.onClick}"` : '';
+  return `<div${id} style="filter:drop-shadow(2px 3px 0px #1a1a1a);transition:filter 0.05s ease,transform 0.05s ease;cursor:pointer;"
+    onpointerdown="this.style.filter='drop-shadow(0 0 0 #1a1a1a)';this.style.transform='translate(2px,3px)';"
+    onpointerup="this.style.filter='drop-shadow(2px 3px 0px #1a1a1a)';this.style.transform='';"
+    onpointerleave="this.style.filter='drop-shadow(2px 3px 0px #1a1a1a)';this.style.transform='';"${onClick}>${innerHtml}</div>`;
+}
+
+// ── Seat Tab (active/inactive seat button with subtotal) ──
+
+export function seatTab(label, opts = {}) {
+  const active = opts.active || false;
+  const subtotal = opts.subtotal;
+  const isAdd = opts.isAdd || false;
+  const isDashed = opts.dashed || false;
+  const onClick = opts.onClick || '';
+  const handler = onClick ? ` onclick="${onClick}"` : '';
+  const fontSize = opts.fontSize || '24px';
+  const subLine = subtotal != null
+    ? `<div style="font-family:${T.fb};font-size:14px;color:${T.gold};">$${subtotal}</div>`
+    : '';
+
+  if (isAdd) {
+    return btnWrap(`<div style="min-height:60px;display:flex;align-items:center;justify-content:center;flex-direction:column;background:${T.bg};border:3px dashed ${T.bg3};color:${T.bg3};font-family:${T.fb};font-size:32px;clip-path:${chamfer('sm')};cursor:pointer;transition:border-color 0.1s,color 0.1s;"${handler}
+      onpointerenter="this.style.borderColor='${T.mint}';this.style.color='${T.mint}';"
+      onpointerleave="this.style.borderColor='${T.bg3}';this.style.color='${T.bg3}';">+</div>`);
+  }
+
+  const bg = active ? T.mint : T.bg;
+  const textColor = active ? T.bg2 : T.mint;
+  const border = active ? `3px solid ${T.mint}` : `3px solid ${T.bg3}`;
+
+  return btnWrap(`<div style="min-height:60px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2px;background:${bg};color:${textColor};border:${border};font-family:${T.fb};font-size:${fontSize};clip-path:${chamfer('sm')};cursor:pointer;padding:4px 8px;"${handler}>
+    <div style="letter-spacing:${label === 'ALL' ? '2px' : '0'};font-size:${label === 'ALL' ? '20px' : fontSize};">${label}</div>
+    ${subLine}
+  </div>`);
+}
+
+// ── Actions Card (peek/expand accordion) ──
+
+export function actionsCard(state, opts = {}) {
+  // state: 'hidden' | 'peek' | 'expanded'
+  const peekLabels = opts.peekLabels || [];
+  const expandedButtons = opts.expandedButtons || [];
+  const onPeekClick = opts.onPeekClick || '';
+
+  if (state === 'hidden') {
+    return `<div style="max-height:0;opacity:0;overflow:hidden;transition:max-height 0.25s ease,opacity 0.25s ease;"></div>`;
+  }
+
+  const peekHtml = `<div style="display:flex;gap:6px;cursor:pointer;" onclick="${onPeekClick}">
+    ${peekLabels.map(l => {
+      const borderColor = l.dimBorder || T.bg3;
+      return `<div style="flex:1;text-align:center;font-family:${T.fb};font-size:12px;letter-spacing:1.5px;color:${l.color};border:1px solid ${borderColor};background:${T.bg};padding:4px 8px;clip-path:${chamfer('sm')};">${l.label}</div>`;
+    }).join('')}
+  </div>`;
+
+  if (state === 'peek') {
+    return `<div style="max-height:36px;opacity:1;overflow:hidden;transition:max-height 0.25s ease,opacity 0.25s ease;margin-top:6px;">${peekHtml}</div>`;
+  }
+
+  // expanded
+  const buttonsHtml = expandedButtons.map(b => {
+    const inner = `<div style="height:48px;display:flex;align-items:center;justify-content:center;background:${T.bg2};color:${b.color};border:${T.borderW} solid ${b.color};font-family:${T.fb};font-size:16px;font-weight:900;letter-spacing:2px;clip-path:${chamfer('md')};cursor:pointer;" onclick="${b.onClick || ''}">${b.label}</div>`;
+    return `<div style="flex:1;">${btnWrap(inner)}</div>`;
+  }).join('');
+
+  return `<div style="max-height:120px;opacity:1;overflow:hidden;transition:max-height 0.25s ease,opacity 0.25s ease;margin-top:6px;display:flex;flex-direction:column;gap:6px;">
+    ${peekHtml}
+    <div style="display:flex;gap:6px;">${buttonsHtml}</div>
+  </div>`;
+}
+
 // ── Action Button (returns DOM element with click listener) ──
 
 export function buildActionButton(label, onClick) {
