@@ -95,37 +95,55 @@ function secondRingPositions(cx, cy, centerRadius, ringRadius) {
 
 /**
  * Detect which of a hex's 6 faces are occupied by existing neighbors.
+ * Uses 1.2× combined radii as the neighbor distance threshold.
+ * @param {{x,y,radius}} targetHex - Target hex with actual radius
+ * @param {Array<{x,y,radius}>} allHexagons - All placed hexes with actual radii
+ * @param {number} itemRadius - Radius of the items being placed
+ * @returns {boolean[]} 6-element array, true = occupied
  */
-function occupiedFaces(targetX, targetY, targetRadius, neighbors) {
-  const occupied = new Set();
-  for (const n of neighbors) {
-    const dx = n.x - targetX;
-    const dy = n.y - targetY;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    const maxNeighborDist = (targetRadius + n.radius) * 1.3;
-    if (distance > maxNeighborDist) continue;
+function getOccupiedFaces(targetHex, allHexagons, itemRadius) {
+  const occupiedFaces = [false, false, false, false, false, false];
+  const threshold = (targetHex.radius + itemRadius) * 1.2;
 
-    const angle = Math.atan2(dy, dx);
-    const normalized = ((angle + Math.PI / 2) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
-    const face = Math.round(normalized / (Math.PI / 3)) % 6;
-    occupied.add(face);
+  for (const otherHex of allHexagons) {
+    if (otherHex === targetHex) continue;
+
+    const dx = otherHex.x - targetHex.x;
+    const dy = otherHex.y - targetHex.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance > threshold) continue;
+
+    let angle = Math.atan2(dy, dx);
+    if (angle < 0) angle += Math.PI * 2;
+
+    let adjustedAngle = angle + Math.PI / 2;
+    if (adjustedAngle >= Math.PI * 2) adjustedAngle -= Math.PI * 2;
+
+    const face = Math.round(adjustedAngle / (Math.PI / 3)) % 6;
+    occupiedFaces[face] = true;
   }
-  return occupied;
+  return occupiedFaces;
 }
 
 /**
  * Get positions on empty (unoccupied) faces of a parent hex.
- * Uses face-centered placement with +π/6 offset.
+ * Uses face-centered placement with +π/6 (30°) offset and 1.05× gap.
+ * @param {{x,y,radius}} parentHex - Parent hex with actual radius
+ * @param {boolean[]} occupiedFaces - 6-element array from getOccupiedFaces
+ * @param {number} childRadius - Radius of the child hexes being placed
+ * @returns {Array<{x,y,face}>} Available positions
  */
-function emptyFacePositions(parentX, parentY, parentRadius, itemRadius, occupied) {
-  const distance = (parentRadius + itemRadius) * GAP_MULTIPLIER;
+function getPositionsForEmptyFaces(parentHex, occupiedFaces, childRadius) {
   const positions = [];
+  const distance = (parentHex.radius + childRadius) * 1.05;
+
   for (let face = 0; face < 6; face++) {
-    if (occupied.has(face)) continue;
-    const angle = -Math.PI / 2 + (Math.PI / 3) * face + Math.PI / 6;
+    if (occupiedFaces[face]) continue;
+    const angle = -Math.PI / 2 + (Math.PI / 3) * face + (Math.PI / 6);
     positions.push({
-      x: parentX + distance * Math.cos(angle),
-      y: parentY + distance * Math.sin(angle),
+      x: parentHex.x + distance * Math.cos(angle),
+      y: parentHex.y + distance * Math.sin(angle),
       face,
     });
   }
@@ -327,20 +345,20 @@ export class HexEngine {
     const outerSize = this._outer[childSizeKey];
     const childRadius = outerSize.w / 2;
 
-    // Render all locked ancestors at their stored positions
-    const lockedPositions = [];
+    // Build allHexagons tracking array with actual radii for each locked ancestor
+    const allHexagons = [];
     for (let i = 0; i < this._selections.length; i++) {
       const sel = this._selections[i];
       const ancestorSizeKey = sizeKeyForDepth(i);
       this._placeLockedHex(sel.item, sel.position, ancestorSizeKey, i);
 
-      // Track locked positions for occupancy/collision checks
       const selectedBw = 5;
       const lockedOuterW = this._sizes[ancestorSizeKey].w + selectedBw * 2;
-      lockedPositions.push({
+      allHexagons.push({
         x: sel.position.x,
         y: sel.position.y,
         radius: lockedOuterW / 2,
+        label: sel.item.label,
       });
     }
 
@@ -358,25 +376,28 @@ export class HexEngine {
     `;
     this.container.appendChild(headerEl);
 
-    // Calculate child positions around the last selected parent
+    // Items bloom ONLY around the last selected parent (subcat parent only)
     const parentSel = this._selections[this._selections.length - 1];
     const parentSizeKey = sizeKeyForDepth(depth - 1);
     const selectedBw = 5;
     const parentOuterW = this._sizes[parentSizeKey].w + selectedBw * 2;
     const parentRadius = parentOuterW / 2;
 
-    const occupied = occupiedFaces(
-      parentSel.position.x, parentSel.position.y,
-      parentRadius, lockedPositions
-    );
-    let positions = emptyFacePositions(
-      parentSel.position.x, parentSel.position.y,
-      parentRadius, childRadius, occupied
-    );
+    // Build parent hex object for the new API
+    const parentHex = {
+      x: parentSel.position.x,
+      y: parentSel.position.y,
+      radius: parentRadius,
+      label: parentSel.item.label,
+    };
+
+    // Detect occupied faces using all placed hexes with actual radii
+    const occupied = getOccupiedFaces(parentHex, allHexagons, childRadius);
+    let positions = getPositionsForEmptyFaces(parentHex, occupied, childRadius);
 
     // Global collision check: reject candidates too close to any locked hex
     positions = positions.filter(pos => {
-      return !lockedPositions.some(lp => {
+      return !allHexagons.some(lp => {
         const dx = pos.x - lp.x;
         const dy = pos.y - lp.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -390,7 +411,7 @@ export class HexEngine {
         parentSel.position.x, parentSel.position.y,
         parentRadius, childRadius
       );
-      const allPlaced = lockedPositions.concat(
+      const allPlaced = allHexagons.concat(
         positions.map(p => ({ x: p.x, y: p.y, radius: childRadius }))
       );
       const safeRing2 = ring2.filter(rp => {
@@ -403,6 +424,16 @@ export class HexEngine {
       });
       positions.push(...safeRing2.slice(0, currentChildren.length - positions.length));
     }
+
+    // Boundary filtering: individually reject out-of-bounds positions
+    const rect = this.container.getBoundingClientRect();
+    const margin = 16;
+    positions = positions.filter(pos =>
+      pos.x - childRadius > margin &&
+      pos.x + childRadius < rect.width - margin &&
+      pos.y - childRadius > margin &&
+      pos.y + childRadius < rect.height - margin
+    );
 
     // Place child hexes
     const maxItems = Math.min(currentChildren.length, positions.length);
