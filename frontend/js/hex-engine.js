@@ -354,22 +354,27 @@ export class HexEngine {
         positions.push(...ring2.slice(0, items.length - 7));
       }
     } else {
+      // Parent hex is from the previous depth level and may be a different size
+      const parentDepth = Math.max(0, depth - 1);
+      const parentSizeKey = sizeKeys[Math.min(parentDepth, sizeKeys.length - 1)];
+      const parentRadius = this._outer[parentSizeKey].w / 2;
+
       const siblingPositions = this._elements
         .filter(el => el._hexLocked)
         .map(el => ({
-          x: parseFloat(el.style.left) + outerSize.w / 2,
-          y: parseFloat(el.style.top) + outerSize.h / 2,
+          x: parseFloat(el.style.left) + this._outer[parentSizeKey].w / 2,
+          y: parseFloat(el.style.top) + this._outer[parentSizeKey].h / 2,
         }));
 
       const occupied = occupiedFaces(parentPos.x, parentPos.y, siblingPositions);
       positions = emptyFacePositions(
         parentPos.x, parentPos.y,
-        hexRadius, hexRadius, occupied
+        parentRadius, hexRadius, occupied
       );
 
       if (positions.length < items.length) {
         const ring2 = secondRingPositions(
-          parentPos.x, parentPos.y, hexRadius, hexRadius
+          parentPos.x, parentPos.y, parentRadius, hexRadius
         );
         positions.push(...ring2.slice(0, items.length - positions.length));
       }
@@ -511,28 +516,30 @@ export class HexEngine {
     const sizeKeys = ['category', 'item', 'modifier'];
     const childSizeKey = sizeKeys[Math.min(depth, sizeKeys.length - 1)];
     const outerSize = this._outer[childSizeKey];
-    const hexRadius = outerSize.w / 2;
+    const childRadius = outerSize.w / 2;
 
-    // Locked hexes have wider border (5px vs 3px), so use their actual outer size
+    // Parent hex is from the previous depth level (locked, with wider selected border)
+    const parentDepth = Math.max(0, depth - 1);
+    const parentSizeKey = sizeKeys[Math.min(parentDepth, sizeKeys.length - 1)];
     const selectedBw = 5;
-    const lockedPositions = this._elements.map(el => {
-      const elSizeKey = sizeKeys[Math.min(this._stack.length - 1, sizeKeys.length - 1)];
-      const elOuter = { w: this._sizes[elSizeKey].w + selectedBw * 2, h: this._sizes[elSizeKey].h + selectedBw * 2 };
-      return {
-        x: parseFloat(el.style.left) + elOuter.w / 2,
-        y: parseFloat(el.style.top) + elOuter.h / 2,
-      };
-    });
+    const parentOuterW = this._sizes[parentSizeKey].w + selectedBw * 2;
+    const parentOuterH = this._sizes[parentSizeKey].h + selectedBw * 2;
+    const parentRadius = parentOuterW / 2;
+
+    const lockedPositions = this._elements.map(el => ({
+      x: parseFloat(el.style.left) + parentOuterW / 2,
+      y: parseFloat(el.style.top) + parentOuterH / 2,
+    }));
 
     const occupied = occupiedFaces(parentPos.x, parentPos.y, lockedPositions);
     let positions = emptyFacePositions(
       parentPos.x, parentPos.y,
-      hexRadius, hexRadius, occupied
+      parentRadius, childRadius, occupied
     );
 
     if (positions.length < children.length) {
       const ring2 = secondRingPositions(
-        parentPos.x, parentPos.y, hexRadius, hexRadius
+        parentPos.x, parentPos.y, parentRadius, childRadius
       );
       const safeRing2 = ring2.filter(rp => {
         return !lockedPositions.some(lp => {
