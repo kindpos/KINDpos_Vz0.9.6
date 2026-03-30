@@ -7,6 +7,7 @@
 import { APP, $, calcOrder } from '../app.js';
 import { registerScene, go } from '../scene-manager.js';
 import { CFG, FALLBACK_ROSTER, FALLBACK_MENU } from '../config.js';
+import { T, chamfer, statusCard, checkOverviewPanel, snapshotOverlay, msgButton } from '../theme-manager.js';
 
 /* ═══════════════════════════════════════════════════════════
    §1  MOCK DATA
@@ -437,16 +438,16 @@ registerScene('snapshot',{
       if (orders.length === 0) return `<div style="grid-column: span 3; padding: 20px; text-align: center; opacity: 0.3; font-style: italic;">No ${isMyGrid?'checks':'other checks'}</div>`;
       return orders.map(o=>{
         const isSel=selTables.has(o.id);
-        const statusCol=o.status==='closed'?'#39b54a':o.status==='partial'?'#ffff00':'#33ffff';
+        const statusCol=o.status==='closed'?'#39b54a':o.status==='partial'?T.yellow:T.cyan;
         return `
-        <div style="width:78px;height:78px;background:${isSel?'var(--mint)':'#1a1a1a'};color:${isSel?'#222':'var(--mint)'};border:2px solid ${isSel?'#fcbe40':'var(--mint)'};border-radius:5px;display:flex;flex-direction:column;justify-content:space-between;padding:6px;cursor:pointer;position:relative;${isSel?'box-shadow:0 0 10px rgba(252,190,64,0.5);':''}" data-checkid="${o.id}">
+        <div style="width:78px;height:78px;background:${isSel?T.mint:T.bg};color:${isSel?T.bg:T.mint};border:2px solid ${isSel?T.gold:T.mint};clip-path:${chamfer('sm')};display:flex;flex-direction:column;justify-content:space-between;padding:6px;cursor:pointer;position:relative;${isSel?'box-shadow:0 0 10px rgba(252,190,64,0.5);':''}" data-checkid="${o.id}">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;">
             <span style="font-size:16px;font-weight:bold;">${o.label.replace('Table ','')}</span>
             <span style="font-size:9px;opacity:0.6;">\uD83D\uDC64${o.guest_count}</span>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:flex-end;">
             <span style="font-size:9px;opacity:0.6;">${o.elapsed}</span>
-            <div style="width:8px;height:8px;background:${statusCol};box-shadow:0 0 4px ${statusCol};border-radius:1px;"></div>
+            <div style="width:8px;height:8px;background:${statusCol};box-shadow:0 0 4px ${statusCol};"></div>
           </div>
         </div>`;
       }).join('');
@@ -461,52 +462,65 @@ registerScene('snapshot',{
       const rpC=rightTop!=='collapsed'?buildReporting():'';
 
       const showActionBar = selTables.size > 0;
+      const msgCount = unreadCount(MOCK_ALERTS) + unreadCount(MOCK_RECV) + unreadCount(MOCK_SENT);
+
+      // ── Side-column card wrapper (preserves flex expand/collapse) ──
+      function sideCard(title, state, headerId, contentHtml, opts = {}) {
+        const inner = state !== 'collapsed'
+          ? `<div style="padding:4px 6px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:4px;">${contentHtml}</div>` : '';
+        return statusCard(title, inner, {
+          ...opts,
+          id: headerId,
+        });
+      }
+
+      // ── Center panel via checkOverviewPanel ──
+      const checkHeader = `
+        <span style="font-family:${T.fb};font-size:15px;color:${T.mint};font-weight:bold;letter-spacing:2px;">CHECK OVERVIEW</span>
+        ${msgCount > 0 ? `<div id="snap-msg-btn">${msgButton(msgCount)}</div>` : ''}`;
+
+      const checkBody = `
+        <div style="font-size:13px;letter-spacing:1px;margin-bottom:8px;">MY CHECKS \u2014 ${myO.length}</div>
+        <div style="display:grid;grid-template-columns:repeat(3,78px);gap:10px 34px;justify-content:center;margin-bottom:12px;" id="my-tiles">
+          ${buildCheckGrid(myO, true)}
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer;" id="floor-toggle">
+          <span style="font-size:13px;letter-spacing:1px;border-top:1px solid ${T.mintDim};padding-top:8px;flex:1;">FLOOR \u2014 ${flO.length}</span>
+          <span style="font-size:13px;padding-top:8px;">${showFloor?'\u25BC hide':'\u25B6 show'}</span>
+        </div>
+        ${showFloor?`<div style="display:grid;grid-template-columns:repeat(3,78px);gap:10px 34px;justify-content:center;opacity:0.5;" id="floor-tiles">${buildCheckGrid(flO, false)}</div>`:''}`;
+
+      const checkFooter = showActionBar ? `
+        <div style="display:flex;align-items:center;justify-content:center;gap:12px;">
+          ${selTables.size===1?'<button class="btn-s" style="padding:4px 12px;font-size:12px;" id="act-edit">EDIT</button>':''}
+          <button class="btn-s" style="padding:4px 12px;font-size:12px;" id="act-print">PRINT</button>
+          <button class="btn-s" style="padding:4px 12px;font-size:12px;" id="act-transfer">TRANSFER</button>
+          ${selTables.size>1?'<button class="btn-s" style="padding:4px 12px;font-size:12px;" id="act-merge">MERGE</button>':''}
+        </div>` : '';
 
       el.innerHTML=`<div style="display:flex;height:100%;">
         <div style="width:278px;display:flex;flex-direction:column;gap:4px;padding:4px;flex-shrink:0;">
-          <div style="${cardFlex(leftTop)}border:2px solid var(--mint);background:#222;display:flex;flex-direction:column;overflow:hidden;border-radius:5px;">
-            <div style="background:var(--mint);color:#222;padding:2px 8px;font-size:14px;font-weight:bold;letter-spacing:1px;border-bottom:2px solid #222;display:flex;justify-content:space-between;align-items:center;min-height:24px;cursor:pointer;flex-shrink:0;" id="hdr-lt"><span>SHIFT OVERVIEW</span><span style="font-size:14px;background:var(--bg3);color:var(--mint);width:20px;height:18px;display:flex;align-items:center;justify-content:center;">${leftTop==='expanded'?'\u2212':'+'}</span></div>
-            ${leftTop!=='collapsed'?`<div style="padding:4px 6px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:4px;">${shC}</div>`:''}
+          <div style="${cardFlex(leftTop)}display:flex;flex-direction:column;overflow:hidden;">
+            ${sideCard(`SHIFT OVERVIEW <span style="float:right;font-size:14px;">${leftTop==='expanded'?'\u2212':'+'}</span>`, leftTop, 'hdr-lt', shC)}
           </div>
-          <div style="${cardFlex(leftBot)}border:2px solid var(--mint);background:#222;display:flex;flex-direction:column;overflow:hidden;border-radius:5px;">
-            <div style="background:var(--mint);color:#222;padding:2px 8px;font-size:14px;font-weight:bold;letter-spacing:1px;border-bottom:2px solid #222;display:flex;justify-content:space-between;align-items:center;min-height:24px;cursor:pointer;flex-shrink:0;" id="hdr-lb"><span>MESSENGER</span><span style="font-size:14px;background:var(--bg3);color:var(--mint);width:20px;height:18px;display:flex;align-items:center;justify-content:center;">${leftBot==='expanded'?'\u2212':'+'}</span></div>
-            ${leftBot!=='collapsed'?`<div style="padding:4px 6px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:4px;">${msC}</div>`:''}
+          <div style="${cardFlex(leftBot)}display:flex;flex-direction:column;overflow:hidden;">
+            ${sideCard(`MESSENGER <span style="float:right;font-size:14px;">${leftBot==='expanded'?'\u2212':'+'}</span>`, leftBot, 'hdr-lb', msC)}
           </div>
         </div>
 
-        <div style="width:408px;padding:4px 0;display:flex;flex-direction:column;flex-shrink:0;">
-          <div style="border:2px solid var(--mint);flex:1;display:flex;flex-direction:column;position:relative;overflow:hidden;border-radius:5px;">
-            <div style="background:var(--mint);color:#222;padding:2px 8px;font-size:14px;font-weight:bold;letter-spacing:1px;border-bottom:2px solid #222;display:flex;justify-content:space-between;align-items:center;min-height:24px;"><span>CHECK OVERVIEW</span></div>
-            <div style="flex:1;overflow-y:auto;padding:8px;">
-              <div style="font-size:13px;letter-spacing:1px;margin-bottom:8px;">MY CHECKS \u2014 ${myO.length}</div>
-              <div style="display:grid;grid-template-columns:repeat(3,78px);gap:10px 34px;justify-content:center;margin-bottom:12px;" id="my-tiles">
-                ${buildCheckGrid(myO, true)}
-              </div>
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer;" id="floor-toggle">
-                <span style="font-size:13px;letter-spacing:1px;border-top:1px solid var(--mint-dim);padding-top:8px;flex:1;">FLOOR \u2014 ${flO.length}</span>
-                <span style="font-size:13px;padding-top:8px;">${showFloor?'\u25BC hide':'\u25B6 show'}</span>
-              </div>
-              ${showFloor?`<div style="display:grid;grid-template-columns:repeat(3,78px);gap:10px 34px;justify-content:center;opacity:0.5;" id="floor-tiles">${buildCheckGrid(flO, false)}</div>`:''}
-            </div>
-            ${showActionBar?`
-            <div style="background:var(--bg2);border-top:2px solid var(--mint);height:48px;display:flex;align-items:center;justify-content:center;gap:12px;padding:0 12px;position:absolute;bottom:0;left:0;right:0;z-index:10;">
-              ${selTables.size===1?'<button class="btn-s" style="padding:4px 12px;font-size:12px;" id="act-edit">EDIT</button>':''}
-              <button class="btn-s" style="padding:4px 12px;font-size:12px;" id="act-print">PRINT</button>
-              <button class="btn-s" style="padding:4px 12px;font-size:12px;" id="act-transfer">TRANSFER</button>
-              ${selTables.size>1?'<button class="btn-s" style="padding:4px 12px;font-size:12px;" id="act-merge">MERGE</button>':''}
-            </div>`:''}
-            <div id="edit-bar" style="position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center;"></div>
-          </div>
+        <div style="width:408px;padding:4px 0;display:flex;flex-direction:column;flex-shrink:0;position:relative;">
+          ${checkOverviewPanel(checkHeader, checkBody, checkFooter, { id: 'check-panel' })}
+          <div id="edit-bar" style="position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center;"></div>
         </div>
 
         <div style="width:278px;display:flex;flex-direction:column;gap:4px;padding:4px;flex-shrink:0;">
-          <div style="${cardFlex(rightTop)}border:2px solid var(--mint);background:#222;display:flex;flex-direction:column;overflow:hidden;border-radius:5px;">
-            <div style="background:var(--mint);color:#222;padding:2px 8px;font-size:14px;font-weight:bold;letter-spacing:1px;border-bottom:2px solid #222;display:flex;justify-content:space-between;align-items:center;min-height:24px;cursor:pointer;flex-shrink:0;" id="hdr-rt"><span>REPORTING</span><span style="font-size:14px;background:var(--bg3);color:var(--mint);width:20px;height:18px;display:flex;align-items:center;justify-content:center;">${rightTop==='expanded'?'\u2212':'+'}</span></div>
-            ${rightTop!=='collapsed'?`<div style="padding:4px 6px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:4px;">${rpC}</div>`:''}
+          <div style="${cardFlex(rightTop)}display:flex;flex-direction:column;overflow:hidden;">
+            ${sideCard(`REPORTING <span style="float:right;font-size:14px;">${rightTop==='expanded'?'\u2212':'+'}</span>`, rightTop, 'hdr-rt', rpC)}
           </div>
-          <div style="${cardFlex(rightBot)}border:2px solid var(--mint);background:#222;display:flex;flex-direction:column;overflow:hidden;border-radius:5px;">
-            <div style="background:var(--mint);color:#222;padding:2px 8px;font-size:14px;font-weight:bold;letter-spacing:1px;border-bottom:2px solid #222;display:flex;justify-content:space-between;align-items:center;min-height:24px;cursor:pointer;flex-shrink:0;" id="hdr-rb"><span>HARDWARE</span><span style="font-size:14px;background:var(--bg3);color:var(--mint);width:20px;height:18px;display:flex;align-items:center;justify-content:center;">${rightBot==='expanded'?'\u2212':'+'}</span></div>
-            ${rightBot!=='collapsed'?'<div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:13px;opacity:0.3;font-style:italic;">TBD</div>':''}
+          <div style="${cardFlex(rightBot)}display:flex;flex-direction:column;overflow:hidden;">
+            ${sideCard('HARDWARE', rightBot, 'hdr-rb',
+              rightBot!=='collapsed'?'<div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:13px;opacity:0.3;font-style:italic;">TBD</div>':''
+            )}
           </div>
         </div>
       </div>`;
@@ -557,6 +571,8 @@ registerScene('snapshot',{
       const hrt=$('hdr-rt');if(hrt)hrt.onclick=()=>toggleRight('top');
       const hrb=$('hdr-rb');if(hrb)hrb.onclick=()=>toggleRight('bot');
       const ft=$('floor-toggle');if(ft)ft.onclick=()=>{showFloor=!showFloor;draw();};
+      // ── Wire msg button to expand messenger ──
+      const mb=$('snap-msg-btn');if(mb)mb.onclick=()=>{leftBot='expanded';leftTop='collapsed';draw();};
 
       // ── Wire sub-card headers via data attributes ──
       el.querySelectorAll('[data-sub]').forEach(h=>{
@@ -611,22 +627,22 @@ registerScene('snapshot',{
 
     function renderTiles(orders,cid,addNew){
       const c=$(cid);if(!c)return;
-      orders.forEach(o=>{const tot=calcOrder(o).sub;const cols={open:'var(--mint)',printed:'#fcbe40',idle:'var(--red)'};const sel=selTables.has(o.id);
-        const t=document.createElement('div');t.style.cssText=`width:78px;height:77px;border:2px solid ${cols[o.status]||'var(--mint)'};background:${sel?'var(--mint)':'var(--bg)'};color:${sel?'var(--bg)':'var(--mint)'};cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;user-select:none;`;
-        t.innerHTML=`<span style="font-size:14px;font-weight:bold;">${o.label}</span><span style="font-size:11px;">${o.guest_count}g \u00B7 ${o.elapsed}</span><span style="font-size:18px;color:${sel?'var(--bg)':'#fcbe40'};text-shadow:${sel?'none':'0 0 6px rgba(252,190,64,0.3)'};">$${tot.toFixed(2)}</span>`;
+      orders.forEach(o=>{const tot=calcOrder(o).sub;const cols={open:T.mint,printed:T.gold,idle:T.red};const sel=selTables.has(o.id);
+        const t=document.createElement('div');t.style.cssText=`width:78px;height:77px;border:2px solid ${cols[o.status]||T.mint};background:${sel?T.mint:T.bg};color:${sel?T.bg:T.mint};clip-path:${chamfer('sm')};cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;user-select:none;`;
+        t.innerHTML=`<span style="font-size:14px;font-weight:bold;">${o.label}</span><span style="font-size:11px;">${o.guest_count}g \u00B7 ${o.elapsed}</span><span style="font-size:18px;color:${sel?T.bg:T.gold};text-shadow:${sel?'none':'0 0 6px rgba(252,190,64,0.3)'};">$${tot.toFixed(2)}</span>`;
         t.onclick=()=>{selTables.has(o.id)?selTables.delete(o.id):selTables.add(o.id);draw();};
         let lp;t.onmousedown=()=>{lp=setTimeout(()=>go('check-editing',{check:o}),400);};t.onmouseup=()=>clearTimeout(lp);t.onmouseleave=()=>clearTimeout(lp);t.ontouchstart=()=>{lp=setTimeout(()=>go('check-editing',{check:o}),400);};t.ontouchend=()=>clearTimeout(lp);
         c.appendChild(t);
       });
-      if(addNew){const nb=document.createElement('div');nb.style.cssText='width:78px;height:77px;border:2px dashed var(--mint-dim);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:26px;color:var(--mint);';nb.textContent='\uFF0B';nb.onclick=()=>showNewCheck();c.appendChild(nb);}
+      if(addNew){const nb=document.createElement('div');nb.style.cssText=`width:78px;height:77px;border:2px dashed ${T.mintDim};clip-path:${chamfer('sm')};display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:26px;color:${T.mint};`;nb.textContent='\uFF0B';nb.onclick=()=>showNewCheck();c.appendChild(nb);}
     }
 
     function renderEditCard(){
       const eb=$('edit-bar');if(!eb)return;const selO=APP.orders.filter(o=>selTables.has(o.id));if(selO.length===0){eb.innerHTML='';return;}
       const multi=selO.length>1,o=selO[0],tot=calcOrder(o).sub;
-      const card=document.createElement('div');card.style.cssText='pointer-events:auto;background:var(--bg2);border:2px solid var(--mint);padding:14px;min-width:260px;box-shadow:0 4px 24px rgba(0,0,0,0.5);';
-      card.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><div><div style="font-family:var(--fh);font-size:20px;">${multi?selO.length+' CHECKS':o.label}</div>${!multi?`<div style="font-size:15px;opacity:0.3;">${o.guest_count}g \u00B7 ${o.server} \u00B7 <span style="color:#fcbe40;">$${tot.toFixed(2)}</span></div>`:''}</div><div style="cursor:pointer;font-size:18px;font-weight:bold;width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:var(--bg3);" id="edit-close">\u2715</div></div>
-      ${!multi?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div class="btn-p" style="font-size:20px;padding:14px;" id="ec-open">Open</div><div class="btn-s" style="font-size:20px;padding:14px;border:1px solid var(--mint-dim);" id="ec-print">Print</div><div class="btn-p" style="font-size:20px;padding:14px;background:#FFD700;color:var(--bg);" id="ec-pay">Pay</div><div class="btn-s" style="font-size:20px;padding:14px;border:1px solid var(--mint-dim);" id="ec-transfer">Transfer</div></div>`:`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div class="btn-p" style="font-size:20px;padding:14px;" id="ec-merge">Merge</div><div class="btn-s" style="font-size:20px;padding:14px;border:1px solid var(--mint-dim);" id="ec-printall">Print All</div></div>`}`;
+      const card=document.createElement('div');card.style.cssText=`pointer-events:auto;background:${T.bg2};border:${T.borderW} solid ${T.mint};clip-path:${chamfer('lg')};padding:14px;min-width:260px;filter:drop-shadow(4px 6px 0px #1a1a1a);`;
+      card.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><div><div style="font-family:${T.fh};font-size:20px;">${multi?selO.length+' CHECKS':o.label}</div>${!multi?`<div style="font-size:15px;opacity:0.3;">${o.guest_count}g \u00B7 ${o.server} \u00B7 <span style="color:${T.gold};">$${tot.toFixed(2)}</span></div>`:''}</div><div style="cursor:pointer;font-size:18px;font-weight:bold;width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:${T.bg3};clip-path:${chamfer('sm')};" id="edit-close">\u2715</div></div>
+      ${!multi?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div class="btn-p" style="font-size:20px;padding:14px;" id="ec-open">Open</div><div class="btn-s" style="font-size:20px;padding:14px;border:1px solid ${T.mintDim};" id="ec-print">Print</div><div class="btn-p" style="font-size:20px;padding:14px;background:#FFD700;color:${T.bg};" id="ec-pay">Pay</div><div class="btn-s" style="font-size:20px;padding:14px;border:1px solid ${T.mintDim};" id="ec-transfer">Transfer</div></div>`:`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div class="btn-p" style="font-size:20px;padding:14px;" id="ec-merge">Merge</div><div class="btn-s" style="font-size:20px;padding:14px;border:1px solid ${T.mintDim};" id="ec-printall">Print All</div></div>`}`;
       eb.innerHTML='';eb.appendChild(card);
       $('edit-close').onclick=()=>{selTables.clear();draw();};
       if(!multi){$('ec-open').onclick=()=>go('check-editing',{check:APP.orders.find(x=>x.id===o.id)});$('ec-print').onclick=()=>showToast('Printing '+o.label);$('ec-pay').onclick=()=>go('payment',{order:APP.orders.find(x=>x.id===o.id)});$('ec-transfer').onclick=()=>showToast('Transfer '+o.label);}
@@ -647,57 +663,50 @@ registerScene('snapshot',{
     /* ── TRANSFER OVERLAY ── */
     function showTransferOverlay(){
       const sel = [...selTables].map(id => APP.orders.find(o=>o.id===id)).filter(Boolean);
-      let mode = 'SERVERS'; // SERVERS or CHECKS
+      let mode = 'SERVERS';
       let targetId = null;
       const ov = document.createElement('div');
       ov.className = 'overlay';
-      ov.style.cssText = 'position:fixed;inset:0;background:var(--bg2);display:flex;flex-direction:column;z-index:100;';
-      
+      ov.style.cssText = 'position:fixed;inset:0;z-index:100;';
+
       function dd(){
-        ov.innerHTML = `
-        <div style="background:var(--mint);color:#222;padding:4px 16px;font-size:14px;font-weight:bold;letter-spacing:2px;border-bottom:2px solid #222;height:30px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
-          <div style="display:flex;align-items:center;gap:20px;">
-            <div style="background:var(--bg3);color:var(--mint);padding:2px 10px;font-size:11px;cursor:pointer;" id="tr-back">\u2190 BACK</div>
-            <span>TRANSFER</span>
-          </div>
-          <div style="display:flex;gap:12px;">
-            <div style="background:var(--bg3);color:var(--mint);padding:2px 12px;font-size:11px;cursor:pointer;" id="tr-clr">CLR</div>
-            <div style="background:#39b54a;color:#222;padding:2px 12px;font-size:11px;cursor:pointer;" id="tr-confirm">CONFIRM</div>
-          </div>
+        const content = `
+        <div style="display:flex;gap:8px;margin-bottom:10px;">
+          <div style="background:${T.bg3};color:${T.mint};padding:4px 12px;font-family:${T.fb};font-size:11px;cursor:pointer;clip-path:${chamfer('sm')};" id="tr-clr">CLR</div>
+          <div style="background:#39b54a;color:${T.bg};padding:4px 12px;font-family:${T.fb};font-size:11px;cursor:pointer;clip-path:${chamfer('sm')};" id="tr-confirm">CONFIRM</div>
         </div>
-        <div style="flex:1;display:flex;padding:4px;gap:4px;overflow:hidden;">
-          <!-- Left: Source -->
-          <div style="flex:1;border:2px solid var(--mint);background:#1a1a1a;display:flex;flex-direction:column;">
-            <div style="background:var(--mint);color:#222;padding:2px 8px;font-size:11px;font-weight:bold;">SOURCE (${sel.length})</div>
+        <div style="flex:1;display:flex;gap:4px;overflow:hidden;">
+          <div style="flex:1;border:${T.borderW} solid ${T.mint};clip-path:${chamfer('lg')};background:${T.bg};display:flex;flex-direction:column;overflow:hidden;">
+            <div style="background:${T.mint};color:${T.bg};padding:2px 8px;font-family:${T.fb};font-size:11px;font-weight:bold;">SOURCE (${sel.length})</div>
             <div style="flex:1;overflow-y:auto;padding:8px;">
               ${sel.map(o=>`
-                <div style="border:1px solid var(--mint);background:var(--mint);color:#222;padding:8px;margin-bottom:8px;border-radius:3px;">
+                <div style="border:1px solid ${T.mint};background:${T.mint};color:${T.bg};padding:8px;margin-bottom:8px;clip-path:${chamfer('sm')};">
                   <div style="font-weight:bold;">${o.label}</div>
                   <div style="font-size:10px;opacity:0.7;">$${calcOrder(o).sub.toFixed(2)} \u2022 ${o.guest_count} Guests</div>
                 </div>
               `).join('')}
             </div>
           </div>
-          <!-- Right: Destination -->
-          <div style="flex:1;border:2px solid var(--mint);background:#1a1a1a;display:flex;flex-direction:column;">
-            <div style="background:var(--mint);color:#222;padding:2px 8px;font-size:11px;font-weight:bold;display:flex;justify-content:space-between;">
+          <div style="flex:1;border:${T.borderW} solid ${T.mint};clip-path:${chamfer('lg')};background:${T.bg};display:flex;flex-direction:column;overflow:hidden;">
+            <div style="background:${T.mint};color:${T.bg};padding:2px 8px;font-family:${T.fb};font-size:11px;font-weight:bold;display:flex;justify-content:space-between;">
               <span>DESTINATION</span>
               <span style="text-decoration:underline;cursor:pointer;" id="tr-toggle">${mode}</span>
             </div>
             <div style="flex:1;overflow-y:auto;padding:8px;">
-              ${mode==='SERVERS' ? 
+              ${mode==='SERVERS' ?
                 FALLBACK_ROSTER.map(s => `
-                  <div style="border:1px solid #444;background:${targetId===s.id?'var(--mint)':'#1a1a1a'};color:${targetId===s.id?'#222':'var(--mint)'};padding:10px;margin-bottom:4px;cursor:pointer;" data-target="${s.id}">${s.name}</div>
+                  <div style="border:1px solid ${T.bg3};background:${targetId===s.id?T.mint:T.bg};color:${targetId===s.id?T.bg:T.mint};padding:10px;margin-bottom:4px;cursor:pointer;clip-path:${chamfer('sm')};" data-target="${s.id}">${s.name}</div>
                 `).join('') :
                 APP.orders.filter(o=>!selTables.has(o.id)).map(o => `
-                  <div style="border:1px solid #444;background:${targetId===o.id?'var(--mint)':'#1a1a1a'};color:${targetId===o.id?'#222':'var(--mint)'};padding:10px;margin-bottom:4px;cursor:pointer;" data-target="${o.id}">${o.label}</div>
+                  <div style="border:1px solid ${T.bg3};background:${targetId===o.id?T.mint:T.bg};color:${targetId===o.id?T.bg:T.mint};padding:10px;margin-bottom:4px;cursor:pointer;clip-path:${chamfer('sm')};" data-target="${o.id}">${o.label}</div>
                 `).join('')
               }
             </div>
           </div>
-        </div>
-        `;
-        ov.querySelector('#tr-back').onclick = () => ov.remove();
+        </div>`;
+
+        ov.innerHTML = snapshotOverlay('Transfer', content, 'document.querySelector(".overlay").remove()');
+        ov.querySelector('[onclick]').onclick = () => { ov.remove(); };
         ov.querySelector('#tr-clr').onclick = () => { targetId=null; dd(); };
         ov.querySelector('#tr-toggle').onclick = () => { mode = mode==='SERVERS'?'CHECKS':'SERVERS'; targetId=null; dd(); };
         ov.querySelectorAll('[data-target]').forEach(e => {
@@ -724,25 +733,25 @@ registerScene('snapshot',{
       const ov = document.createElement('div');
       ov.className = 'overlay';
       ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:150;';
-      
+
       function dd(){
         ov.innerHTML = `
-        <div style="width:260px;background:var(--bg2);border:2px solid var(--mint);display:flex;flex-direction:column;border-radius:0;">
-          <div style="background:var(--mint);color:#222;padding:4px 12px;font-size:12px;font-weight:bold;display:flex;justify-content:space-between;align-items:center;">
+        <div style="width:260px;background:${T.bg2};border:${T.borderW} solid ${T.mint};clip-path:${chamfer('lg')};display:flex;flex-direction:column;">
+          <div style="background:${T.mint};color:${T.bg};padding:4px 12px;font-family:${T.fb};font-size:12px;font-weight:bold;display:flex;justify-content:space-between;align-items:center;">
             <span>ADJUST TIP \u2014 ${tipInfo.table}</span>
             <span style="cursor:pointer;" id="ta-close">\u2715</span>
           </div>
           <div style="padding:12px;display:flex;flex-direction:column;gap:12px;">
             <div style="text-align:center;">
               <div style="font-size:10px;opacity:0.5;margin-bottom:2px;">CHECK TOTAL: $${tipInfo.subtotal.toFixed(2)}</div>
-              <div style="font-size:24px;color:#fcbe40;font-weight:bold;background:#1a1a1a;border:1px solid #444;padding:8px;" id="ta-val">$${val}</div>
+              <div style="font-size:24px;color:${T.gold};font-weight:bold;background:${T.bg};border:1px solid ${T.bg3};padding:8px;" id="ta-val">$${val}</div>
             </div>
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;" id="ta-numpad">
-              ${[1,2,3,4,5,6,7,8,9,'.',0,'CLR'].map(n=>`<div style="height:44px;background:var(--bg3);border:1px solid var(--mint);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:bold;cursor:pointer;" data-key="${n}">${n}</div>`).join('')}
+              ${[1,2,3,4,5,6,7,8,9,'.',0,'CLR'].map(n=>`<div style="height:44px;background:${T.bg3};border:1px solid ${T.mint};clip-path:${chamfer('sm')};display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:bold;cursor:pointer;" data-key="${n}">${n}</div>`).join('')}
             </div>
             <div style="display:flex;gap:8px;">
-              <div style="flex:1;background:var(--bg3);color:var(--mint);border:1px solid var(--mint);padding:10px;text-align:center;font-weight:bold;cursor:pointer;" id="ta-cancel">CANCEL</div>
-              <div style="flex:1;background:#39b54a;color:#222;padding:10px;text-align:center;font-weight:bold;cursor:pointer;" id="ta-save">SAVE</div>
+              <div style="flex:1;background:${T.bg3};color:${T.mint};border:1px solid ${T.mint};clip-path:${chamfer('sm')};padding:10px;text-align:center;font-weight:bold;cursor:pointer;" id="ta-cancel">CANCEL</div>
+              <div style="flex:1;background:#39b54a;color:${T.bg};clip-path:${chamfer('sm')};padding:10px;text-align:center;font-weight:bold;cursor:pointer;" id="ta-save">SAVE</div>
             </div>
           </div>
         </div>
@@ -802,60 +811,56 @@ registerScene('snapshot',{
       const fLabel=selEmp?selEmp.name:'ALL EMPLOYEES';
       const fSub=selEmp?`${cdEmpStats(selEmp).adjusted}/${cdEmpStats(selEmp).total} adj \u2014 Tips: $${cdEmpStats(selEmp).tipTotal.toFixed(2)}`:`${stats.adjusted}/${stats.total} adj \u2014 Tips: $${stats.totalTips.toFixed(2)}`;
 
-      const ov=document.createElement('div');ov.className='overlay';
-      ov.style.cssText='position:fixed;inset:0;background:var(--bg2);display:flex;flex-direction:column;z-index:100;';
-      ov.innerHTML=`
-        <div style="background:var(--mint);color:#222;padding:4px 16px;font-size:14px;font-weight:bold;letter-spacing:2px;border-bottom:2px solid #222;display:flex;justify-content:space-between;align-items:center;height:30px;flex-shrink:0;">
-          <span>CLOSE DAY</span><span style="font-size:12px;">${stats.adjusted}/${stats.total} tips</span>
-          <div style="background:var(--red);color:#222;width:24px;height:20px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;cursor:pointer;" id="cd-close">\u2715</div>
+      const cdContent = `
+        <div style="display:flex;gap:8px;margin-bottom:10px;flex-shrink:0;">${MOCK_SERVERS.map(emp=>{
+          const st=cdEmpStats(emp),isDone=st.unadjusted===0,isSel=cdSelEmp===emp.name;
+          const stText=emp.checkedOut&&isDone?'COMPLETE':st.unadjusted>0?st.unadjusted+' OPEN':'READY';
+          const stCol=emp.checkedOut&&isDone?'#39b54a':st.unadjusted>0?T.cyan:T.bg3;
+          return `<div style="flex:1;border:2px solid ${isSel?T.gold:isDone?'#39b54a':st.unadjusted>0?T.cyan:T.bg3};background:${isSel?'rgba(252,190,64,0.08)':T.bg2};clip-path:${chamfer('sm')};padding:8px;text-align:center;cursor:pointer;${emp.checkedOut&&isDone&&!isSel?'opacity:0.4;':''}" data-cdsel="${emp.name}">
+            <div style="font-size:13px;font-weight:bold;color:${isSel?T.gold:stCol};">${emp.name}</div>
+            <div style="font-size:10px;color:${stCol};">${stText}</div>
+            <div style="font-size:12px;color:${T.gold};margin-top:3px;">$${emp.gross.toFixed(2)}</div>
+          </div>`;}).join('')}</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-shrink:0;">${cdW98(adjPct,stats.allDone?'#39b54a':T.gold)}<span style="font-size:11px;flex-shrink:0;width:60px;text-align:right;color:${stats.allDone?'#39b54a':T.gold};">${stats.adjusted}/${stats.total}</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-shrink:0;"><span style="font-size:13px;font-weight:bold;color:${T.gold};">${fLabel}</span><span style="font-size:11px;">${fSub}</span></div>
+        <div style="display:flex;gap:4px;margin-bottom:6px;flex-shrink:0;align-items:center;">
+          <div style="padding:3px 8px;font-size:10px;cursor:pointer;border:1px solid ${cdSort==='time'?T.mint:T.bg3};background:${cdSort==='time'?'rgba(198,255,187,0.1)':T.bg2};color:${T.mint};" data-cdsort="time">Time</div>
+          <div style="padding:3px 8px;font-size:10px;cursor:pointer;border:1px solid ${cdSort==='amount'?T.mint:T.bg3};background:${cdSort==='amount'?'rgba(198,255,187,0.1)':T.bg2};color:${T.mint};" data-cdsort="amount">Amount</div>
+          <div style="padding:3px 8px;font-size:10px;cursor:pointer;border:1px solid ${cdSort==='status'?T.mint:T.bg3};background:${cdSort==='status'?'rgba(198,255,187,0.1)':T.bg2};color:${T.mint};" data-cdsort="status">Status</div>
+          ${visUnadj>0?`<div style="margin-left:auto;padding:3px 8px;font-size:10px;cursor:pointer;border:1px solid ${T.red};background:${T.bg2};color:${T.red};" data-cdzero="${selEmp?selEmp.name:'all'}">ZERO ALL (${visUnadj})</div>`:''}
         </div>
-        <div style="flex:1;display:flex;flex-direction:column;padding:12px 16px;overflow:hidden;">
-          <div style="display:flex;gap:8px;margin-bottom:10px;flex-shrink:0;">${MOCK_SERVERS.map(emp=>{
-            const st=cdEmpStats(emp),isDone=st.unadjusted===0,isSel=cdSelEmp===emp.name;
-            const stText=emp.checkedOut&&isDone?'COMPLETE':st.unadjusted>0?st.unadjusted+' OPEN':'READY';
-            const stCol=emp.checkedOut&&isDone?'#39b54a':st.unadjusted>0?'#ffff00':'#33ffff';
-            return `<div style="flex:1;border:2px solid ${isSel?'#fcbe40':isDone?'#39b54a':st.unadjusted>0?'#33ffff':'var(--bg3)'};background:${isSel?'rgba(252,190,64,0.08)':'var(--panel)'};padding:8px;text-align:center;cursor:pointer;${emp.checkedOut&&isDone&&!isSel?'opacity:0.4;':''}" data-cdsel="${emp.name}">
-              <div style="font-size:13px;font-weight:bold;color:${isSel?'#fcbe40':stCol};">${emp.name}</div>
-              <div style="font-size:10px;color:${stCol};">${stText}</div>
-              <div style="font-size:12px;color:#fcbe40;margin-top:3px;">$${emp.gross.toFixed(2)}</div>
-            </div>`;}).join('')}</div>
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-shrink:0;">${cdW98(adjPct,stats.allDone?'#39b54a':'#fcbe40')}<span style="font-size:11px;flex-shrink:0;width:60px;text-align:right;color:${stats.allDone?'#39b54a':'#fcbe40'};">${stats.adjusted}/${stats.total}</span></div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-shrink:0;"><span style="font-size:13px;font-weight:bold;color:#fcbe40;">${fLabel}</span><span style="font-size:11px;">${fSub}</span></div>
-          <div style="display:flex;gap:4px;margin-bottom:6px;flex-shrink:0;align-items:center;">
-            <div style="padding:3px 8px;font-size:10px;cursor:pointer;border:1px solid ${cdSort==='time'?'var(--mint)':'var(--bg3)'};background:${cdSort==='time'?'rgba(198,255,187,0.1)':'var(--panel)'};color:var(--mint);" data-cdsort="time">Time</div>
-            <div style="padding:3px 8px;font-size:10px;cursor:pointer;border:1px solid ${cdSort==='amount'?'var(--mint)':'var(--bg3)'};background:${cdSort==='amount'?'rgba(198,255,187,0.1)':'var(--panel)'};color:var(--mint);" data-cdsort="amount">Amount</div>
-            <div style="padding:3px 8px;font-size:10px;cursor:pointer;border:1px solid ${cdSort==='status'?'var(--mint)':'var(--bg3)'};background:${cdSort==='status'?'rgba(198,255,187,0.1)':'var(--panel)'};color:var(--mint);" data-cdsort="status">Status</div>
-            ${visUnadj>0?`<div style="margin-left:auto;padding:3px 8px;font-size:10px;cursor:pointer;border:1px solid #ff3355;background:var(--panel);color:#ff3355;" data-cdzero="${selEmp?selEmp.name:'all'}">ZERO ALL (${visUnadj})</div>`:''}
+        <div style="flex:1;overflow-y:auto;border:1px solid #444;background:${T.bg2};">
+          <table style="width:100%;border-collapse:collapse;">
+            <thead><tr>${['Check',!selEmp?'Server':'','Table','Subtotal','Tip','Pay'].filter(Boolean).map(h=>`<th style="font-size:10px;color:${T.mint};opacity:0.5;text-align:${h==='Subtotal'||h==='Tip'?'right':'left'};padding:5px 8px;border-bottom:1px solid ${T.bg3};position:sticky;top:0;background:${T.bg2};z-index:1;">${h}</th>`).join('')}</tr></thead>
+            <tbody>${sorted.map(txn=>{
+              const isEd=cdEditTxn===txn.ref;const dotCol=txn.tipAdjusted?'#39b54a':T.yellow;const tipDisp=txn.tip!==null?'$'+txn.tip.toFixed(2):'\u2014';
+              return `<tr style="border-bottom:1px solid rgba(198,255,187,0.06);cursor:pointer;${isEd?'background:rgba(252,190,64,0.06);':''}" ${!isEd?`data-cdedit="${txn.ref}"`:''}}>
+                <td style="font-size:12px;padding:6px 8px;color:${T.cyan};font-weight:bold;">${txn.ref}</td>
+                ${!selEmp?`<td style="font-size:11px;padding:6px 8px;color:${T.mint};">${txn._server}</td>`:''}
+                <td style="font-size:12px;padding:6px 8px;">${txn.table}</td>
+                <td style="font-size:12px;padding:6px 8px;text-align:right;color:${T.gold};font-weight:bold;">$${txn.subtotal.toFixed(2)}</td>
+                <td style="font-size:12px;padding:6px 8px;text-align:right;">${isEd
+                  ?`<div style="display:flex;align-items:center;gap:4px;justify-content:flex-end;"><input type="number" step="0.01" min="0" value="${txn.tip!==null?txn.tip.toFixed(2):''}" placeholder="0.00" style="width:60px;background:${T.bg2};border:1px solid ${T.gold};color:${T.gold};font-family:${T.fb};font-size:12px;padding:2px 4px;text-align:right;" id="cd-tipinput"><div style="background:#39b54a;color:${T.bg};padding:2px 8px;font-size:10px;font-weight:bold;cursor:pointer;clip-path:${chamfer('sm')};" data-cdtipsave="${txn.ref}">\u2713</div></div>`
+                  :`<span style="color:${txn.tipAdjusted?'#39b54a':T.yellow};"><span style="display:inline-block;width:6px;height:6px;background:${dotCol};box-shadow:0 0 4px ${dotCol};margin-right:4px;"></span>${tipDisp}</span>`
+                }</td>
+                <td style="font-size:10px;padding:6px 8px;color:${txn.method==='card'?T.cyan:'#39b54a'};">${txn.method}</td>
+              </tr>`;}).join('')}</tbody>
+          </table>
+        </div>
+        <div style="display:flex;gap:12px;padding:10px 0;flex-shrink:0;align-items:stretch;">
+          <div style="flex:1;border:1px solid #444;background:${T.bg2};padding:8px;clip-path:${chamfer('sm')};display:flex;flex-wrap:wrap;gap:0 16px;">
+            <span style="font-size:11px;"><span style="opacity:0.6;">Gross</span> <span style="color:${T.gold};font-weight:bold;">$${stats.grossSales.toFixed(2)}</span></span>
+            <span style="font-size:11px;"><span style="opacity:0.6;">Tips</span> <span style="color:${T.gold};font-weight:bold;">$${stats.totalTips.toFixed(2)}</span></span>
+            <span style="font-size:11px;"><span style="color:${T.cyan};">Card</span> <span style="color:${T.gold};font-weight:bold;">$${stats.cardTotal.toFixed(2)}</span></span>
+            <span style="font-size:11px;"><span style="color:#39b54a;">Cash</span> <span style="color:${T.gold};font-weight:bold;">$${stats.cashTotal.toFixed(2)}</span></span>
+            <span style="font-size:11px;border-left:2px solid #39b54a;padding-left:8px;"><span style="color:#39b54a;font-weight:bold;">Cash Expected</span> <span style="color:#39b54a;font-weight:bold;">$${stats.cashTotal.toFixed(2)}</span></span>
           </div>
-          <div style="flex:1;overflow-y:auto;border:1px solid #444;background:var(--panel);">
-            <table style="width:100%;border-collapse:collapse;">
-              <thead><tr>${['Check',!selEmp?'Server':'','Table','Subtotal','Tip','Pay'].filter(Boolean).map(h=>`<th style="font-size:10px;color:var(--mint);opacity:0.5;text-align:${h==='Subtotal'||h==='Tip'?'right':'left'};padding:5px 8px;border-bottom:1px solid var(--bg3);position:sticky;top:0;background:var(--panel);z-index:1;">${h}</th>`).join('')}</tr></thead>
-              <tbody>${sorted.map(txn=>{
-                const isEd=cdEditTxn===txn.ref;const dotCol=txn.tipAdjusted?'#39b54a':'#ffff00';const tipDisp=txn.tip!==null?'$'+txn.tip.toFixed(2):'\u2014';
-                return `<tr style="border-bottom:1px solid rgba(198,255,187,0.06);cursor:pointer;${isEd?'background:rgba(252,190,64,0.06);':''}" ${!isEd?`data-cdedit="${txn.ref}"`:''}}>
-                  <td style="font-size:12px;padding:6px 8px;color:#33ffff;font-weight:bold;">${txn.ref}</td>
-                  ${!selEmp?`<td style="font-size:11px;padding:6px 8px;color:var(--mint);">${txn._server}</td>`:''}
-                  <td style="font-size:12px;padding:6px 8px;">${txn.table}</td>
-                  <td style="font-size:12px;padding:6px 8px;text-align:right;color:#fcbe40;font-weight:bold;">$${txn.subtotal.toFixed(2)}</td>
-                  <td style="font-size:12px;padding:6px 8px;text-align:right;">${isEd
-                    ?`<div style="display:flex;align-items:center;gap:4px;justify-content:flex-end;"><input type="number" step="0.01" min="0" value="${txn.tip!==null?txn.tip.toFixed(2):''}" placeholder="0.00" style="width:60px;background:var(--panel);border:1px solid #fcbe40;color:#fcbe40;font-family:var(--font);font-size:12px;padding:2px 4px;text-align:right;" id="cd-tipinput"><div style="background:#39b54a;color:#222;padding:2px 8px;font-size:10px;font-weight:bold;cursor:pointer;" data-cdtipsave="${txn.ref}">\u2713</div></div>`
-                    :`<span style="color:${txn.tipAdjusted?'#39b54a':'#ffff00'};"><span style="display:inline-block;width:6px;height:6px;background:${dotCol};box-shadow:0 0 4px ${dotCol};margin-right:4px;"></span>${tipDisp}</span>`
-                  }</td>
-                  <td style="font-size:10px;padding:6px 8px;color:${txn.method==='card'?'#33ffff':'#39b54a'};">${txn.method}</td>
-                </tr>`;}).join('')}</tbody>
-            </table>
-          </div>
-          <div style="display:flex;gap:12px;padding:10px 0;flex-shrink:0;align-items:stretch;">
-            <div style="flex:1;border:1px solid #444;background:var(--panel);padding:8px;display:flex;flex-wrap:wrap;gap:0 16px;">
-              <span style="font-size:11px;"><span style="opacity:0.6;">Gross</span> <span style="color:#fcbe40;font-weight:bold;">$${stats.grossSales.toFixed(2)}</span></span>
-              <span style="font-size:11px;"><span style="opacity:0.6;">Tips</span> <span style="color:#fcbe40;font-weight:bold;">$${stats.totalTips.toFixed(2)}</span></span>
-              <span style="font-size:11px;"><span style="color:#33ffff;">Card</span> <span style="color:#fcbe40;font-weight:bold;">$${stats.cardTotal.toFixed(2)}</span></span>
-              <span style="font-size:11px;"><span style="color:#39b54a;">Cash</span> <span style="color:#fcbe40;font-weight:bold;">$${stats.cashTotal.toFixed(2)}</span></span>
-              <span style="font-size:11px;border-left:2px solid #39b54a;padding-left:8px;"><span style="color:#39b54a;font-weight:bold;">Cash Expected</span> <span style="color:#39b54a;font-weight:bold;">$${stats.cashTotal.toFixed(2)}</span></span>
-            </div>
-            <div style="width:200px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;cursor:${stats.allDone?'pointer':'not-allowed'};letter-spacing:1px;background:${stats.allDone?'#39b54a':'var(--bg3)'};color:${stats.allDone?'#222':'var(--mint)'};${stats.allDone?'':'opacity:0.5;'}" ${stats.allDone?'id="cd-submit"':''}>${stats.allDone?'SUBMIT BATCH':'PENDING ('+(stats.total-stats.adjusted)+')'}</div>
-          </div>
+          <div style="width:200px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;cursor:${stats.allDone?'pointer':'not-allowed'};letter-spacing:1px;clip-path:${chamfer('sm')};background:${stats.allDone?'#39b54a':T.bg3};color:${stats.allDone?T.bg:T.mint};${stats.allDone?'':'opacity:0.5;'}" ${stats.allDone?'id="cd-submit"':''}>${stats.allDone?'SUBMIT BATCH':'PENDING ('+(stats.total-stats.adjusted)+')'}</div>
         </div>`;
+
+      const ov=document.createElement('div');ov.className='overlay';
+      ov.style.cssText='position:fixed;inset:0;z-index:100;';
+      ov.innerHTML=snapshotOverlay(`CLOSE DAY <span style="font-size:12px;float:right;margin-top:4px;">${stats.adjusted}/${stats.total} tips</span>`, cdContent, 'void 0');
 
       // Remove existing overlay if any
       el.querySelectorAll('.overlay').forEach(o=>o.remove());
@@ -867,7 +872,7 @@ registerScene('snapshot',{
         if(t){ev.stopPropagation();const inp=document.getElementById('cd-tipinput');if(!inp)return;const val=parseFloat(inp.value);if(isNaN(val)||val<0)return;
           for(const emp of MOCK_SERVERS){const txn=(emp.transactions||[]).find(tx=>tx.ref===t.dataset.cdtipsave);if(txn){txn.tip=val;txn.tipAdjusted=true;break;}}
           cdEditTxn=null;ov.remove();drawCloseDay();return;}
-        if(ev.target.closest('#cd-close')){ov.remove();draw();return;}
+        if(ev.target.closest('[onclick]')){ov.remove();draw();return;}
         if(ev.target.closest('#cd-submit')){ov.remove();cdSubmitBatch();return;}
         const selEl=ev.target.closest('[data-cdsel]');
         if(selEl){cdSelEmp=cdSelEmp===selEl.dataset.cdsel?null:selEl.dataset.cdsel;cdEditTxn=null;ov.remove();drawCloseDay();return;}
@@ -886,19 +891,19 @@ registerScene('snapshot',{
       const stats=cdAllStats();
       if(!document.getElementById('cd-batch-css')){const s=document.createElement('style');s.id='cd-batch-css';s.textContent='@keyframes cdDash{from{transform:translateX(-16px);}to{transform:translateX(0);}}';document.head.appendChild(s);}
 
-      const ov=document.createElement('div');ov.style.cssText='position:fixed;inset:0;background:var(--bg2);display:flex;flex-direction:column;z-index:100;';
-      ov.innerHTML=`
-        <div style="background:var(--mint);color:#222;padding:4px 16px;font-size:14px;font-weight:bold;letter-spacing:2px;border-bottom:2px solid #222;height:30px;display:flex;align-items:center;">CLOSE DAY \u2014 SUBMITTING</div>
+      const batchContent = `
         <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;">
-          <div style="font-size:18px;font-weight:bold;letter-spacing:2px;color:#fcbe40;text-shadow:0 0 10px rgba(252,190,64,0.4);">SETTLING BATCH</div>
+          <div style="font-size:18px;font-weight:bold;letter-spacing:2px;color:${T.gold};text-shadow:0 0 10px rgba(252,190,64,0.4);">SETTLING BATCH</div>
           <div style="width:400px;display:flex;align-items:center;justify-content:space-between;">
-            <div style="width:80px;height:60px;border:2px solid #33ffff;display:flex;align-items:center;justify-content:center;flex-direction:column;background:var(--panel);"><span style="font-size:20px;">\u25C6</span><span style="font-size:8px;margin-top:2px;">TRM-01</span></div>
+            <div style="width:80px;height:60px;border:2px solid ${T.cyan};clip-path:${chamfer('sm')};display:flex;align-items:center;justify-content:center;flex-direction:column;background:${T.bg2};"><span style="font-size:20px;">\u25C6</span><span style="font-size:8px;margin-top:2px;">TRM-01</span></div>
             <div style="flex:1;height:4px;margin:0 12px;overflow:hidden;position:relative;"><div style="position:absolute;inset:0;background:repeating-linear-gradient(90deg,#33ffff 0px,#33ffff 8px,transparent 8px,transparent 16px);animation:cdDash 0.6s linear infinite;"></div></div>
-            <div style="width:80px;height:60px;border:2px solid #39b54a;display:flex;align-items:center;justify-content:center;flex-direction:column;background:var(--panel);"><span style="font-size:20px;">\uD83D\uDCB3</span><span style="font-size:8px;margin-top:2px;">PROCESSOR</span></div>
+            <div style="width:80px;height:60px;border:2px solid #39b54a;clip-path:${chamfer('sm')};display:flex;align-items:center;justify-content:center;flex-direction:column;background:${T.bg2};"><span style="font-size:20px;">\uD83D\uDCB3</span><span style="font-size:8px;margin-top:2px;">PROCESSOR</span></div>
           </div>
           <div style="width:300px;" id="cd-batchbar"></div>
-          <div style="font-size:12px;color:var(--mint);opacity:0.5;" id="cd-batchmsg">Connecting to payment processor...</div>
+          <div style="font-size:12px;color:${T.mint};opacity:0.5;" id="cd-batchmsg">Connecting to payment processor...</div>
         </div>`;
+      const ov=document.createElement('div');ov.style.cssText='position:fixed;inset:0;z-index:100;';
+      ov.innerHTML=snapshotOverlay('CLOSE DAY \u2014 SUBMITTING', batchContent, '');
       document.body.appendChild(ov);
 
       const bar=ov.querySelector('#cd-batchbar'),msg=ov.querySelector('#cd-batchmsg');
@@ -910,27 +915,27 @@ registerScene('snapshot',{
 
     function cdShowSuccess(stats){
       let sbar='';for(let i=0;i<20;i++)sbar+=`<div style="flex:1;height:100%;background:#39b54a;box-shadow:0 0 4px rgba(57,181,74,0.6);"></div>`;
-      const ov=document.createElement('div');ov.style.cssText='position:fixed;inset:0;background:var(--bg2);display:flex;flex-direction:column;z-index:100;';
-      ov.innerHTML=`
-        <div style="background:#39b54a;color:#222;padding:4px 16px;font-size:14px;font-weight:bold;letter-spacing:2px;border-bottom:2px solid #222;height:30px;display:flex;align-items:center;">CLOSE DAY \u2014 COMPLETE</div>
+      const successContent = `
         <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;">
           <div style="width:300px;"><div style="height:22px;border-top:2px solid #1a1a1a;border-left:2px solid #1a1a1a;border-bottom:2px solid #555;border-right:2px solid #555;background:#2a2a2a;display:flex;align-items:center;padding:1px;gap:1px;overflow:hidden;">${sbar}</div></div>
           <div style="font-size:22px;font-weight:bold;letter-spacing:3px;color:#39b54a;text-shadow:0 0 12px rgba(57,181,74,0.5);">BATCH SUBMISSION SUCCESSFUL</div>
-          <div style="border:2px solid #39b54a;background:var(--panel);padding:16px 32px;display:flex;flex-direction:column;gap:6px;min-width:300px;">
-            <div style="display:flex;justify-content:space-between;font-size:13px;"><span>Gross Sales</span><span style="color:#fcbe40;font-weight:bold;">$${stats.grossSales.toFixed(2)}</span></div>
-            <div style="display:flex;justify-content:space-between;font-size:13px;"><span>Total Tips</span><span style="color:#fcbe40;font-weight:bold;">$${stats.totalTips.toFixed(2)}</span></div>
-            <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:#33ffff;">Card Batch</span><span style="color:#fcbe40;font-weight:bold;">$${stats.cardTotal.toFixed(2)}</span></div>
+          <div style="border:2px solid #39b54a;background:${T.bg2};clip-path:${chamfer('lg')};padding:16px 32px;display:flex;flex-direction:column;gap:6px;min-width:300px;">
+            <div style="display:flex;justify-content:space-between;font-size:13px;"><span>Gross Sales</span><span style="color:${T.gold};font-weight:bold;">$${stats.grossSales.toFixed(2)}</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:13px;"><span>Total Tips</span><span style="color:${T.gold};font-weight:bold;">$${stats.totalTips.toFixed(2)}</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:${T.cyan};">Card Batch</span><span style="color:${T.gold};font-weight:bold;">$${stats.cardTotal.toFixed(2)}</span></div>
             <div style="height:1px;background:#444;margin:4px 0;"></div>
             <div style="display:flex;justify-content:space-between;font-size:13px;"><span>Transactions</span><span style="color:#39b54a;">${stats.total}/${stats.total} adjusted</span></div>
             <div style="height:2px;background:#39b54a;margin:6px 0;"></div>
             <div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-size:16px;font-weight:bold;color:#39b54a;">CASH EXPECTED</span><span style="font-size:22px;color:#39b54a;font-weight:bold;text-shadow:0 0 10px rgba(57,181,74,0.5);">$${stats.cashTotal.toFixed(2)}</span></div>
           </div>
           <div style="display:flex;gap:12px;margin-top:8px;">
-            <div style="background:#39b54a;color:#222;padding:12px 32px;font-family:var(--font);font-size:14px;font-weight:bold;cursor:pointer;letter-spacing:1px;" id="cd-finalclose">CLOSE DAY</div>
-            <div style="background:var(--bg3);color:var(--mint);border:1px solid var(--mint);padding:12px 32px;font-family:var(--font);font-size:14px;font-weight:bold;cursor:pointer;letter-spacing:1px;" id="cd-back">\u2190 BACK</div>
+            <div style="background:#39b54a;color:${T.bg};padding:12px 32px;font-family:${T.fb};font-size:14px;font-weight:bold;cursor:pointer;letter-spacing:1px;clip-path:${chamfer('sm')};" id="cd-finalclose">CLOSE DAY</div>
+            <div style="background:${T.bg3};color:${T.mint};border:1px solid ${T.mint};padding:12px 32px;font-family:${T.fb};font-size:14px;font-weight:bold;cursor:pointer;letter-spacing:1px;clip-path:${chamfer('sm')};" id="cd-back">\u2190 BACK</div>
           </div>
           <div style="font-size:10px;opacity:0.3;margin-top:8px;">Batch settled at ${new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})} \u2014 TRM-01</div>
         </div>`;
+      const ov=document.createElement('div');ov.style.cssText='position:fixed;inset:0;z-index:100;';
+      ov.innerHTML=snapshotOverlay('CLOSE DAY \u2014 COMPLETE', successContent, '');
       document.body.appendChild(ov);
       ov.querySelector('#cd-finalclose').addEventListener('click',()=>{ov.remove();go('login');});
       ov.querySelector('#cd-back').addEventListener('click',()=>{ov.remove();drawCloseDay();});
