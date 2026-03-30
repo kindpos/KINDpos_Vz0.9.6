@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KINDpos_Bombard — Entomology Report</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; background: #1a1a2e; color: #e0e0e0; padding: 20px; line-height: 1.5; }
+        .header { background: #16213e; padding: 24px; border-radius: 8px; margin-bottom: 24px; }
+        .header h1 { font-size: 1.5em; color: #fff; margin-bottom: 8px; }
+        .header-meta { display: flex; flex-wrap: wrap; gap: 16px; font-size: 0.85em; color: #a0a0a0; }
+        .layer { background: #16213e; padding: 24px; border-radius: 8px; margin-bottom: 24px; }
+        .layer h2 { font-size: 1.2em; color: #fff; margin-bottom: 16px; border-bottom: 1px solid #333; padding-bottom: 8px; }
+        .layer h3 { font-size: 1em; color: #ccc; margin: 16px 0 8px; }
+
+        /* Scorecards */
+        .scorecards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px; }
+        .scorecard { background: #0f3460; padding: 16px; border-radius: 6px; }
+        .scorecard h3 { margin: 0 0 8px; font-size: 0.95em; }
+        .scorecard-total { font-size: 1.4em; font-weight: bold; margin-bottom: 8px; }
+        .severity-breakdown { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+        .sev-badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 0.75em; color: #000; font-weight: bold; }
+        .top-offender { font-size: 0.8em; color: #a0a0a0; }
+
+        /* Data Table */
+        .data-table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+        .data-table th { text-align: left; padding: 8px; background: #0f3460; border-bottom: 2px solid #333; }
+        .data-table td { padding: 8px; border-bottom: 1px solid #2a2a4a; }
+
+        /* Active/Resolved */
+        .active-resolved-summary { font-size: 1.1em; padding: 12px; background: #0f3460; border-radius: 6px; }
+        .active-count { color: #fd7e14; font-weight: bold; }
+        .resolved-count { color: #28a745; font-weight: bold; }
+
+        /* Clusters */
+        .cluster { background: #0f3460; padding: 16px; border-radius: 6px; margin-bottom: 12px; }
+        .cluster-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .cluster-count { font-size: 0.85em; color: #a0a0a0; }
+        .cluster-sources { font-size: 0.8em; color: #888; margin-bottom: 8px; }
+
+        /* Histogram */
+        .histogram-container { margin-top: 8px; }
+        .histogram-label { font-size: 0.8em; color: #888; margin-bottom: 4px; }
+        .histogram { display: flex; align-items: flex-end; gap: 2px; height: 60px; }
+        .hist-bar-container { display: flex; flex-direction: column; align-items: center; flex: 1; height: 100%; justify-content: flex-end; }
+        .hist-bar { width: 100%; background: #e94560; border-radius: 2px 2px 0 0; min-height: 1px; }
+        .hist-label { font-size: 0.6em; color: #666; margin-top: 2px; }
+
+        /* Peripheral */
+        .peripheral-card { background: #0f3460; padding: 12px; border-radius: 6px; margin-bottom: 8px; }
+        .peripheral-header { display: flex; justify-content: space-between; }
+        .uptime { color: #28a745; }
+        .peripheral-stats { font-size: 0.8em; color: #888; margin-top: 4px; }
+
+        /* Correlation Chains */
+        .chain-entry { padding: 8px; border-bottom: 1px solid #2a2a4a; display: flex; gap: 12px; align-items: center; font-size: 0.85em; }
+        .chain-entry.resolved { border-left: 3px solid #28a745; }
+        .chain-entry.unresolved { border-left: 3px solid #fd7e14; }
+        .chain-id { color: #888; font-family: monospace; }
+        .chain-flow { flex: 1; }
+        .chain-status { font-size: 1.2em; }
+
+        /* Escalation */
+        .escalation-entry { background: #0f3460; padding: 12px; border-radius: 6px; margin-bottom: 8px; border-left: 3px solid #ffc107; }
+        .trend-up { color: #fd7e14; font-weight: bold; margin-left: 8px; }
+        .daily-counts { font-size: 0.8em; color: #888; margin-top: 4px; }
+
+        /* Timeline */
+        .timeline { margin-top: 8px; }
+        .timeline-row { padding: 8px 12px; margin-bottom: 4px; background: #0f3460; border-radius: 4px; }
+        .row-header { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 0.85em; }
+        .row-ts { color: #888; font-family: monospace; }
+        .cat-badge { background: #2a2a4a; padding: 1px 6px; border-radius: 3px; font-size: 0.8em; }
+        .row-code { font-weight: bold; }
+        .row-source { color: #888; }
+        .row-message { color: #ccc; }
+        .corr-link { color: #5dade2; text-decoration: none; font-size: 0.8em; }
+        .corr-link:hover { text-decoration: underline; }
+        .context-json { background: #0a0a1a; padding: 12px; border-radius: 4px; font-size: 0.8em; overflow-x: auto; white-space: pre-wrap; color: #a0d0a0; }
+        .collapsed-heartbeats { background: #0a1628; }
+        .full-timeline-toggle { margin-top: 16px; }
+
+        details > summary { cursor: pointer; color: #5dade2; }
+        details > summary:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    
+        <div class="header">
+            <h1>KINDpos_Bombard — Entomology Report</h1>
+            <div class="header-meta">
+                <span>Terminal(s): terminal_01</span>
+                <span>Generated: 2026-03-30 00:31:49 UTC</span>
+                <span>Window: 2026-03-23 to 2026-03-30 (last 7 days)</span>
+            </div>
+        </div>
+        
+    
+        <section class="layer" id="layer1">
+            <h2>Layer 1 — System Health Summary</h2>
+            <div class="scorecards">
+            <div class="scorecard" style="border-top: 4px solid #28a745;">
+                <h3>DEVICE</h3>
+                <div class="scorecard-total">1 events</div>
+                <div class="severity-breakdown">
+                    <span class="sev-badge" style="background:#28a745;">1 INFO</span>
+                    <span class="sev-badge" style="background:#ffc107;">0 WARN</span>
+                    <span class="sev-badge" style="background:#fd7e14;">0 ERR</span>
+                    <span class="sev-badge" style="background:#dc3545;">0 CRIT</span>
+                </div>
+                <div class="top-offender">
+                    Top: DEV-006 (1)
+                </div>
+            </div>
+            
+
+            <div class="scorecard" style="border-top: 4px solid #28a745;">
+                <h3>NETWORK</h3>
+                <div class="scorecard-total">1 events</div>
+                <div class="severity-breakdown">
+                    <span class="sev-badge" style="background:#28a745;">1 INFO</span>
+                    <span class="sev-badge" style="background:#ffc107;">0 WARN</span>
+                    <span class="sev-badge" style="background:#fd7e14;">0 ERR</span>
+                    <span class="sev-badge" style="background:#dc3545;">0 CRIT</span>
+                </div>
+                <div class="top-offender">
+                    Top: NET-007 (1)
+                </div>
+            </div>
+            
+
+            <div class="scorecard" style="border-top: 4px solid #28a745;">
+                <h3>SYSTEM</h3>
+                <div class="scorecard-total">3 events</div>
+                <div class="severity-breakdown">
+                    <span class="sev-badge" style="background:#28a745;">3 INFO</span>
+                    <span class="sev-badge" style="background:#ffc107;">0 WARN</span>
+                    <span class="sev-badge" style="background:#fd7e14;">0 ERR</span>
+                    <span class="sev-badge" style="background:#dc3545;">0 CRIT</span>
+                </div>
+                <div class="top-offender">
+                    Top: SYS-HEARTBEAT (3)
+                </div>
+            </div>
+            
+
+            <div class="scorecard" style="border-top: 4px solid #28a745;">
+                <h3>PERIPHERAL</h3>
+                <div class="scorecard-total">1 events</div>
+                <div class="severity-breakdown">
+                    <span class="sev-badge" style="background:#28a745;">1 INFO</span>
+                    <span class="sev-badge" style="background:#ffc107;">0 WARN</span>
+                    <span class="sev-badge" style="background:#fd7e14;">0 ERR</span>
+                    <span class="sev-badge" style="background:#dc3545;">0 CRIT</span>
+                </div>
+                <div class="top-offender">
+                    Top: PER-005 (1)
+                </div>
+            </div>
+            
+
+            <div class="scorecard" style="border-top: 4px solid #28a745;">
+                <h3>RECOVERY</h3>
+                <div class="scorecard-total">1 events</div>
+                <div class="severity-breakdown">
+                    <span class="sev-badge" style="background:#28a745;">1 INFO</span>
+                    <span class="sev-badge" style="background:#ffc107;">0 WARN</span>
+                    <span class="sev-badge" style="background:#fd7e14;">0 ERR</span>
+                    <span class="sev-badge" style="background:#dc3545;">0 CRIT</span>
+                </div>
+                <div class="top-offender">
+                    Top: REC-001 (1)
+                </div>
+            </div>
+            </div>
+            <div class="top5">
+        <h3>Top 5 Issues</h3>
+        <table class="data-table">
+            <thead>
+                <tr><th>Code</th><th>Count</th><th>Category</th><th>Last Seen</th><th>Message</th></tr>
+            </thead>
+            <tbody>
+            <tr>
+                <td><strong>SYS-HEARTBEAT</strong></td>
+                <td>3</td>
+                <td>SYSTEM</td>
+                <td>2026-03-30 00:31:49</td>
+                <td>Post-service heartbeat</td>
+            </tr>
+            
+            <tr>
+                <td><strong>DEV-006</strong></td>
+                <td>1</td>
+                <td>DEVICE</td>
+                <td>2026-03-30 00:31:49</td>
+                <td>Payment terminal status check</td>
+            </tr>
+            
+            <tr>
+                <td><strong>NET-007</strong></td>
+                <td>1</td>
+                <td>NETWORK</td>
+                <td>2026-03-30 00:31:49</td>
+                <td>Gateway latency check</td>
+            </tr>
+            
+            <tr>
+                <td><strong>PER-005</strong></td>
+                <td>1</td>
+                <td>PERIPHERAL</td>
+                <td>2026-03-30 00:31:49</td>
+                <td>Printer status check</td>
+            </tr>
+            
+            <tr>
+                <td><strong>REC-001</strong></td>
+                <td>1</td>
+                <td>RECOVERY</td>
+                <td>2026-03-30 00:31:49</td>
+                <td>Auto-retry succeeded</td>
+            </tr>
+            </tbody>
+        </table>
+        </div>
+            <div class="active-resolved">
+        <div class="active-resolved-summary">
+            <span class="active-count">0 active issues</span> /
+            <span class="resolved-count">0 resolved this week</span>
+        </div>
+        </div>
+        </section>
+        
+    
+        <section class="layer" id="layer2">
+            <h2>Layer 2 — Pattern Analysis</h2>
+            <h3>Recurring Issue Clusters</h3>
+
+            <div class="cluster">
+                <div class="cluster-header">
+                    <strong>SYS-HEARTBEAT</strong> — Post-service heartbeat
+                    <span class="cluster-count">3 occurrences</span>
+                </div>
+                <div class="cluster-sources">Sources: BombardSimulation</div>
+                <div class="histogram-container">
+                    <div class="histogram-label">Hour of Day Distribution</div>
+                    <div class="histogram">
+            <div class="hist-bar-container">
+                <div class="hist-bar" style="height:100.0%;" title="0:00 — 3"></div>
+                <div class="hist-label">0</div>
+            </div>
+            
+            <div class="hist-bar-container">
+                <div class="hist-bar" style="height:0.0%;" title="1:00 — 0"></div>
+                <div class="hist-label">1</div>
+            </div>
+            
+            <div class="hist-bar-container">
+                <div class="hist-bar" style="height:0.0%;" title="2:00 — 0"></div>
+                <div class="hist-label">2</div>
+            </div>
+            
+            <div class="hist-bar-container">
+                <div class="hist-bar" style="height:0.0%;" title="3:00 — 0"></div>
+                <div class="hist-label">3</div>
+            </div>
+            
+            <div class="hist-bar-container">
+                <div class="hist-bar" style="height:0.0%;" title="4:00 — 0"></div>
+                <div class="hist-label">4</div>
+            </div>
+            
+            <div class="hist-bar-container">
+                <div class="hist-bar" style="height:0.0%;" title="5:00 — 0"></div>
+                <div class="hist-label">5</div>
+            </div>
+            
+            <div class="hist-bar-container">
+                <div class="hist-bar" style="height:0.0%;" title="6:00 — 0"></div>
+                <div class="hist-label">6</div>
+            </div>
+            
+            <div class="hist-bar-container">
+                <div class="hist-bar" style="height:0.0%;" title="7:00 — 0"></div>
+                <div class="hist-label">7</div>
+            </div>
+            
+            <div class="hist-bar-container">
+                <div class="hist-bar" style="height:0.0%;" title="8:00 — 0"></div>
+                <div class="hist-label">8</div>
+            </div>
+            
+            <div class="hist-bar-container">
+                <div class="hist-bar" style="height:0.0%;" title="9:00 — 0"></div>
+                <div class="hist-label">9</div>
+            </div>
+            
+            <div class="hist-bar-container">
+                <div class="hist-bar" style="height:0.0%;" title="10:00 — 0"></div>
+                <div class="hist-label">10</div>
+            </div>
+            
+            <div class="hist-bar-container">
+                <div class="hist-bar" style="height:0.0%;" title="11:00 — 0"></div>
+                <div class="hist-label">11</div>
+            </div>
+            
+            <div class="hist-bar-container">
+                <div class="hist-bar" style="height:0.0%;" title="12:00 — 0"></div>
+                <div class="hist-label">12</div>
+            </div>
+            
+            <div class="hist-bar-container">
+                <div class="hist-bar" style="height:0.0%;" title="13:00 — 0"></div>
+                <div class="hist-label">13</div>
+            </div>
+            
+            <div class="hist-bar-container">
+                <div class="hist-bar" style="height:0.0%;" title="14:00 — 0"></div>
+                <div class="hist-label">14</div>
+            </div>
+            
+            <div class="hist-bar-container">
+                <div class="hist-bar" style="height:0.0%;" title="15:00 — 0"></div>
+                <div class="hist-label">15</div>
+            </div>
+            
+            <div class="hist-bar-container">
+                <div class="hist-bar" style="height:0.0%;" title="16:00 — 0"></div>
+                <div class="hist-label">16</div>
+            </div>
+            
+            <div class="hist-bar-container">
+                <div class="hist-bar" style="height:0.0%;" title="17:00 — 0"></div>
+                <div class="hist-label">17</div>
+            </div>
+            
+            <div class="hist-bar-container">
+                <div class="hist-bar" style="height:0.0%;" title="18:00 — 0"></div>
+                <div class="hist-label">18</div>
+            </div>
+            
+            <div class="hist-bar-container">
+                <div class="hist-bar" style="height:0.0%;" title="19:00 — 0"></div>
+                <div class="hist-label">19</div>
+            </div>
+            
+            <div class="hist-bar-container">
+                <div class="hist-bar" style="height:0.0%;" title="20:00 — 0"></div>
+                <div class="hist-label">20</div>
+            </div>
+            
+            <div class="hist-bar-container">
+                <div class="hist-bar" style="height:0.0%;" title="21:00 — 0"></div>
+                <div class="hist-label">21</div>
+            </div>
+            
+            <div class="hist-bar-container">
+                <div class="hist-bar" style="height:0.0%;" title="22:00 — 0"></div>
+                <div class="hist-label">22</div>
+            </div>
+            
+            <div class="hist-bar-container">
+                <div class="hist-bar" style="height:0.0%;" title="23:00 — 0"></div>
+                <div class="hist-label">23</div>
+            </div>
+            </div>
+                </div>
+            </div>
+            
+            <h3>Peripheral Health Timeline</h3><p>No peripheral data available.</p>
+            <h3>Correlation Chains</h3><p>No correlated events found.</p>
+            <h3>Escalation Candidates</h3><p>No escalating trends detected.</p>
+        </section>
+        
+    
+        <section class="layer" id="layer3">
+            <h2>Layer 3 — Event Timeline</h2>
+            <div class="timeline">
+                <p>No events in this view.</p>
+            </div>
+            <details class="full-timeline-toggle">
+                <summary>Show all events (including INFO/heartbeats)</summary>
+                <div class="timeline">
+                    
+        <div class="timeline-row" style="border-left: 3px solid #28a745;">
+            <div class="row-header">
+                <span class="row-ts">2026-03-30 00:31:49</span>
+                <span class="sev-badge" style="background:#28a745;">INFO</span>
+                <span class="cat-badge">SYSTEM</span>
+                <span class="row-code">SYS-HEARTBEAT</span>
+                <span class="row-source">BombardSimulation</span>
+                <span class="row-message">Simulation startup heartbeat</span>
+                
+            </div>
+            <details>
+                <summary>Context</summary>
+                <pre class="context-json">{
+  &quot;phase&quot;: &quot;pre_service&quot;,
+  &quot;simulation&quot;: true
+}</pre>
+            </details>
+        </div>
+        
+
+        <div class="timeline-row" style="border-left: 3px solid #28a745;">
+            <div class="row-header">
+                <span class="row-ts">2026-03-30 00:31:49</span>
+                <span class="sev-badge" style="background:#28a745;">INFO</span>
+                <span class="cat-badge">DEVICE</span>
+                <span class="row-code">DEV-006</span>
+                <span class="row-source">BombardSimulation</span>
+                <span class="row-message">Payment terminal status check</span>
+                
+            </div>
+            <details>
+                <summary>Context</summary>
+                <pre class="context-json">{
+  &quot;simulation&quot;: true
+}</pre>
+            </details>
+        </div>
+        
+
+        <div class="timeline-row" style="border-left: 3px solid #28a745;">
+            <div class="row-header">
+                <span class="row-ts">2026-03-30 00:31:49</span>
+                <span class="sev-badge" style="background:#28a745;">INFO</span>
+                <span class="cat-badge">NETWORK</span>
+                <span class="row-code">NET-007</span>
+                <span class="row-source">BombardSimulation</span>
+                <span class="row-message">Gateway latency check</span>
+                
+            </div>
+            <details>
+                <summary>Context</summary>
+                <pre class="context-json">{
+  &quot;simulation&quot;: true
+}</pre>
+            </details>
+        </div>
+        
+
+        <div class="timeline-row" style="border-left: 3px solid #28a745;">
+            <div class="row-header">
+                <span class="row-ts">2026-03-30 00:31:49</span>
+                <span class="sev-badge" style="background:#28a745;">INFO</span>
+                <span class="cat-badge">PERIPHERAL</span>
+                <span class="row-code">PER-005</span>
+                <span class="row-source">BombardSimulation</span>
+                <span class="row-message">Printer status check</span>
+                
+            </div>
+            <details>
+                <summary>Context</summary>
+                <pre class="context-json">{
+  &quot;simulation&quot;: true
+}</pre>
+            </details>
+        </div>
+        
+
+        <div class="timeline-row" style="border-left: 3px solid #28a745;">
+            <div class="row-header">
+                <span class="row-ts">2026-03-30 00:31:49</span>
+                <span class="sev-badge" style="background:#28a745;">INFO</span>
+                <span class="cat-badge">SYSTEM</span>
+                <span class="row-code">SYS-HEARTBEAT</span>
+                <span class="row-source">BombardSimulation</span>
+                <span class="row-message">Mid-service heartbeat</span>
+                
+            </div>
+            <details>
+                <summary>Context</summary>
+                <pre class="context-json">{
+  &quot;simulation&quot;: true
+}</pre>
+            </details>
+        </div>
+        
+
+        <div class="timeline-row" style="border-left: 3px solid #28a745;">
+            <div class="row-header">
+                <span class="row-ts">2026-03-30 00:31:49</span>
+                <span class="sev-badge" style="background:#28a745;">INFO</span>
+                <span class="cat-badge">RECOVERY</span>
+                <span class="row-code">REC-001</span>
+                <span class="row-source">BombardSimulation</span>
+                <span class="row-message">Auto-retry succeeded</span>
+                
+            </div>
+            <details>
+                <summary>Context</summary>
+                <pre class="context-json">{
+  &quot;simulation&quot;: true
+}</pre>
+            </details>
+        </div>
+        
+
+        <div class="timeline-row" style="border-left: 3px solid #28a745;">
+            <div class="row-header">
+                <span class="row-ts">2026-03-30 00:31:49</span>
+                <span class="sev-badge" style="background:#28a745;">INFO</span>
+                <span class="cat-badge">SYSTEM</span>
+                <span class="row-code">SYS-HEARTBEAT</span>
+                <span class="row-source">BombardSimulation</span>
+                <span class="row-message">Post-service heartbeat</span>
+                
+            </div>
+            <details>
+                <summary>Context</summary>
+                <pre class="context-json">{
+  &quot;simulation&quot;: true
+}</pre>
+            </details>
+        </div>
+        
+                </div>
+            </details>
+        </section>
+        
+</body>
+</html>

@@ -10,7 +10,7 @@
       {
         "name": "Sequential IDs (no gaps)",
         "passed": true,
-        "detail": "4894 sequential events"
+        "detail": "5162 sequential events"
       },
       {
         "name": "No duplicate event IDs",
@@ -36,54 +36,54 @@
       {
         "name": "Closed order count",
         "passed": true,
-        "detail": "Projected: 344, Day-summary: 344"
+        "detail": "Projected: 346, Day-summary: 346"
       },
       {
         "name": "Total sales consistency",
         "passed": true,
-        "detail": "Computed: 29414.66, Day-summary: 29414.66"
+        "detail": "Computed: 30823.41, Day-summary: 30823.41"
       },
       {
         "name": "Card total match",
         "passed": true,
-        "detail": "Projected: 20746.16, Day-summary: 20746.16"
+        "detail": "Projected: 19173.41, Day-summary: 19173.41"
       },
       {
         "name": "Cash total match",
         "passed": true,
-        "detail": "Projected: 8668.50, Day-summary: 8668.50"
+        "detail": "Projected: 11650.00, Day-summary: 11650.00"
       },
       {
         "name": "Tips total match",
         "passed": true,
-        "detail": "Projected: 4154.22, Day-summary: 4154.22"
+        "detail": "Projected: 3950.80, Day-summary: 3950.80"
       }
     ],
     "result": "PASS",
     "financial_summary": {
-      "gross_sales": "27726.00",
-      "discounts_comps": "236.00",
-      "voids": "406.61",
-      "net_sales": "27490.00",
-      "tax": "1924.66",
-      "total_tips": "4154.22",
-      "card_payments": "20746.16",
-      "cash_payments": "8668.50",
-      "closed_orders": 344,
-      "voided_orders": 6
+      "gross_sales": "29171.50",
+      "discounts_comps": "365.00",
+      "voids": "334.38",
+      "net_sales": "28806.50",
+      "tax": "2016.91",
+      "total_tips": "3950.80",
+      "card_payments": "19173.41",
+      "cash_payments": "11650.00",
+      "closed_orders": 346,
+      "voided_orders": 4
     }
   },
   {
     "section": "Performance Metrics",
     "result": "METRICS",
     "metrics": {
-      "wall_clock_s": 3.34,
-      "total_events": 4894,
-      "avg_write_ms": 0.595,
-      "p95_write_ms": 0.653,
-      "max_write_ms": 13.826,
-      "events_per_sec": 1463.2,
-      "avg_events_per_check": 14.0
+      "wall_clock_s": 2.12,
+      "total_events": 5162,
+      "avg_write_ms": 0.326,
+      "p95_write_ms": 0.329,
+      "max_write_ms": 16.566,
+      "events_per_sec": 2434.1,
+      "avg_events_per_check": 14.7
     },
     "warnings": []
   },
@@ -119,72 +119,72 @@
       {
         "name": "get_server_sales(server_01)",
         "passed": true,
-        "detail": "net=4130.00, covers=203"
+        "detail": "net=0.00, covers=0"
       },
       {
         "name": "get_server_tips(server_01)",
         "passed": true,
-        "detail": "earned=652.45, pending=0.00"
+        "detail": "earned=0.00, pending=0.00"
       },
       {
         "name": "get_server_sales(server_02)",
         "passed": true,
-        "detail": "net=5159.00, covers=245"
+        "detail": "net=0.00, covers=0"
       },
       {
         "name": "get_server_tips(server_02)",
         "passed": true,
-        "detail": "earned=722.66, pending=0.00"
+        "detail": "earned=0.00, pending=0.00"
       },
       {
         "name": "get_server_sales(server_03)",
         "passed": true,
-        "detail": "net=4959.50, covers=185"
+        "detail": "net=0.00, covers=0"
       },
       {
         "name": "get_server_tips(server_03)",
         "passed": true,
-        "detail": "earned=633.13, pending=0.00"
+        "detail": "earned=0.00, pending=0.00"
       },
       {
         "name": "get_server_sales(server_04)",
         "passed": true,
-        "detail": "net=3869.00, covers=188"
+        "detail": "net=0.00, covers=0"
       },
       {
         "name": "get_server_tips(server_04)",
         "passed": true,
-        "detail": "earned=521.01, pending=0.00"
+        "detail": "earned=0.00, pending=0.00"
       },
       {
         "name": "get_server_sales(server_05)",
         "passed": true,
-        "detail": "net=3651.00, covers=190"
+        "detail": "net=0.00, covers=0"
       },
       {
         "name": "get_server_tips(server_05)",
         "passed": true,
-        "detail": "earned=643.90, pending=0.00"
+        "detail": "earned=0.00, pending=0.00"
       },
       {
         "name": "get_server_sales(server_06)",
         "passed": true,
-        "detail": "net=5957.50, covers=251"
+        "detail": "net=0.00, covers=0"
       },
       {
         "name": "get_server_tips(server_06)",
         "passed": true,
-        "detail": "earned=981.07, pending=0.00"
+        "detail": "earned=0.00, pending=0.00"
       },
       {
         "name": "calculate_tip_out()",
         "passed": true,
-        "detail": "walk_with=652.45"
+        "detail": "walk_with=0.00"
       },
       {
         "name": "get_checkout_blockers() post-close",
         "passed": true,
-        "detail": "open_checks=0, is_ready=False"
+        "detail": "open_checks=0, is_ready=True"
       }
     ],
     "result": "PASS"
@@ -210,7 +210,7 @@
       {
         "name": "DAY_CLOSED sales match projection",
         "passed": true,
-        "detail": "DAY_CLOSED: 29414.66, Projection: 29414.66"
+        "detail": "DAY_CLOSED: 30823.41, Projection: 30823.41"
       }
     ],
     "result": "PASS"
@@ -247,7 +247,7 @@
       {
         "name": "Entomology report generated",
         "passed": true,
-        "detail": "Saved to ./data/KINDpos_Bombard_entomology_2026-03-29.html (22997 bytes)"
+        "detail": "Saved to ./data/KINDpos_Bombard_entomology_2026-03-30.html (22997 bytes)"
       },
       {
         "name": "Report has all 3 layers",
@@ -261,7 +261,7 @@
       }
     ],
     "result": "PASS",
-    "report_path": "./data/KINDpos_Bombard_entomology_2026-03-29.html"
+    "report_path": "./data/KINDpos_Bombard_entomology_2026-03-30.html"
   },
   {
     "section": "Edge Case Verification",
@@ -269,32 +269,32 @@
       {
         "name": "Split tender",
         "passed": true,
-        "detail": "41 split tenders"
+        "detail": "57 split tenders"
       },
       {
         "name": "Mid-check void",
         "passed": true,
-        "detail": "18 item voids"
+        "detail": "11 item voids"
       },
       {
         "name": "Full check void",
         "passed": true,
-        "detail": "6 full voids"
+        "detail": "4 full voids"
       },
       {
         "name": "Comp",
         "passed": true,
-        "detail": "16 comps"
+        "detail": "22 comps"
       },
       {
         "name": "Second-round addition",
         "passed": true,
-        "detail": "38 second rounds"
+        "detail": "34 second rounds"
       },
       {
         "name": "86'd item rejection",
         "passed": true,
-        "detail": "13 rejections"
+        "detail": "6 rejections"
       },
       {
         "name": "Un-86 mid-day",
@@ -304,7 +304,7 @@
       {
         "name": "Modifier pricing",
         "passed": true,
-        "detail": "403 modifiers"
+        "detail": "445 modifiers"
       },
       {
         "name": "2dp precision (high volume)",
@@ -319,12 +319,12 @@
       {
         "name": "Table reuse",
         "passed": true,
-        "detail": "Max turns: 25"
+        "detail": "Max turns: 21"
       },
       {
         "name": "Tip adjustment on card",
         "passed": true,
-        "detail": "261 tip adjustments"
+        "detail": "248 tip adjustments"
       },
       {
         "name": "Cash payment with change",
@@ -344,27 +344,27 @@
     "section": "Event Ledger Statistics",
     "result": "STATISTICS",
     "stats": {
-      "total_events": 4894,
+      "total_events": 5162,
       "top10_types": [
         [
           "item.added",
-          1357
+          1459
         ],
         [
           "item.sent",
-          1357
+          1459
         ],
         [
           "item.modifier_applied",
-          403
+          445
         ],
         [
           "payment.initiated",
-          385
+          403
         ],
         [
           "payment.confirmed",
-          385
+          403
         ],
         [
           "order.created",
@@ -372,57 +372,57 @@
         ],
         [
           "order.closed",
-          344
+          346
         ],
         [
           "payment.tip_adjusted",
-          261
-        ],
-        [
-          "item.removed",
-          18
+          248
         ],
         [
           "discount.approved",
-          16
+          22
+        ],
+        [
+          "item.removed",
+          11
         ]
       ],
       "events_per_hour": {
-        "13": 4894
+        "0": 5162
       },
-      "avg_events_per_check": 13.9,
+      "avg_events_per_check": 14.7,
       "distribution": {
-        "order_lifecycle": "700 (14.3%)",
-        "items": "3135 (64.1%)",
-        "payments": "1031 (21.1%)",
-        "other": "28"
+        "order_lifecycle": "700 (13.6%)",
+        "items": "3374 (65.4%)",
+        "payments": "1054 (20.4%)",
+        "other": "34"
       },
       "table_turns": {
-        "table_01": 13,
-        "table_02": 16,
-        "table_03": 10,
-        "table_04": 15,
-        "table_05": 11,
-        "table_06": 25,
-        "table_07": 13,
-        "table_08": 17,
-        "table_09": 13,
-        "table_10": 9,
-        "table_11": 17,
-        "table_12": 14,
-        "table_13": 10,
-        "table_14": 13,
-        "table_15": 15,
-        "table_16": 13,
-        "table_17": 7,
-        "table_18": 18,
-        "table_19": 14,
-        "table_20": 14,
-        "table_21": 18,
+        "table_01": 14,
+        "table_02": 12,
+        "table_03": 17,
+        "table_04": 17,
+        "table_05": 12,
+        "table_06": 8,
+        "table_07": 12,
+        "table_08": 15,
+        "table_09": 21,
+        "table_10": 16,
+        "table_11": 13,
+        "table_12": 13,
+        "table_13": 11,
+        "table_14": 14,
+        "table_15": 18,
+        "table_16": 17,
+        "table_17": 8,
+        "table_18": 19,
+        "table_19": 12,
+        "table_20": 17,
+        "table_21": 8,
         "table_22": 14,
-        "table_23": 13,
-        "table_24": 15,
-        "table_25": 13
+        "table_23": 14,
+        "table_24": 13,
+        "table_25": 15
       }
     }
   }
