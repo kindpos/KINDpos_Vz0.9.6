@@ -48,6 +48,7 @@ export function renderBars() {
       staffName: `${greeting()}, ${APP.staff.name}`,
       role: APP.staff.role,
       screen: APP.screen,
+      msgCount: APP.screen === 'snapshot' ? 4 : 0,
     });
 
     const logoutBtn = $('_tbar_logout');
@@ -70,7 +71,15 @@ export function renderBars() {
   }
 
   // ── SBar ──
-  s.innerHTML = sbarContent();
+  if (APP.staff) {
+    s.innerHTML = sbarContent({
+      role: APP.staff.role,
+      showSettings: APP.staff.role === 'manager',
+      onSettings: "window.go('settings')",
+    });
+  } else {
+    s.innerHTML = sbarContent();
+  }
 }
 
 // Auto-refresh clock every 30s — only update the clock text, not the full DOM
