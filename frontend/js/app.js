@@ -2,7 +2,7 @@
 //  KINDpos Terminal Vz1 — App State
 // ═══════════════════════════════════════════════════
 
-import { CFG } from './config.js';
+import { CFG, MODIFIERS } from './config.js';
 
 export const APP = {
   staff: null,
@@ -11,6 +11,7 @@ export const APP = {
   orders: [],
   nextNum: 101,
   p: {},  // scene params
+  modifiers: [...MODIFIERS],  // Loaded from API at login; falls back to config.js defaults
 };
 
 // ─── Helpers ────────────────────────────────────────
@@ -41,6 +42,19 @@ export const calcOrder = (o) => {
   const tax = sub * CFG.TAX;
   return { sub, tax, card: sub + tax, cash: (sub + tax) * (1 - CFG.CASH_DISC) };
 };
+
+// ─── Modifier Loader ───────────────────────────────
+export async function loadModifiers() {
+  try {
+    const mods = await apiFetch('/api/v1/modifiers');
+    if (mods && Array.isArray(mods) && mods.length > 0) {
+      APP.modifiers = mods;
+      console.log(`Modifiers loaded from API: ${mods.length}`);
+    }
+  } catch (_) {
+    console.log('Modifier fetch failed — using offline fallback');
+  }
+}
 
 // ─── API Helper ─────────────────────────────────────
 export async function apiFetch(path, options = {}) {

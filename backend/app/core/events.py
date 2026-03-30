@@ -200,6 +200,13 @@ class EventType(str, Enum):
     CATEGORIES_BATCH_CREATED = "categories.batch_created"
     ITEMS_BATCH_CREATED = "items.batch_created"
 
+    # Setup wizard — modifier, payment device, cash discount configuration
+    MODIFIER_CREATED = "modifier.created"
+    MODIFIER_UPDATED = "modifier.updated"
+    MODIFIER_DELETED = "modifier.deleted"
+    PAYMENT_DEVICE_CONFIGURED = "payment_device.configured"
+    CASH_DISCOUNT_CONFIGURED = "cash_discount.configured"
+
     # System
     USER_LOGGED_IN = "system.user_logged_in"
     USER_LOGGED_OUT = "system.user_logged_out"

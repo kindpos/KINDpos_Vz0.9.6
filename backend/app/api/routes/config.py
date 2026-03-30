@@ -197,10 +197,23 @@ async def create_employee(employee: Employee, background_tasks: BackgroundTasks,
 async def get_terminal_bundle(ledger: EventLedger = Depends(get_ledger)):
     store_service = StoreConfigService(ledger)
     overseer_service = OverseerConfigService(ledger)
-    
+
+    # Project cash discount from events
+    cash_discount_events = await ledger.get_events_by_type(
+        EventType.CASH_DISCOUNT_CONFIGURED, limit=100
+    )
+    cash_discount = {"rate": 0.035, "enabled": False}
+    if cash_discount_events:
+        latest = sorted(cash_discount_events, key=lambda e: e.sequence_number or 0)[-1]
+        cash_discount = {
+            "rate": latest.payload.get("rate", 0.035),
+            "enabled": latest.payload.get("enabled", True),
+        }
+
+    from datetime import datetime, timezone
     return {
         "bundle_version": 1,
-        "generated_at": "2026-03-24T14:30:00Z", # Should be dynamic
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "store": await store_service.get_projected_config(),
         "employees": await overseer_service.get_employees(),
         "roles": await overseer_service.get_roles(),
@@ -216,5 +229,6 @@ async def get_terminal_bundle(ledger: EventLedger = Depends(get_ledger)):
             "terminals": await overseer_service.get_terminals(),
             "printers": await overseer_service.get_printers(),
             "routing": await overseer_service.get_routing_matrix()
-        }
+        },
+        "cash_discount": cash_discount,
     }

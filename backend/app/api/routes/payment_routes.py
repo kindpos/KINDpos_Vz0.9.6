@@ -23,33 +23,50 @@ router = APIRouter(prefix="/payments", tags=["payments"])
 _manager: Optional[PaymentManager] = None
 _validator: Optional[PaymentValidator] = None
 
-_mock_initialized = False
-_mock_init_lock = asyncio.Lock()
+_device_initialized = False
+_device_init_lock = asyncio.Lock()
 
-async def _ensure_mock_device(manager: PaymentManager):
-    """Register a MockPaymentDevice if no devices are mapped."""
-    global _mock_initialized
-    if _mock_initialized:
+async def _ensure_configured_device(manager: PaymentManager, ledger: EventLedger):
+    """Register payment device based on PAYMENT_DEVICE_CONFIGURED events.
+    If no configuration event exists, no device is registered — the setup wizard
+    must be completed first."""
+    global _device_initialized
+    if _device_initialized:
         return
-    async with _mock_init_lock:
-        if _mock_initialized:
+    async with _device_init_lock:
+        if _device_initialized:
             return
-        _mock_initialized = True
-    mock = MockPaymentDevice()
-    config = PaymentDeviceConfig(
-        device_id="mock_001",
-        name="Mock Payment Device",
-        device_type=PaymentDeviceType.SMART_TERMINAL,
-        ip_address="127.0.0.1",
-        mac_address="00:00:00:00:00:00",
-        port=8443,
-        protocol="mock",
-        processor_id="mock_processor",
+        _device_initialized = True
+
+    # Query for device configuration events
+    config_events = await ledger.get_events_by_type(
+        EventType.PAYMENT_DEVICE_CONFIGURED, limit=100
     )
-    await mock.connect(config)
-    manager.register_device(mock)
-    manager.map_terminal_to_device(settings.terminal_id, "mock_001")
-    manager.map_terminal_to_device("T-01", "mock_001")  # frontend default terminal ID
+    if not config_events:
+        return  # No device configured — wizard not completed
+
+    # Use the latest configuration
+    latest = sorted(config_events, key=lambda e: e.sequence_number or 0)[-1]
+    device_type = latest.payload.get("device_type", "mock")
+    device_id = latest.payload.get("device_id", "configured_001")
+
+    if device_type == "mock":
+        mock = MockPaymentDevice()
+        config = PaymentDeviceConfig(
+            device_id=device_id,
+            name="Mock Payment Device (configured)",
+            device_type=PaymentDeviceType.SMART_TERMINAL,
+            ip_address="127.0.0.1",
+            mac_address="00:00:00:00:00:00",
+            port=8443,
+            protocol="mock",
+            processor_id="mock_processor",
+        )
+        await mock.connect(config)
+        manager.register_device(mock)
+        manager.map_terminal_to_device(settings.terminal_id, device_id)
+        manager.map_terminal_to_device("T-01", device_id)
+    # Future: elif device_type == "dejavoo_spin": register real Dejavoo device
 
 def get_payment_manager(ledger: EventLedger = Depends(get_ledger)) -> PaymentManager:
     global _manager
@@ -66,11 +83,20 @@ def get_payment_validator(ledger: EventLedger = Depends(get_ledger)) -> PaymentV
 @router.post("/sale")
 async def process_sale(
     request: TransactionRequest,
+    ledger: EventLedger = Depends(get_ledger),
     manager: PaymentManager = Depends(get_payment_manager),
     validator: PaymentValidator = Depends(get_payment_validator)
 ):
     """Initiate sale. Returns ValidationResult or TransactionResult."""
-    await _ensure_mock_device(manager)
+    await _ensure_configured_device(manager, ledger)
+
+    # If no device is registered, setup wizard hasn't been completed
+    if not manager._devices:
+        raise HTTPException(
+            status_code=503,
+            detail={"error": "no_payment_device", "message": "Complete setup wizard to configure payment processing"}
+        )
+
     # 1. Resolve Device
     device_id = manager._terminal_device_map.get(request.terminal_id)
     device = manager._devices.get(device_id) if device_id else None

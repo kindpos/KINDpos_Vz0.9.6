@@ -2,7 +2,7 @@
 //  KINDpos Terminal Vz1 — Login Scene
 // ═══════════════════════════════════════════════════
 
-import { APP, $, apiFetch } from '../app.js';
+import { APP, $, apiFetch, loadModifiers } from '../app.js';
 import { CFG, FALLBACK_ROSTER, PALM_LOGO } from '../config.js';
 import { registerScene, go } from '../scene-manager.js';
 import { T, pinFrame, errBanner, buildNumpadKey, buildActionButton, numpadContainerStyle, overlayBox, overlayHeader, overlayStubBtn, roleBtn, tabBar, bigCard, fullScreenOverlay, overlayCloseBtn } from '../theme-manager.js';
@@ -15,9 +15,37 @@ registerScene('login', {
     let holdTimer = null;
     let roster = [...FALLBACK_ROSTER]; // Start with fallback, upgrade if API responds
 
-    // ── Fetch live roster + config from API on mount ──
-    fetchRoster();
-    fetchConfig();
+    // ── Check setup status before showing login ──
+    checkSetupStatus();
+
+    async function checkSetupStatus() {
+      try {
+        const status = await apiFetch('/api/v1/setup/status');
+        if (status && !status.setup_complete) {
+          // Redirect to setup wizard — system not configured yet
+          go('setup-wizard', { steps: status.steps });
+          return;
+        }
+        // Setup is complete — store flag and proceed with normal login
+        localStorage.setItem('kindpos_setup_complete', 'true');
+      } catch (_) {
+        // API unreachable — check if setup was previously completed
+        const wasSetup = localStorage.getItem('kindpos_setup_complete') === 'true';
+        if (!wasSetup) {
+          // Never been set up and can't reach server — show connection error
+          err = 'Cannot reach server — please check connection.';
+          draw();
+          return;
+        }
+        // Setup was completed before — proceed in offline mode
+        console.log('API unreachable but setup was previously completed — offline mode');
+      }
+
+      // Proceed with fetching roster, config, and modifiers
+      fetchRoster();
+      fetchConfig();
+      loadModifiers();
+    }
 
     async function fetchRoster() {
       try {
@@ -27,13 +55,27 @@ registerScene('login', {
           roster = data.servers;
           console.log(`Roster loaded: ${roster.length} staff from API`);
         } else {
-          // API responded but no employees seeded — keep fallback
-          APP.offline = true;
-          console.log('API returned empty roster — using fallback');
+          // API responded but empty roster
+          const wasSetup = localStorage.getItem('kindpos_setup_complete') === 'true';
+          if (wasSetup) {
+            // Setup was completed — empty roster means connection issue or data loss
+            APP.offline = true;
+            err = 'Cannot load employee roster — please check connection.';
+            draw();
+            console.log('API returned empty roster after setup — possible connection issue');
+          } else {
+            APP.offline = true;
+            console.log('API returned empty roster — using fallback');
+          }
         }
       } catch (_) {
         APP.offline = true;
-        console.log('API unreachable — using fallback roster');
+        const wasSetup = localStorage.getItem('kindpos_setup_complete') === 'true';
+        if (wasSetup) {
+          console.log('API unreachable after setup — using offline fallback roster');
+        } else {
+          console.log('API unreachable — using fallback roster');
+        }
       }
     }
 
@@ -46,6 +88,15 @@ registerScene('login', {
             CFG.TAX = defaultRule.rate_percent / 100;
             console.log(`Tax rate loaded from config: ${(CFG.TAX * 100).toFixed(2)}%`);
           }
+        }
+        // Load cash discount from bundle
+        if (bundle && bundle.cash_discount) {
+          if (bundle.cash_discount.enabled) {
+            CFG.CASH_DISC = bundle.cash_discount.rate;
+          } else {
+            CFG.CASH_DISC = 0;
+          }
+          console.log(`Cash discount loaded: ${(CFG.CASH_DISC * 100).toFixed(1)}%`);
         }
       } catch (_) {
         console.log('Config fetch failed — using existing tax rate');

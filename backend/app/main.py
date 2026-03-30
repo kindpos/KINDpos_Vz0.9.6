@@ -28,6 +28,7 @@ from app.api.routes import payment_routes
 from app.api.routes import config
 from app.api.routes import staff
 from app.api.routes import printers
+from app.api.routes import setup_routes
 
 
 @asynccontextmanager
@@ -87,6 +88,8 @@ app.include_router(payment_routes.router, prefix="/api/v1")
 app.include_router(config.router, prefix="/api/v1")
 app.include_router(staff.router, prefix="/api/v1")
 app.include_router(printers.router, prefix="/api/v1")
+app.include_router(setup_routes.router, prefix="/api/v1")
+app.include_router(setup_routes.modifiers_router, prefix="/api/v1")
 
 
 # ── Health Check ──
