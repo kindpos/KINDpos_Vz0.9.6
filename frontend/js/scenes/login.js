@@ -123,7 +123,7 @@ registerScene('login', {
       if (!ab) return;
 
       const actions = [
-        { label: 'Quick Service', act: () => { if (!matchPin()) return; const o = makeOrder('quick_service'); go('check-editing', { order: o }); } },
+        { label: 'Quick Service', act: () => { if (!matchPin()) return; const o = makeOrder('quick_service'); go('check-overview', { order: o }); } },
         { label: 'Settings',      act: () => { showSettingsOverlay(); } },
         { label: 'Clock in/out',  act: () => { showClockOverlay(); } },
       ];
