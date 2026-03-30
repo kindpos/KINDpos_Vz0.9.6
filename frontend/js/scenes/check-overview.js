@@ -1,5 +1,6 @@
 import { registerScene, go } from '../scene-manager.js';
-import { T, chamfer, seatTab, btnWrap } from '../theme-manager.js';
+import { T, chamfer, seatTab, overlayBox, overlayCloseBtn, buildNumpadKey, btnWrap } from '../theme-manager.js';
+import { FALLBACK_ROSTER } from '../config.js';
 
 registerScene('check-overview', {
   onEnter(el, p) {
@@ -55,8 +56,7 @@ registerScene('check-overview', {
       const hasUnsent = currentCheck && currentCheck.seats &&
         currentCheck.seats.some(s => s.items && s.items.some(i => i.state === 'unsent'));
       if (hasUnsent) {
-        // TODO (Chunk 3): showExitDialog()
-        go('snapshot');
+        showExitDialog();
       } else {
         go('snapshot');
       }
@@ -103,6 +103,7 @@ registerScene('check-overview', {
         </div>
         ${buildBtn('co-btn-add-item', 'ADD ITEM', T.mint, T.bg, '56px')}
         <div style="flex:1;"></div>
+        ${buildBtn('co-btn-transfer', 'TRANSFER', T.lavender, T.bg, '42px')}
         <div style="display:flex;gap:8px;">
           ${buildBtn('co-btn-pay', 'PAY', T.gold, T.bg, '48px', 'flex:1;')}
           ${buildBtn('co-btn-print', 'PRINT', T.mint, T.bg, '48px', 'flex:1;')}
@@ -149,7 +150,6 @@ registerScene('check-overview', {
 
       container.innerHTML = html;
 
-      // Bind seat tab clicks
       container.querySelectorAll('.seat-tab').forEach(tab => {
         tab.addEventListener('click', () => {
           const d = tab.dataset.id;
@@ -252,7 +252,6 @@ registerScene('check-overview', {
     function getVisibleItems() {
       if (!currentCheck || !currentCheck.seats) return [];
       if (currentSeat === 0) {
-        // ALL seats
         return currentCheck.seats.flatMap(s => s.items || []).filter(i => i.state !== 'voided');
       }
       const seat = currentCheck.seats[currentSeat - 1];
@@ -269,62 +268,381 @@ registerScene('check-overview', {
       setTimeout(() => toast.remove(), 2000);
     }
 
+    function createOverlay() {
+      const overlay = document.createElement('div');
+      overlay.style.cssText = `position:absolute;inset:0;z-index:150;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);`;
+      return overlay;
+    }
+
+    // ═══════════════════════════════════════
+    //  MODALS
+    // ═══════════════════════════════════════
+
+    // 1. Exit Dialog — unsent items warning
+    function showExitDialog() {
+      const overlay = createOverlay();
+      const inner = `
+        <div style="color:${T.mint};font-family:${T.fb};font-size:22px;text-align:center;margin-bottom:8px;">
+          You have unsent items
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          ${btnWrap(`<div id="exit-send" style="background:${T.goGreen};color:${T.bg};font-family:${T.fb};font-size:26px;height:50px;display:flex;align-items:center;justify-content:center;cursor:pointer;clip-path:${chamfer('md')};">Send All & Exit</div>`)}
+          ${btnWrap(`<div id="exit-discard" style="background:${T.clrRed};color:${T.mint};font-family:${T.fb};font-size:26px;height:50px;display:flex;align-items:center;justify-content:center;cursor:pointer;clip-path:${chamfer('md')};">Discard & Exit</div>`)}
+        </div>
+      `;
+      overlay.innerHTML = overlayBox(inner, { width: '400px' });
+
+      // Close button
+      const closeDiv = document.createElement('div');
+      closeDiv.style.cssText = `position:absolute;top:12px;right:12px;z-index:160;`;
+      closeDiv.innerHTML = overlayCloseBtn();
+      closeDiv.addEventListener('click', () => overlay.remove());
+      overlay.querySelector('[style*="position:absolute"]')?.appendChild(closeDiv) || overlay.appendChild(closeDiv);
+
+      el.appendChild(overlay);
+
+      overlay.querySelector('#exit-send')?.addEventListener('click', () => {
+        if (currentCheck && currentCheck.seats) {
+          currentCheck.seats.forEach(s => {
+            if (s.items) s.items.forEach(i => { if (i.state === 'unsent') i.state = 'sent'; });
+          });
+        }
+        overlay.remove();
+        go('snapshot');
+      });
+
+      overlay.querySelector('#exit-discard')?.addEventListener('click', () => {
+        if (currentCheck && currentCheck.seats) {
+          currentCheck.seats.forEach(s => {
+            s.items = (s.items || []).filter(i => i.state !== 'unsent');
+          });
+        }
+        overlay.remove();
+        go('snapshot');
+      });
+
+      // Close on clicking backdrop
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) overlay.remove();
+      });
+    }
+
+    // 2. Transfer Modal — select server to transfer check
+    function showTransferModal() {
+      const overlay = createOverlay();
+      const serverBtns = FALLBACK_ROSTER.map(s =>
+        `${btnWrap(`<div class="transfer-pick" data-id="${s.id}" style="background:${T.mint};color:${T.bg};font-family:${T.fb};font-size:24px;height:46px;display:flex;align-items:center;justify-content:center;cursor:pointer;clip-path:${chamfer('md')};">${s.name} [${s.role}]</div>`)}`
+      ).join('');
+
+      const inner = `
+        <div style="color:${T.mint};font-family:${T.fb};font-size:22px;text-align:center;margin-bottom:8px;">
+          Transfer to Server
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          ${serverBtns}
+        </div>
+      `;
+      overlay.innerHTML = overlayBox(inner, { width: '380px' });
+
+      const closeDiv = document.createElement('div');
+      closeDiv.style.cssText = `position:absolute;top:12px;right:12px;z-index:160;`;
+      closeDiv.innerHTML = overlayCloseBtn();
+      closeDiv.addEventListener('click', () => overlay.remove());
+      overlay.appendChild(closeDiv);
+
+      el.appendChild(overlay);
+
+      overlay.querySelectorAll('.transfer-pick').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const serverId = btn.dataset.id;
+          const server = FALLBACK_ROSTER.find(s => s.id === serverId);
+          if (currentCheck && server) {
+            currentCheck.server = server.name;
+          }
+          overlay.remove();
+          showToast(`Transferred to ${server ? server.name : 'server'}`);
+        });
+      });
+
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) overlay.remove();
+      });
+    }
+
+    // 3. PIN Gate — manager PIN required for protected actions
+    function showPinGate(onSuccess) {
+      const overlay = createOverlay();
+      let pin = '';
+
+      function renderPinUI() {
+        const dots = Array.from({ length: 4 }, (_, i) =>
+          `<div style="width:36px;height:40px;background:${i < pin.length ? T.mint : '#444'};border:2px solid ${T.mint};clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);display:flex;align-items:center;justify-content:center;"></div>`
+        ).join('');
+
+        const inner = `
+          <div style="color:${T.mint};font-family:${T.fb};font-size:20px;text-align:center;margin-bottom:8px;">
+            Manager PIN Required
+          </div>
+          <div id="pin-dots" style="display:flex;justify-content:center;gap:8px;margin-bottom:12px;">
+            ${dots}
+          </div>
+          <div id="pin-error" style="min-height:24px;text-align:center;"></div>
+          <div id="pin-pad" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;"></div>
+        `;
+        overlay.innerHTML = overlayBox(inner, { width: '320px' });
+
+        const closeDiv = document.createElement('div');
+        closeDiv.style.cssText = `position:absolute;top:12px;right:12px;z-index:160;`;
+        closeDiv.innerHTML = overlayCloseBtn();
+        closeDiv.addEventListener('click', () => overlay.remove());
+        overlay.appendChild(closeDiv);
+
+        // Build numpad
+        const pad = overlay.querySelector('#pin-pad');
+        if (pad) {
+          const keys = ['1','2','3','4','5','6','7','8','9','CLR','0','>>>'];
+          keys.forEach(key => {
+            const k = buildNumpadKey(key, {
+              onPress: () => {
+                if (key === 'CLR') {
+                  pin = '';
+                  renderPinUI();
+                } else if (key === '>>>') {
+                  validatePin();
+                } else if (pin.length < 4) {
+                  pin += key;
+                  renderPinUI();
+                  if (pin.length === 4) setTimeout(validatePin, 150);
+                }
+              }
+            });
+            pad.appendChild(k);
+          });
+        }
+      }
+
+      function validatePin() {
+        const manager = FALLBACK_ROSTER.find(s => s.role === 'manager' && s.pin === pin);
+        if (manager) {
+          overlay.remove();
+          onSuccess();
+        } else {
+          pin = '';
+          renderPinUI();
+          const errEl = overlay.querySelector('#pin-error');
+          if (errEl) {
+            errEl.innerHTML = `<span style="color:${T.red};font-family:${T.fb};font-size:16px;">Invalid PIN</span>`;
+          }
+        }
+      }
+
+      el.appendChild(overlay);
+      renderPinUI();
+
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) overlay.remove();
+      });
+    }
+
+    // 4. Comp Dialog — apply comp reason to item(s)
+    function showCompDialog() {
+      const overlay = createOverlay();
+      const reasons = ['Manager Comp', 'Food Quality', 'Service Issue', 'Regular Guest', 'Promo'];
+      const reasonBtns = reasons.map(r =>
+        `${btnWrap(`<div class="comp-reason" data-reason="${r}" style="background:${T.gold};color:${T.bg};font-family:${T.fb};font-size:22px;height:44px;display:flex;align-items:center;justify-content:center;cursor:pointer;clip-path:${chamfer('md')};">${r}</div>`)}`
+      ).join('');
+
+      const inner = `
+        <div style="color:${T.mint};font-family:${T.fb};font-size:22px;text-align:center;margin-bottom:8px;">
+          Select Comp Reason
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          ${reasonBtns}
+        </div>
+      `;
+      overlay.innerHTML = overlayBox(inner, { width: '380px' });
+
+      const closeDiv = document.createElement('div');
+      closeDiv.style.cssText = `position:absolute;top:12px;right:12px;z-index:160;`;
+      closeDiv.innerHTML = overlayCloseBtn();
+      closeDiv.addEventListener('click', () => overlay.remove());
+      overlay.appendChild(closeDiv);
+
+      el.appendChild(overlay);
+
+      overlay.querySelectorAll('.comp-reason').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const reason = btn.dataset.reason;
+          overlay.remove();
+          showToast(`Comp applied: ${reason}`);
+        });
+      });
+
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) overlay.remove();
+      });
+    }
+
+    // 5. Payment Overlay
+    function showPaymentOverlay() {
+      const overlay = createOverlay();
+      const items = getVisibleItems();
+      const subtotal = items.reduce((s, i) => s + (i.price || 0) * (i.qty || 1), 0);
+      const modTotal = items.reduce((s, i) => {
+        if (!i.modifiers) return s;
+        return s + i.modifiers.reduce((ms, m) => ms + (m.price || 0), 0);
+      }, 0);
+      const total = (subtotal + modTotal) * 1.08;
+
+      const inner = `
+        <div style="color:${T.mint};font-family:${T.fb};font-size:22px;text-align:center;margin-bottom:4px;">
+          Payment — $${total.toFixed(2)}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px;">
+          ${btnWrap(`<div id="pay-card" style="background:${T.gold};color:${T.bg};font-family:${T.fb};font-size:26px;height:54px;display:flex;align-items:center;justify-content:center;cursor:pointer;clip-path:${chamfer('md')};">CARD</div>`)}
+          ${btnWrap(`<div id="pay-cash" style="background:${T.goGreen};color:${T.bg};font-family:${T.fb};font-size:26px;height:54px;display:flex;align-items:center;justify-content:center;cursor:pointer;clip-path:${chamfer('md')};">CASH</div>`)}
+          ${btnWrap(`<div id="pay-split" style="background:${T.cyan};color:${T.bg};font-family:${T.fb};font-size:26px;height:54px;display:flex;align-items:center;justify-content:center;cursor:pointer;clip-path:${chamfer('md')};">SPLIT</div>`)}
+        </div>
+      `;
+      overlay.innerHTML = overlayBox(inner, { width: '380px' });
+
+      const closeDiv = document.createElement('div');
+      closeDiv.style.cssText = `position:absolute;top:12px;right:12px;z-index:160;`;
+      closeDiv.innerHTML = overlayCloseBtn();
+      closeDiv.addEventListener('click', () => overlay.remove());
+      overlay.appendChild(closeDiv);
+
+      el.appendChild(overlay);
+
+      overlay.querySelector('#pay-card')?.addEventListener('click', () => {
+        overlay.remove();
+        showToast('Card payment processing...');
+      });
+      overlay.querySelector('#pay-cash')?.addEventListener('click', () => {
+        overlay.remove();
+        showToast('Cash payment processing...');
+      });
+      overlay.querySelector('#pay-split')?.addEventListener('click', () => {
+        overlay.remove();
+        showToast('Split payment processing...');
+      });
+
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) overlay.remove();
+      });
+    }
+
+    // 6. Move to Seat Menu
+    function showMoveToSeatMenu(item) {
+      if (!currentCheck || !currentCheck.seats) return;
+      const overlay = createOverlay();
+
+      const seatBtns = currentCheck.seats.map((s, i) =>
+        `${btnWrap(`<div class="seat-move-pick" data-seat="${i}" style="background:${T.mint};color:${T.bg};font-family:${T.fb};font-size:22px;height:42px;display:flex;align-items:center;justify-content:center;cursor:pointer;clip-path:${chamfer('md')};">Seat ${i + 1}</div>`)}`
+      ).join('');
+
+      const inner = `
+        <div style="color:${T.mint};font-family:${T.fb};font-size:20px;text-align:center;margin-bottom:8px;">
+          Move "${item.name}" to Seat
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          ${seatBtns}
+        </div>
+      `;
+      overlay.innerHTML = overlayBox(inner, { width: '340px' });
+
+      const closeDiv = document.createElement('div');
+      closeDiv.style.cssText = `position:absolute;top:12px;right:12px;z-index:160;`;
+      closeDiv.innerHTML = overlayCloseBtn();
+      closeDiv.addEventListener('click', () => overlay.remove());
+      overlay.appendChild(closeDiv);
+
+      el.appendChild(overlay);
+
+      overlay.querySelectorAll('.seat-move-pick').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const targetSeatIdx = parseInt(btn.dataset.seat, 10);
+          // Remove item from current seat
+          for (const s of currentCheck.seats) {
+            const idx = (s.items || []).indexOf(item);
+            if (idx > -1) { s.items.splice(idx, 1); break; }
+          }
+          // Add to target seat
+          if (!currentCheck.seats[targetSeatIdx]) {
+            currentCheck.seats[targetSeatIdx] = { items: [] };
+          }
+          currentCheck.seats[targetSeatIdx].items.push(item);
+          overlay.remove();
+          renderSeatTabs();
+          renderTicketPanel();
+          renderTotals();
+          showToast(`Moved to Seat ${targetSeatIdx + 1}`);
+        });
+      });
+
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) overlay.remove();
+      });
+    }
+
+    // ═══════════════════════════════════════
+    //  BUTTON BINDINGS
+    // ═══════════════════════════════════════
+
     function bindButtons() {
-      const addItemBtn = document.getElementById('co-btn-add-item');
-      if (addItemBtn) {
-        addItemBtn.addEventListener('click', () => {
-          go('add-items', { check: currentCheck, seat: currentSeat, mode: 'items' });
-        });
-      }
+      document.getElementById('co-btn-add-item')?.addEventListener('click', () => {
+        go('add-items', { check: currentCheck, seat: currentSeat, mode: 'items' });
+      });
 
-      const sendBtn = document.getElementById('co-btn-send');
-      if (sendBtn) {
-        sendBtn.addEventListener('click', () => {
-          console.log('SEND tapped');
-        });
-      }
+      document.getElementById('co-btn-send')?.addEventListener('click', () => {
+        handleSend();
+      });
 
-      const holdBtn = document.getElementById('co-btn-hold');
-      if (holdBtn) {
-        holdBtn.addEventListener('click', () => {
-          console.log('HOLD tapped');
-        });
-      }
+      document.getElementById('co-btn-hold')?.addEventListener('click', () => {
+        console.log('HOLD tapped');
+        showToast('Hold applied');
+      });
 
-      const fireBtn = document.getElementById('co-btn-fire');
-      if (fireBtn) {
-        fireBtn.addEventListener('click', () => {
-          console.log('FIRE tapped');
-        });
-      }
+      document.getElementById('co-btn-fire')?.addEventListener('click', () => {
+        console.log('FIRE tapped');
+        showToast('Fire sent');
+      });
 
-      const payBtn = document.getElementById('co-btn-pay');
-      if (payBtn) {
-        payBtn.addEventListener('click', () => {
-          console.log('PAY tapped');
-        });
-      }
+      document.getElementById('co-btn-pay')?.addEventListener('click', () => {
+        showPaymentOverlay();
+      });
 
-      const printBtn = document.getElementById('co-btn-print');
-      if (printBtn) {
-        printBtn.addEventListener('click', () => {
-          console.log('PRINT tapped');
-        });
-      }
+      document.getElementById('co-btn-print')?.addEventListener('click', () => {
+        console.log('PRINT tapped');
+        showToast('Printing...');
+      });
 
-      const voidBtn = document.getElementById('co-btn-void');
-      if (voidBtn) {
-        voidBtn.addEventListener('click', () => {
-          console.log('VOID tapped');
+      document.getElementById('co-btn-void')?.addEventListener('click', () => {
+        showPinGate(() => {
+          showToast('Void applied');
         });
-      }
+      });
 
-      const discBtn = document.getElementById('co-btn-disc');
-      if (discBtn) {
-        discBtn.addEventListener('click', () => {
-          console.log('DISC tapped');
-        });
+      document.getElementById('co-btn-disc')?.addEventListener('click', () => {
+        showPinGate(() => showCompDialog());
+      });
+
+      document.getElementById('co-btn-transfer')?.addEventListener('click', () => {
+        showTransferModal();
+      });
+    }
+
+    function handleSend() {
+      if (!currentCheck || !currentCheck.seats) return;
+      const allUnsent = currentCheck.seats.flatMap(s => (s.items || []).filter(i => i.state === 'unsent'));
+      if (allUnsent.length === 0) {
+        showToast('No unsent items');
+        return;
       }
+      allUnsent.forEach(i => { i.state = 'sent'; });
+      renderTicketPanel();
+      renderTotals();
+      showToast(`${allUnsent.length} item(s) sent`);
     }
   }
 });
