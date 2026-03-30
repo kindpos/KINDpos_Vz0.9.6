@@ -43,6 +43,25 @@ function menuToHexData(menu) {
   });
 }
 
+const MOD_COLORS = ['#fcbe40', '#b48efa', '#00CED1'];
+
+function modifiersToHexData(modifiers) {
+  return Object.entries(modifiers).map(([catName, items], i) => {
+    const color = MOD_COLORS[i % MOD_COLORS.length];
+    return {
+      id: catName.toLowerCase().replace(/\s+/g, '-'),
+      label: catName,
+      color,
+      children: items.map(mod => ({
+        id: mod.name.toLowerCase().replace(/\s+/g, '-'),
+        label: mod.name,
+        price: mod.price,
+        color,
+      }))
+    };
+  });
+}
+
 registerScene('add-items', {
   onEnter(el, p) {
     const currentCheck = p.check || null;
@@ -74,69 +93,27 @@ registerScene('add-items', {
       item:     { w: 90, h: 102 },
       modifier: { w: 80, h: 90 },
     };
+    const MOD_SIZES = {
+      category: { w: 90, h: 102 },
+      item:     { w: 60, h: 68 },
+      modifier: { w: 60, h: 68 },
+    };
 
-    function initHexEngine() {
+    function initHexEngine(mode) {
       const container = document.getElementById('hex-workspace');
       if (!container) return;
       if (hexEngine) { hexEngine.destroy(); hexEngine = null; }
       hexEngine = new HexEngine({
         container,
-        data: menuToHexData(FALLBACK_MENU),
-        sizes: ITEM_SIZES,
+        data: mode === 'items' ? menuToHexData(FALLBACK_MENU) : modifiersToHexData(MODIFIERS),
+        sizes: mode === 'items' ? ITEM_SIZES : MOD_SIZES,
         onSelect: handleItemSelected,
         onBack: () => {},
       });
     }
 
-    function renderModifierGrid() {
-      const container = document.getElementById('hex-workspace');
-      if (!container) return;
-      if (hexEngine) { hexEngine.destroy(); hexEngine = null; }
-      container.innerHTML = '';
-      container.style.overflow = 'auto';
-
-      const grid = document.createElement('div');
-      grid.id = 'mod-grid';
-      grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:10px;padding:12px;';
-
-      Object.entries(MODIFIERS).forEach(([catName, items]) => {
-        const catHeader = document.createElement('div');
-        catHeader.style.cssText = `grid-column:1/-1;font-family:${T.fb};font-size:18px;color:${T.mintDim};text-transform:uppercase;letter-spacing:2px;padding:6px 0 2px;`;
-        catHeader.textContent = catName;
-        grid.appendChild(catHeader);
-
-        items.forEach(mod => {
-          const wrap = document.createElement('div');
-          wrap.className = 'btn-wrap';
-
-          const btn = document.createElement('div');
-          btn.className = 'btn-s';
-          btn.textContent = mod.name;
-          btn.style.cssText = `min-width:60px;min-height:68px;font-size:20px;padding:8px 10px;`;
-          btn.addEventListener('click', () => {
-            handleItemSelected({ id: mod.name.toLowerCase().replace(/\s+/g, '-'), label: mod.name, price: mod.price });
-          });
-
-          wrap.appendChild(btn);
-          grid.appendChild(wrap);
-        });
-      });
-
-      container.appendChild(grid);
-    }
-
-    function clearModifierGrid() {
-      const container = document.getElementById('hex-workspace');
-      if (!container) return;
-      container.innerHTML = '';
-      container.style.overflow = 'hidden';
-    }
-
-    // Instantiate after DOM laid out
-    requestAnimationFrame(() => {
-      if (activeMode === 'items') initHexEngine();
-      else renderModifierGrid();
-    });
+    // Instantiate HexEngine after DOM laid out
+    requestAnimationFrame(() => initHexEngine(activeMode));
 
     bindActionBar();
     updateToggleStyles();
@@ -241,7 +218,10 @@ registerScene('add-items', {
       if (!row) return;
       row.innerHTML = MOD_PREFIXES.map(prefix => {
         const isActive = activePrefix === prefix;
-        return `<div class="btn-wrap"><div class="prefix-pick ${isActive ? 'btn-p' : 'btn-s'}" data-prefix="${prefix}" style="min-width:60px;min-height:40px;font-size:20px;padding:4px 14px;${!isActive ? 'border:2px solid ' + T.mint + ';' : ''}">${prefix}</div></div>`;
+        const bg = isActive ? T.mint : 'transparent';
+        const color = isActive ? T.bg : T.mint;
+        const border = isActive ? 'none' : `2px solid ${T.mint}`;
+        return `<div class="btn-wrap"><div class="prefix-pick" data-prefix="${prefix}" style="background:${bg};color:${color};border:${border};font-family:${T.fb};font-size:24px;height:40px;padding:0 16px;display:flex;align-items:center;justify-content:center;cursor:pointer;clip-path:${chamfer('sm')};">${prefix}</div></div>`;
       }).join('');
 
       row.querySelectorAll('.prefix-pick').forEach(btn => {
@@ -254,12 +234,10 @@ registerScene('add-items', {
 
     function setMode(mode) {
       activeMode = mode;
+      initHexEngine(mode);
       if (mode === 'items') {
-        clearModifierGrid();
-        initHexEngine();
         hidePrefixRow();
       } else {
-        renderModifierGrid();
         showPrefixRow();
       }
       updateToggleStyles();
@@ -382,8 +360,7 @@ registerScene('add-items', {
       });
 
       document.getElementById('btn-back')?.addEventListener('click', () => {
-        if (activeMode === 'items' && hexEngine) hexEngine.back();
-        else if (activeMode === 'modifiers') setMode('items');
+        if (hexEngine) hexEngine.back();
       });
 
       document.getElementById('btn-confirm')?.addEventListener('click', () => {
