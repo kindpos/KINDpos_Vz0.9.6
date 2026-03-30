@@ -87,9 +87,18 @@ export function footerTerminalId(id = '01', version = '1.0') {
 
 // ── SBar Content (footer innerHTML) ──
 
-export function sbarContent() {
+export function sbarContent(opts = {}) {
+  const roleBadge = opts.role === 'manager'
+    ? `<span style="background:${T.clockGold};color:${T.bg};padding:2px 8px;font-family:${T.fb};font-size:12px;font-weight:bold;clip-path:${chamfer('sm')};">[ mgr ]</span>`
+    : opts.role === 'server'
+    ? `<span style="background:${T.orange};color:${T.bg};padding:2px 8px;font-family:${T.fb};font-size:12px;font-weight:bold;clip-path:${chamfer('sm')};">[ svr ]</span>`
+    : '';
+  const settingsBtn = opts.showSettings
+    ? `<span style="font-family:${T.fb};font-size:14px;color:${T.mint};cursor:pointer;padding:2px 12px;border:1px solid ${T.mint};clip-path:${chamfer('sm')};" onclick="${opts.onSettings || ''}">settings</span>`
+    : '';
   return `
-    <span class="sbar-box">${footerTerminalId()}</span>
+    <span class="sbar-box" style="display:flex;align-items:center;gap:10px;">${footerTerminalId()}${roleBadge}</span>
+    ${settingsBtn ? `<span class="sbar-box">${settingsBtn}</span>` : ''}
     <span class="sbar-box">${footerLogo()}</span>`;
 }
 
@@ -101,7 +110,7 @@ export function tbarLoggedOut(timeStr) {
 
 // ── TBar: Logged-In (full header) ──
 
-export function tbarLoggedIn({ timeStr, titlePart, staffName, role, screen }) {
+export function tbarLoggedIn({ timeStr, titlePart, staffName, role, screen, msgCount }) {
   const badge = role === 'manager'
     ? `<span style="background:#44FF88;color:${T.bg};padding:0 5px;font-size:14px;">[MGR]</span>`
     : `<span style="background:#FF8C00;color:${T.bg};padding:0 5px;font-size:14px;">[SVR]</span>`;
@@ -116,12 +125,17 @@ export function tbarLoggedIn({ timeStr, titlePart, staffName, role, screen }) {
             id="_tbar_back">\u2190</span>`
     : '';
 
+  const msgBtn = msgCount != null && msgCount > 0
+    ? msgButton(msgCount, "window._kindSnapOverlay&&window._kindSnapOverlay('messages')")
+    : '';
+
   return `
     <div style="display:flex;align-items:center;">
       ${backBtn}
       <span style="font-size:20px;font-family:${T.fb};"><span id="_tbar_clock">${timeStr}</span>${titlePart} // ${staffName}</span>
     </div>
     <div style="display:flex;align-items:center;gap:6px;">
+      ${msgBtn}
       ${badge}
       ${headerSettings}
       <span style="background:${T.red};color:${T.bg};width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:bold;cursor:pointer;clip-path:${chamfer('4px')};"
@@ -435,4 +449,96 @@ export function hexContextHeader(text, opts = {}) {
     text-align:center;
     padding:4px 0;
   ">${text}</div>`;
+}
+
+// ═══════════════════════════════════════════════════
+//  Snapshot Components
+// ═══════════════════════════════════════════════════
+
+// ── Status Card (big tap-target for side columns) ──
+
+export function statusCard(title, contentHtml, opts = {}) {
+  const borderColor = opts.warning ? T.yellow : T.mint;
+  const titleColor = opts.warning ? T.yellow : T.mint;
+  const handler = opts.onClick ? ` onclick="${opts.onClick}"` : '';
+  const id = opts.id ? ` id="${opts.id}"` : '';
+  return `<div class="btn-wrap"><div${id} style="
+    width:100%;
+    background:${T.bg2};
+    border:3px solid ${borderColor};
+    clip-path:${chamfer('lg')};
+    padding:16px 18px;
+    cursor:pointer;
+    position:relative;
+    transition:background 0.1s ease;
+  "${handler}>
+    <div style="font-family:${T.fb};font-size:15px;color:${titleColor};font-weight:bold;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">${title}</div>
+    ${contentHtml}
+  </div></div>`;
+}
+
+// ── Check Overview Panel (center workspace) ──
+
+export function checkOverviewPanel(headerHtml, bodyHtml, footerHtml, opts = {}) {
+  const id = opts.id ? ` id="${opts.id}"` : '';
+  return `<div${id} style="
+    flex:1;
+    background:${T.bg2};
+    border:${T.borderW} solid ${T.mint};
+    clip-path:${chamfer('xl')};
+    display:flex;
+    flex-direction:column;
+    position:relative;
+    overflow:hidden;
+  ">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-bottom:2px solid rgba(198,255,187,0.15);flex-shrink:0;">
+      ${headerHtml}
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:10px 14px;">
+      ${bodyHtml}
+    </div>
+    ${footerHtml ? `<div style="padding:6px 14px;border-top:2px solid rgba(198,255,187,0.15);flex-shrink:0;">${footerHtml}</div>` : ''}
+  </div>`;
+}
+
+// ── Snapshot Overlay (full-screen drill-down) ──
+
+export function snapshotOverlay(title, contentHtml, onCloseAttr) {
+  return `<div style="
+    position:absolute;inset:0;
+    background:${T.bg};
+    border:${T.borderW} solid ${T.mint};
+    clip-path:${chamfer('xl')};
+    filter:drop-shadow(4px 6px 0px #1a1a1a);
+    z-index:100;
+    display:flex;
+    flex-direction:column;
+  ">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:2px solid rgba(198,255,187,0.15);flex-shrink:0;">
+      <span style="font-family:${T.fb};font-size:18px;color:${T.mint};font-weight:bold;letter-spacing:2px;text-transform:uppercase;">${title}</span>
+      ${overlayCloseBtn(onCloseAttr)}
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:16px 20px;">
+      ${contentHtml}
+    </div>
+  </div>`;
+}
+
+// ── Message Button (header notification) ──
+
+export function msgButton(count, onClickAttr) {
+  const handler = onClickAttr ? ` onclick="${onClickAttr}"` : '';
+  return `<div style="
+    background:${T.bg2};
+    border:2px solid ${T.mint};
+    clip-path:${chamfer('sm')};
+    padding:2px 10px;
+    cursor:pointer;
+    font-family:${T.fb};
+    font-size:14px;
+    color:${T.mint};
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  "${handler}>msg(${count})</div>`;
 }
