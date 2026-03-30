@@ -1,71 +1,12 @@
 // ──────────────────────────────────────────────────────────
-//  KINDpos · Check Editing Scene (Vz1.0)
-//  Primary work screen for order entry and editing
+//  KINDpos · Check Editing Scene (Vz2.0)
+//  3-column layout: Ticket │ Hex Nav │ Actions
 // ──────────────────────────────────────────────────────────
 
-import { APP, $, fmtTime, greeting, calcOrder } from '../app.js';
+import { APP, $, fmtTime, greeting, calcOrder, apiFetch } from '../app.js';
 import { registerScene, go } from '../scene-manager.js';
 import { CFG, FALLBACK_MENU, MODIFIERS, MOD_PREFIXES } from '../config.js';
-import { HexEngine } from '../hex-engine.js';
-import { T, chamfer, overlayCloseBtn } from '../theme-manager.js';
-
-// ── Category color palette for hex navigation ──
-const CAT_COLORS = ['#FF8C00', '#00CED1', '#E84040', '#7ac943', '#fcbe40', '#b48efa'];
-
-/** Transform FALLBACK_MENU into HexEngine data shape */
-function menuToHexData(menu) {
-  return Object.keys(menu).map((catName, i) => {
-    const catColor = CAT_COLORS[i % CAT_COLORS.length];
-    const catData = menu[catName];
-
-    // Flat category (array of items, no subcategories)
-    if (Array.isArray(catData)) {
-      return {
-        id: catName.toLowerCase().replace(/\s+/g, '-'),
-        label: catName,
-        color: catColor,
-        children: catData.map(item => ({
-          id: `${catName}-${item.name}`.toLowerCase().replace(/\s+/g, '-'),
-          label: item.name,
-          price: item.price,
-          color: catColor,
-          disabled: item.is86 || false,
-          _src: item,
-        })),
-      };
-    }
-
-    // Nested category (subcategories → items)
-    return {
-      id: catName.toLowerCase().replace(/\s+/g, '-'),
-      label: catName,
-      color: catColor,
-      children: Object.keys(catData).map(subName => ({
-        id: `${catName}-${subName}`.toLowerCase().replace(/\s+/g, '-'),
-        label: subName,
-        color: catColor,
-        children: catData[subName].map(item => ({
-          id: `${catName}-${subName}-${item.name}`.toLowerCase().replace(/\s+/g, '-'),
-          label: item.name,
-          price: item.price,
-          color: catColor,
-          disabled: item.is86 || false,
-          _src: item,
-        })),
-      })),
-    };
-  });
-}
-
-/** Transform MODIFIERS into flat HexEngine data */
-function modifiersToHexData(modifiers) {
-  return modifiers.map(mod => ({
-    id: `mod-${mod.name}`.toLowerCase().replace(/\s+/g, '-'),
-    label: mod.name,
-    price: mod.price,
-    color: T.mint,
-  }));
-}
+import { T, chamfer, seatTab, actionsCard, btnWrap } from '../theme-manager.js';
 
 registerScene('check-editing', {
   onEnter(el, params) {
@@ -75,14 +16,27 @@ registerScene('check-editing', {
       activeSeat: 1
     };
 
+    // ── State ──
     let activeSeatId = check.activeSeat || 1;
     let selectedItems = new Set();
     let isAllSeats = !check.activeSeat;
+    let actionsExpanded = false;
+
+    // Hex nav state (inline, no overlay)
+    let stagedItems = [];
+    let navPath = [];
+    let navPositions = {};
+    let currentLevel = 'categories';
 
     const hasUnsentItems = () => check.seats.some(s => s.items.some(i => i.state === 'unsent'));
 
     window.onBackRequested = () => {
-      if (hasUnsentItems()) {
+      if (stagedItems.length > 0) {
+        stagedItems = [];
+        navPath = [];
+        currentLevel = 'categories';
+        draw();
+      } else if (hasUnsentItems()) {
         showExitDialog();
       } else {
         go('snapshot');
@@ -178,200 +132,254 @@ registerScene('check-editing', {
         return byRole;
     }
 
-    function draw() {
-      el.innerHTML = `
-        <div style="display:flex; height:100%; font-family:var(--fb);">
-          <!-- Left Panel: Item Summary (Ticket) -->
-          <div id="ticket-panel" style="width:340px; border-right:2px solid #444; display:flex; flex-direction:column; background:#1a1a1a;">
-            <div style="padding:10px; border-bottom:1px solid #444; display:flex; align-items:center; gap:10px;">
-              <div id="all-seats-btn" class="btn-s" style="flex:1; font-size:14px; padding:6px; ${isAllSeats ? 'background:var(--mint); color:var(--bg);' : ''}">All Seats</div>
-            </div>
-            <div id="ticket-items" style="flex:1; overflow-y:auto; padding:10px;">
-              ${renderTicketItems()}
-            </div>
-            <div id="ticket-totals" style="padding:10px; border-top:2px solid #444; background:#1a1a1a;">
-              ${renderTotals()}
-            </div>
-          </div>
-
-          <!-- Right Panel -->
-          <div id="right-panel" style="flex:1; display:flex; flex-direction:column; background:var(--bg2);">
-            <!-- Seat Cards -->
-            <div id="seat-cards" style="height:70px; border-bottom:1px solid #444; display:flex; align-items:center; padding:0 10px; gap:10px; overflow-x:auto;">
-              ${renderSeatCards()}
-            </div>
-
-            <!-- Action Row & Main Area -->
-            <div style="flex:1; display:flex; flex-direction:column;">
-              <!-- Action Row -->
-              <div style="height:50px; border-bottom:1px solid #444; display:flex; align-items:center; padding:0 10px; gap:10px;">
-                <div class="btn-s" id="pay-btn" style="padding:8px 16px; font-size:16px;">Pay</div>
-                <div class="btn-s" id="print-btn" style="padding:8px 16px; font-size:16px;">Print</div>
-                <div class="btn-s" id="transfer-btn" style="padding:8px 16px; font-size:16px;">Transfer</div>
-                <div style="flex:1"></div>
-                <div id="add-item-btn" class="btn-p" style="padding:8px 24px; font-size:16px;">Add Item</div>
-              </div>
-
-              <!-- Right Panel Buttons (Persistent) -->
-              <div style="flex:1; display:flex;">
-                <div style="width:140px; display:flex; flex-direction:column; gap:8px; padding:10px; border-right:1px solid #444;">
-                  <div class="btn-s" id="void-btn" style="color:var(--red); border-color:var(--red);">VOID</div>
-                  <div class="btn-s" id="discount-btn">DISCOUNT</div>
-                  <div class="btn-s" id="hold-btn" style="color:var(--yellow); border-color:var(--yellow);">HOLD</div>
-                  <div class="btn-s" id="fire-btn" style="color:var(--cyan); border-color:var(--cyan);">FIRE</div>
-                  <div class="btn-s" id="resend-btn">RESEND</div>
-                </div>
-                <div style="flex:1; display:flex; align-items:flex-end; justify-content:flex-end; padding:20px;">
-                   <div id="send-btn" class="btn-p" style="width:180px; height:80px; font-size:24px; background:#39b54a; color:#fff;">SEND</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-
-      bindEvents();
-    }
-
-    function renderTicketItems() {
-      const seatsToShow = isAllSeats ? check.seats : check.seats.filter(s => s.id === activeSeatId);
-      let html = '';
-
-      if (check.seats.every(s => s.items.length === 0)) {
-        return `<div style="height:100%; display:flex; align-items:center; justify-content:center; color:#666; font-size:18px; letter-spacing:1px;">NO ITEMS YET</div>`;
-      }
-
-      seatsToShow.forEach(seat => {
-        if (seat.items.length > 0 || !isAllSeats) {
-          html += `<div style="color:var(--mint); font-size:12px; margin:10px 0 5px 0; border-bottom:1px solid var(--mint-dim);">SEAT ${seat.id}</div>`;
-          const seatItems = seat.items;
-          seatItems.forEach((item, idx) => {
-            const isSelected = selectedItems.has(item.id);
-            const color = getItemColor(item.state);
-            
-            // Calculate item total including modifiers
-            let itemTotal = item.price;
-            if (item.mods) {
-              item.mods.forEach(m => { if (m.price) itemTotal += m.price; });
-            }
-
-            html += `
-              <div class="ticket-item" data-id="${item.id}" style="padding:4px 8px; cursor:pointer; display:flex; justify-content:space-between; ${isSelected ? 'background:var(--mint); color:#222;' : `color:${color};`}">
-                <div style="flex:1;">
-                  <div style="font-size:16px; ${item.state === 'voided' ? 'text-decoration:line-through;' : ''}">${item.name}</div>
-                  ${item.mods ? item.mods.map(m => `
-                    <div style="display:flex; justify-content:space-between; font-size:12px; opacity:0.8; margin-left:15px; margin-top:2px;">
-                      <span>${m.prefix} ${m.name}</span>
-                      ${m.price > 0 ? `<span style="color:#fcbe40;">$${m.price.toFixed(2)}</span>` : ''}
-                    </div>
-                  `).join('') : ''}
-                  ${item.note ? `<div style="font-size:12px; font-style:italic; opacity:0.8; margin-left:10px; color:var(--mint);">* ${item.note}</div>` : ''}
-                </div>
-                <div style="font-size:16px; margin-left:10px; min-width:60px; text-align:right;">$${itemTotal.toFixed(2)}</div>
-              </div>
-            `;
-          });
-        }
-      });
-
-      if (selectedItems.size > 0) {
-        html += renderContextMenu();
-      }
-
-      return html;
-    }
-
-    function renderContextMenu() {
-      const selectedArr = Array.from(selectedItems).map(id => {
+    // ── Selection helper (used by rendering + events) ──
+    function resolveSelected() {
+      return Array.from(selectedItems).map(id => {
         for (const s of check.seats) {
           const found = s.items.find(i => i.id === id);
           if (found) return found;
         }
       }).filter(Boolean);
+    }
 
-      const allUnsent = selectedArr.every(i => i.state === 'unsent' || i.state === 'held');
+    // ═══════════════════════════════════════
+    //  MAIN DRAW
+    // ═══════════════════════════════════════
 
-      return `
-        <div id="context-menu" style="margin-top:10px; background:var(--bg3); border:1px solid var(--mint); padding:5px; display:flex; flex-wrap:wrap; gap:5px; position:sticky; bottom:0;">
-          <div class="btn-s" id="ctx-move" style="font-size:12px; padding:4px 8px;">Move to Seat \u2192</div>
-          <div class="btn-s" id="ctx-repeat" style="font-size:12px; padding:4px 8px;">Repeat</div>
-          <div class="btn-s" id="ctx-note" style="font-size:12px; padding:4px 8px;">Add Note</div>
-          ${allUnsent ? `<div class="btn-s" id="ctx-mods" style="font-size:12px; padding:4px 8px;">Edit Mods</div>` : ''}
+    function draw() {
+      const sel = resolveSelected();
+
+      el.innerHTML = `
+        <div style="display:flex;height:100%;gap:8px;padding:8px;font-family:${T.fb};">
+          ${renderTicketPanel()}
+          ${renderHexPanel()}
+          ${renderActionsPanel(sel)}
         </div>
       `;
+
+      populateHexGrid();
+      bindEvents(sel);
+    }
+
+    // ═══════════════════════════════════════
+    //  LEFT: TICKET PANEL (300px)
+    // ═══════════════════════════════════════
+
+    function renderTicketPanel() {
+      return `<div style="width:300px;display:flex;flex-direction:column;gap:6px;">
+        <div style="display:flex;gap:4px;overflow-x:auto;flex-shrink:0;">
+          ${renderSeatTabs()}
+        </div>
+        <div style="flex:1;background:${T.bg2};border:${T.borderW} solid ${T.mint};clip-path:${chamfer('lg')};display:flex;flex-direction:column;overflow:hidden;">
+          <div id="ticket-items" style="flex:1;overflow-y:auto;padding:8px 10px;">
+            ${renderTicketItems()}
+          </div>
+          <div style="padding:8px 10px;border-top:2px solid rgba(198,255,187,0.15);">
+            ${renderTotals()}
+          </div>
+        </div>
+      </div>`;
+    }
+
+    function renderSeatTabs() {
+      let html = seatTab('ALL', null, { active: isAllSeats, data: 'all' });
+
+      check.seats.forEach(seat => {
+        const isActive = !isAllSeats && activeSeatId === seat.id;
+        const sub = seat.items.filter(i => i.state !== 'voided').reduce((sum, i) => sum + i.price, 0);
+        html += seatTab(`S${seat.id}`, `${seat.items.length} · $${sub.toFixed(2)}`, { active: isActive, data: seat.id });
+      });
+
+      html += `<div id="add-seat-btn" style="
+        flex:0 0 auto;padding:6px 12px;
+        background:${T.bg};color:rgba(198,255,187,0.4);
+        font-family:${T.fb};font-size:13px;cursor:pointer;
+        clip-path:${chamfer('sm')};border:2px dashed rgba(198,255,187,0.3);
+        text-align:center;user-select:none;
+      ">+</div>`;
+
+      return html;
+    }
+
+    function renderTicketItems() {
+      const seatsToShow = isAllSeats ? check.seats : check.seats.filter(s => s.id === activeSeatId);
+
+      if (check.seats.every(s => s.items.length === 0)) {
+        return `<div style="height:100%;display:flex;align-items:center;justify-content:center;color:rgba(198,255,187,0.3);font-size:16px;letter-spacing:2px;">NO ITEMS</div>`;
+      }
+
+      let html = '';
+      seatsToShow.forEach(seat => {
+        if (seat.items.length > 0 || !isAllSeats) {
+          html += `<div style="color:${T.mintDim};font-size:11px;margin:8px 0 4px;border-bottom:1px solid rgba(198,255,187,0.1);padding-bottom:2px;letter-spacing:2px;">SEAT ${seat.id}</div>`;
+          seat.items.forEach(item => {
+            const isSelected = selectedItems.has(item.id);
+            const color = getItemColor(item.state);
+            let itemTotal = item.price;
+            if (item.mods) item.mods.forEach(m => { if (m.price) itemTotal += m.price; });
+
+            html += `<div class="ticket-item" data-id="${item.id}" style="
+              padding:4px 6px;cursor:pointer;display:flex;justify-content:space-between;margin-bottom:2px;
+              ${isSelected ? `background:${T.mint};color:${T.bg};` : `color:${color};`}
+            ">
+              <div style="flex:1;">
+                <div style="font-size:15px;${item.state === 'voided' ? 'text-decoration:line-through;' : ''}">${item.name}</div>
+                ${item.mods ? item.mods.map(m => `
+                  <div style="display:flex;justify-content:space-between;font-size:11px;opacity:0.8;margin-left:12px;margin-top:1px;">
+                    <span>${m.prefix} ${m.name}</span>
+                    ${m.price > 0 ? `<span style="color:${T.gold};">$${m.price.toFixed(2)}</span>` : ''}
+                  </div>
+                `).join('') : ''}
+                ${item.note ? `<div style="font-size:11px;font-style:italic;opacity:0.7;margin-left:10px;color:${T.mint};">* ${item.note}</div>` : ''}
+              </div>
+              <div style="font-size:15px;margin-left:8px;min-width:55px;text-align:right;">$${itemTotal.toFixed(2)}</div>
+            </div>`;
+          });
+        }
+      });
+
+      return html;
     }
 
     function getItemColor(state) {
       switch (state) {
-        case 'unsent': return '#33ffff';
-        case 'sent': return '#666';
-        case 'held': return '#ffff00';
-        case 'voided': return '#ff3355';
-        case 'paid': return '#fcbe40';
-        default: return '#33ffff';
+        case 'unsent': return T.cyan;
+        case 'sent': return 'rgba(198,255,187,0.35)';
+        case 'held': return T.yellow;
+        case 'voided': return T.red;
+        case 'paid': return T.gold;
+        default: return T.cyan;
       }
     }
 
-      const renderTotals = () => {
-        const allItems = check.seats.flatMap(s => s.items).filter(i => i.state !== 'voided');
-        const totals = calcOrder({ items: allItems });
+    function renderTotals() {
+      const allItems = check.seats.flatMap(s => s.items).filter(i => i.state !== 'voided');
+      const totals = calcOrder({ items: allItems });
 
-        return `
-          <div style="display:flex; justify-content:space-between; color:var(--mint); font-size:14px; margin-bottom:4px;">
-            <span>Subtotal</span><span>$${totals.sub.toFixed(2)}</span>
-          </div>
-          <div style="display:flex; justify-content:space-between; color:var(--mint); font-size:14px; margin-bottom:4px;">
-            <span>Tax</span><span>$${totals.tax.toFixed(2)}</span>
-          </div>
-          <div style="display:flex; justify-content:space-between; color:#fcbe40; font-size:22px; font-weight:bold; margin-top:8px;">
-            <span>Total</span><span>$${totals.card.toFixed(2)}</span>
-          </div>
-        `;
-      }
-
-    function renderSeatCards() {
-      let html = '';
-      check.seats.forEach(seat => {
-        const isActive = !isAllSeats && activeSeatId === seat.id;
-        const sub = seat.items.filter(i => i.state !== 'voided').reduce((sum, i) => sum + i.price, 0);
-        html += `
-          <div class="seat-card" data-id="${seat.id}" style="flex:0 0 100px; height:50px; border:2px solid ${isActive ? '#39b54a' : '#444'}; border-radius:5px; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; position:relative;">
-            <div style="font-size:12px; font-weight:bold; color:${isActive ? '#39b54a' : 'var(--mint)'};">SEAT ${seat.id}</div>
-            <div style="font-size:10px; color:#888;">${seat.items.length} items</div>
-            <div style="font-size:10px; color:#fcbe40;">$${sub.toFixed(2)}</div>
-          </div>
-        `;
-      });
-      html += `
-        <div id="add-seat-btn" style="flex:0 0 100px; height:50px; border:2px dashed #666; border-radius:5px; display:flex; align-items:center; justify-content:center; color:#666; cursor:pointer; font-size:14px;">+ SEAT</div>
+      return `
+        <div style="display:flex;justify-content:space-between;color:${T.mint};font-size:13px;margin-bottom:3px;">
+          <span>Subtotal</span><span>$${totals.sub.toFixed(2)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;color:${T.mint};font-size:13px;margin-bottom:3px;">
+          <span>Tax</span><span>$${totals.tax.toFixed(2)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;color:${T.gold};font-size:20px;font-weight:bold;margin-top:6px;">
+          <span>Total</span><span>$${totals.card.toFixed(2)}</span>
+        </div>
       `;
-      return html;
     }
 
-    function bindEvents() {
-      $('all-seats-btn').onclick = () => {
-        isAllSeats = true;
-        activeSeatId = null;
-        selectedItems.clear();
-        draw();
-      };
+    // ═══════════════════════════════════════
+    //  CENTER: HEX NAV PANEL (flex:1)
+    // ═══════════════════════════════════════
 
-      el.querySelectorAll('.seat-card').forEach(card => {
-        card.onclick = () => {
-          const id = parseInt(card.dataset.id);
-          if (!isAllSeats && activeSeatId === id) {
+    function renderHexPanel() {
+      const crumb = navPath.length === 0 ? 'MENU' : navPath.join(' \u203A ');
+      const staged = stagedItems.length;
+
+      return `<div style="flex:1;display:flex;flex-direction:column;background:${T.bg2};border:${T.borderW} solid ${T.mint};clip-path:${chamfer('xl')};overflow:hidden;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-bottom:2px solid rgba(198,255,187,0.15);flex-shrink:0;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            ${navPath.length > 0 ? `<div id="hex-back" style="color:${T.mint};font-size:16px;cursor:pointer;padding:2px 8px;border:1px solid ${T.mint};clip-path:${chamfer('sm')};">\u2190</div>` : ''}
+            <span style="font-size:15px;color:${T.mint};letter-spacing:2px;font-weight:bold;">${crumb}</span>
+          </div>
+        </div>
+        <div id="hex-panel" style="flex:1;position:relative;overflow:hidden;">
+          <svg id="hex-svg" width="100%" height="100%" style="display:block;"></svg>
+        </div>
+        <div style="padding:6px 14px;border-top:2px solid rgba(198,255,187,0.15);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+          <span style="font-size:13px;color:${staged > 0 ? T.cyan : 'rgba(198,255,187,0.3)'};">
+            ${staged > 0 ? `${staged} item${staged > 1 ? 's' : ''} staged` : 'Tap items to add'}
+          </span>
+          <div style="display:flex;gap:6px;">
+            ${staged > 0 ? `
+              <div id="stage-clr" class="btn-s" style="padding:3px 12px;font-size:13px;border-color:${T.red};color:${T.red};">CLR</div>
+              <div id="stage-confirm" class="btn-p" style="padding:3px 12px;font-size:13px;">CONFIRM</div>
+            ` : ''}
+          </div>
+        </div>
+      </div>`;
+    }
+
+    // ═══════════════════════════════════════
+    //  RIGHT: ACTIONS PANEL (180px)
+    // ═══════════════════════════════════════
+
+    function renderActionsPanel(sel) {
+      const anyUnsent = sel.some(i => i.state === 'unsent');
+      const anyHeld = sel.some(i => i.state === 'held');
+      const allUnsent = sel.every(i => i.state === 'unsent' || i.state === 'held');
+      const unsentCount = check.seats.flatMap(s => s.items).filter(i => i.state === 'unsent').length;
+
+      const toggleHeader = `<div id="actions-toggle" style="padding:8px 12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+        <span style="font-size:13px;color:${T.mint};letter-spacing:2px;font-weight:bold;">ACTIONS</span>
+        <span style="color:${T.mint};font-size:12px;">${actionsExpanded ? '\u25BC' : '\u25B2'}</span>
+      </div>`;
+
+      let body = '';
+      if (actionsExpanded) {
+        body = `<div style="padding:6px 8px;display:flex;flex-direction:column;gap:5px;overflow-y:auto;flex:1;">
+          <div id="comp-btn" class="btn-s${sel.length === 0 ? ' btn-off' : ''}" style="font-size:13px;padding:7px;">COMP</div>
+          <div id="void-btn" class="btn-s${sel.length === 0 ? ' btn-off' : ''}" style="font-size:13px;padding:7px;color:${T.red};border-color:${T.red};">VOID</div>
+          <div id="hold-btn" class="btn-s${!anyUnsent ? ' btn-off' : ''}" style="font-size:13px;padding:7px;color:${T.yellow};border-color:${T.yellow};">HOLD</div>
+          <div id="fire-btn" class="btn-s${!anyHeld ? ' btn-off' : ''}" style="font-size:13px;padding:7px;color:${T.cyan};border-color:${T.cyan};">FIRE</div>
+          <div style="border-top:1px solid rgba(198,255,187,0.1);margin:2px 0;"></div>
+          <div id="pay-btn" class="btn-s" style="font-size:13px;padding:7px;">PAY</div>
+          <div id="print-btn" class="btn-s" style="font-size:13px;padding:7px;">PRINT</div>
+          ${sel.length > 0 ? `
+            <div style="border-top:1px solid rgba(198,255,187,0.1);margin:2px 0;"></div>
+            <div style="font-size:10px;color:rgba(198,255,187,0.4);padding:0 2px;letter-spacing:1px;">${sel.length} SELECTED</div>
+            <div id="ctx-move" class="btn-s" style="font-size:12px;padding:5px;">MOVE \u2192</div>
+            <div id="ctx-repeat" class="btn-s" style="font-size:12px;padding:5px;">REPEAT</div>
+            <div id="ctx-note" class="btn-s" style="font-size:12px;padding:5px;">NOTE</div>
+            ${allUnsent ? `<div id="ctx-mods" class="btn-s" style="font-size:12px;padding:5px;">EDIT MODS</div>` : ''}
+            <div id="transfer-btn" class="btn-s" style="font-size:12px;padding:5px;">TRANSFER</div>
+          ` : ''}
+        </div>`;
+      }
+
+      return `<div style="width:180px;display:flex;flex-direction:column;gap:6px;">
+        ${btnWrap(`<div id="send-btn" ${unsentCount === 0 ? 'class="btn-off"' : ''} style="
+          background:${T.goGreen};color:${T.bg};font-family:${T.fb};font-size:26px;
+          height:76px;display:flex;align-items:center;justify-content:center;
+          cursor:pointer;clip-path:${chamfer('lg')};user-select:none;
+        ">SEND</div>`)}
+        <div style="font-size:9px;color:rgba(198,255,187,0.3);text-align:center;margin-top:-4px;">hold to resend</div>
+        ${actionsCard(toggleHeader + body, { expanded: actionsExpanded })}
+      </div>`;
+    }
+
+    // ═══════════════════════════════════════
+    //  EVENT BINDING
+    // ═══════════════════════════════════════
+
+    function bindEvents(sel) {
+      const anySent = sel.some(i => i.state === 'sent');
+
+      // ── Seat Tabs ──
+      el.querySelectorAll('.seat-tab').forEach(tab => {
+        tab.onclick = () => {
+          const id = tab.dataset.id;
+          if (id === 'all') {
             isAllSeats = true;
             activeSeatId = null;
           } else {
-            isAllSeats = false;
-            activeSeatId = id;
+            const numId = parseInt(id);
+            if (!isAllSeats && activeSeatId === numId) {
+              isAllSeats = true;
+              activeSeatId = null;
+            } else {
+              isAllSeats = false;
+              activeSeatId = numId;
+            }
           }
           selectedItems.clear();
           draw();
         };
       });
 
-      $('add-seat-btn').onclick = () => {
+      const addSeatBtn = $('add-seat-btn');
+      if (addSeatBtn) addSeatBtn.onclick = () => {
         const nextId = check.seats.length + 1;
         check.seats.push({ id: nextId, items: [] });
         activeSeatId = nextId;
@@ -380,8 +388,9 @@ registerScene('check-editing', {
         draw();
       };
 
+      // ── Ticket Item Selection ──
       el.querySelectorAll('.ticket-item').forEach(itemEl => {
-        itemEl.onclick = (e) => {
+        itemEl.onclick = () => {
           const id = itemEl.dataset.id;
           if (selectedItems.has(id)) selectedItems.delete(id);
           else selectedItems.add(id);
@@ -389,92 +398,119 @@ registerScene('check-editing', {
         };
       });
 
-      // Clear selection when tapping ticket-items area (but not items themselves)
-      $('ticket-items').onclick = (e) => {
+      const ticketArea = $('ticket-items');
+      if (ticketArea) ticketArea.onclick = (e) => {
         if (e.target.id === 'ticket-items') {
           selectedItems.clear();
           draw();
         }
       };
 
-      $('add-item-btn').onclick = () => {
-        showAddItemOverlay();
+      // ── Hex Nav Back ──
+      const hexBack = $('hex-back');
+      if (hexBack) hexBack.onclick = () => {
+        if (currentLevel === 'items' && navPath.length === 2) {
+          navPath.pop();
+          const catData = FALLBACK_MENU[navPath[0]];
+          currentLevel = Array.isArray(catData) ? 'categories' : 'subcategories';
+        } else {
+          navPath = [];
+          currentLevel = 'categories';
+        }
+        draw();
       };
 
-      $('staged-list')?.querySelectorAll('.staged-item').forEach(el => {
-        el.onclick = () => {
-          const idx = parseInt(el.dataset.idx);
-          if (selectedStaged.has(idx)) selectedStaged.delete(idx);
-          else selectedStaged.add(idx);
-          renderOverlay();
-        };
-      });
+      // ── Staging: CLR + CONFIRM ──
+      const stageClr = $('stage-clr');
+      if (stageClr) stageClr.onclick = () => { stagedItems.pop(); draw(); };
 
-      const modifyBtn = $('staged-modify');
-      if (modifyBtn) {
-        modifyBtn.onclick = (e) => {
-          e.stopPropagation();
-          const items = Array.from(selectedStaged).map(idx => stagedItems[idx]);
-          showModifierModal(items, () => {
-            selectedStaged.clear();
-            renderOverlay();
+      const stageConfirm = $('stage-confirm');
+      if (stageConfirm) stageConfirm.onclick = () => {
+        const targetSeatId = isAllSeats ? 1 : activeSeatId;
+        const targetSeat = check.seats.find(s => s.id === targetSeatId);
+        stagedItems.forEach(item => {
+          item.id = `item-${Date.now()}-${Math.random()}`;
+          item.state = 'unsent';
+          targetSeat.items.push(item);
+        });
+        stagedItems = [];
+        draw();
+      };
+
+      // ── Actions Card Toggle ──
+      const actToggle = $('actions-toggle');
+      if (actToggle) actToggle.onclick = () => { actionsExpanded = !actionsExpanded; draw(); };
+
+      // ── SEND (tap) + RESEND (long-press 800ms) ──
+      const sendBtn = $('send-btn');
+      if (sendBtn && !sendBtn.classList.contains('btn-off')) {
+        let holdTimer = null;
+        let didLongPress = false;
+
+        const startHold = () => {
+          didLongPress = false;
+          holdTimer = setTimeout(async () => {
+            didLongPress = true;
+            // RESEND
+            const byRole = getItemsByRole();
+            if (byRole.kitchen.length > 0) await printToRole('kitchen', { header: '*** RESEND ***' }, byRole.kitchen);
+            if (byRole.bar.length > 0) await printToRole('bar', { header: '*** RESEND ***' }, byRole.bar);
+            showToast('RESENT to kitchen', true);
+          }, 800);
+        };
+        const endHold = () => { clearTimeout(holdTimer); };
+
+        sendBtn.addEventListener('mousedown', startHold);
+        sendBtn.addEventListener('touchstart', startHold);
+        sendBtn.addEventListener('mouseup', endHold);
+        sendBtn.addEventListener('mouseleave', endHold);
+        sendBtn.addEventListener('touchend', endHold);
+
+        sendBtn.addEventListener('click', async () => {
+          if (didLongPress) return;
+          // SEND unsent items
+          const unsent = check.seats.flatMap(s => s.items).filter(i => i.state === 'unsent');
+          if (unsent.length === 0) return;
+          const routing = JSON.parse(localStorage.getItem('kind_hardware_routing') || '{"savedPrinters":[],"categoryRouting":{}}');
+          const mapping = routing.categoryRouting;
+          const toKitchen = unsent.filter(i => (mapping[i.category_id] || 'kitchen') === 'kitchen');
+          const toBar = unsent.filter(i => (mapping[i.category_id] || 'kitchen') === 'bar');
+          if (toKitchen.length > 0) await printToRole('kitchen', { type: 'SEND' }, toKitchen);
+          if (toBar.length > 0) await printToRole('bar', { type: 'SEND' }, toBar);
+          unsent.forEach(i => i.state = 'sent');
+          showToast('Order SENT', true);
+          selectedItems.clear();
+          draw();
+        });
+      }
+
+      // ── COMP (replaces DISCOUNT) ──
+      const compBtn = $('comp-btn');
+      if (compBtn && sel.length > 0) {
+        compBtn.onclick = () => {
+          showPinGate('COMP ITEMS', (approved) => {
+            if (!approved) return;
+            showCompDialog(sel);
           });
         };
       }
 
-      if ($('context-menu')) {
-        $('ctx-move').onclick = (e) => {
-          e.stopPropagation();
-          showMoveToSeatMenu();
-        };
-        $('ctx-repeat').onclick = (e) => {
-          e.stopPropagation();
-          repeatSelectedItems();
-        };
-        $('ctx-note').onclick = (e) => {
-          e.stopPropagation();
-          addNoteToSelectedItems();
-        };
-        const modsBtn = $('ctx-mods');
-        if (modsBtn) modsBtn.onclick = (e) => {
-          e.stopPropagation();
-          showModifierModal(selectedArr, () => {
-            selectedItems.clear();
-          });
-        };
-      }
-
-      const selectedArr = Array.from(selectedItems).map(id => {
-        for (const s of check.seats) {
-          const found = s.items.find(i => i.id === id);
-          if (found) return found;
-        }
-      }).filter(Boolean);
-
-      const anyUnsent = selectedArr.some(i => i.state === 'unsent');
-      const anySent = selectedArr.some(i => i.state === 'sent');
-      const anyHeld = selectedArr.some(i => i.state === 'held');
-
-      // VOID
+      // ── VOID ──
       const voidBtn = $('void-btn');
-      if (selectedArr.length === 0) voidBtn.classList.add('btn-off');
-      else {
+      if (voidBtn && sel.length > 0) {
         voidBtn.onclick = () => {
           if (anySent) {
-            // Manager gate
-            showPinGate("VOID SENT ITEMS", (approved) => {
+            showPinGate('VOID SENT ITEMS', (approved) => {
               if (approved) {
-                selectedArr.forEach(i => i.state = 'voided');
+                sel.forEach(i => i.state = 'voided');
                 selectedItems.clear();
                 draw();
               }
             });
           } else {
-            selectedArr.forEach(i => {
+            sel.forEach(i => {
               if (i.state === 'unsent' || i.state === 'held') {
-                check.seats.forEach(s => {
-                  s.items = s.items.filter(it => it.id !== i.id);
-                });
+                check.seats.forEach(s => { s.items = s.items.filter(it => it.id !== i.id); });
               } else {
                 i.state = 'voided';
               }
@@ -485,114 +521,61 @@ registerScene('check-editing', {
         };
       }
 
-      // DISCOUNT
-      const discountBtn = $('discount-btn');
-      if (selectedArr.length === 0) discountBtn.classList.add('btn-off');
-      else {
-        discountBtn.onclick = () => {
-           showPinGate("APPLY DISCOUNT", (approved) => {
-             if (approved) {
-               const pct = prompt("Discount %:", "20");
-               if (pct) {
-                 selectedArr.forEach(i => {
-                   i.price *= (1 - (parseInt(pct) / 100));
-                   i.mods = i.mods || [];
-                   i.mods.push(`DISC ${pct}%`);
-                 });
-                 selectedItems.clear();
-                 draw();
-               }
-             }
-           });
-        };
-      }
-
-      // HOLD
+      // ── HOLD ──
       const holdBtn = $('hold-btn');
-      if (!anyUnsent) holdBtn.classList.add('btn-off');
-      else {
+      if (holdBtn && sel.some(i => i.state === 'unsent')) {
         holdBtn.onclick = () => {
-          selectedArr.forEach(i => { if (i.state === 'unsent') i.state = 'held'; });
+          sel.forEach(i => { if (i.state === 'unsent') i.state = 'held'; });
           selectedItems.clear();
           draw();
         };
       }
 
-      // FIRE
+      // ── FIRE ──
       const fireBtn = $('fire-btn');
-      if (!anyHeld) fireBtn.classList.add('btn-off');
-      else {
+      if (fireBtn && sel.some(i => i.state === 'held')) {
         fireBtn.onclick = () => {
-          selectedArr.forEach(i => { if (i.state === 'held') i.state = 'unsent'; });
+          sel.forEach(i => { if (i.state === 'held') i.state = 'unsent'; });
           selectedItems.clear();
           draw();
         };
       }
 
-      // RESEND
-      const resendBtn = $('resend-btn');
-      resendBtn.onclick = async () => {
-        if (confirm("Resend all items to kitchen?")) {
-          const byRole = getItemsByRole();
-          if (byRole.kitchen.length > 0) {
-              await printToRole('kitchen', { header: '*** RESEND ***' }, byRole.kitchen);
-          }
-          if (byRole.bar.length > 0) {
-              await printToRole('bar', { header: '*** RESEND ***' }, byRole.bar);
-          }
-          showToast("Sent items RESENT to kitchen", true);
-        }
+      // ── PAY ──
+      const payBtn = $('pay-btn');
+      if (payBtn) payBtn.onclick = () => showPaymentOverlay();
+
+      // ── PRINT ──
+      const printBtn = $('print-btn');
+      if (printBtn) printBtn.onclick = async () => {
+        const allItems = check.seats.flatMap(s => s.items).filter(i => i.state !== 'voided');
+        const totals = calcOrder({ items: allItems });
+        await printToRole('receipt', {
+          type: 'GUEST_CHECK', check_number: check.id, server: APP.staff?.name,
+          subtotal: totals.sub, tax: totals.tax, total: totals.card,
+          dual_pricing: { cash: totals.cash, card: totals.card }
+        }, allItems);
+        showToast('Guest Check PRINTED', true);
       };
 
-      // SEND
-      const sendBtn = $('send-btn');
-      const unsentNonHeld = check.seats.flatMap(s => s.items).filter(i => i.state === 'unsent');
-      if (unsentNonHeld.length === 0) sendBtn.classList.add('btn-off');
-      else {
-        sendBtn.onclick = async () => {
-          const routingData = JSON.parse(localStorage.getItem('kind_hardware_routing') || '{"savedPrinters":[],"categoryRouting":{}}');
-          const mapping = routingData.categoryRouting;
-          const itemsToPrint = unsentNonHeld;
+      // ── Context Actions (in actions card) ──
+      const ctxMove = $('ctx-move');
+      if (ctxMove) ctxMove.onclick = () => showMoveToSeatMenu();
 
-          const toKitchen = itemsToPrint.filter(i => (mapping[i.category_id] || 'kitchen') === 'kitchen');
-          const toBar = itemsToPrint.filter(i => (mapping[i.category_id] || 'kitchen') === 'bar');
+      const ctxRepeat = $('ctx-repeat');
+      if (ctxRepeat) ctxRepeat.onclick = () => repeatSelectedItems();
 
-          if (toKitchen.length > 0) await printToRole('kitchen', { type: 'SEND' }, toKitchen);
-          if (toBar.length > 0) await printToRole('bar', { type: 'SEND' }, toBar);
+      const ctxNote = $('ctx-note');
+      if (ctxNote) ctxNote.onclick = () => addNoteToSelectedItems();
 
-          unsentNonHeld.forEach(i => i.state = 'sent');
-          showToast("Order SENT to kitchen", true);
-          selectedItems.clear();
-          draw();
-        };
-      }
-
-      // PAY
-      $('pay-btn').onclick = () => showPaymentPanel();
-
-      // PRINT
-      $('print-btn').onclick = async () => {
-        const items = check.seats.flatMap(s => s.items);
-        await printToRole('receipt', { 
-            type: 'GUEST_CHECK',
-            check_number: check.id,
-            server: APP.staff.name,
-            subtotal: totals.subtotal,
-            tax: totals.tax,
-            total: totals.total,
-            dual_pricing: {
-                cash: totals.cash,
-                card: totals.card
-            }
-        }, items);
-        showToast("Guest Check PRINTED", true);
+      const ctxMods = $('ctx-mods');
+      if (ctxMods) ctxMods.onclick = () => {
+        showModifierModal(sel, () => { selectedItems.clear(); draw(); });
       };
 
-      // TRANSFER
       const transferBtn = $('transfer-btn');
-      if (selectedArr.length === 0) transferBtn.classList.add('btn-off');
-      else {
-        transferBtn.onclick = () => showTransferModal(selectedArr);
+      if (transferBtn && sel.length > 0) {
+        transferBtn.onclick = () => showTransferModal(sel);
       }
     }
 
@@ -985,343 +968,255 @@ registerScene('check-editing', {
       $('gate-cancel').onclick = () => { ov.remove(); callback(false); };
     }
 
-    function showAddItemOverlay() {
-      const ov = document.createElement('div');
-      ov.style.cssText = `position:absolute; inset:0; background:${T.bg}; z-index:150; display:flex; flex-direction:column; font-family:${T.fb};`;
+    // ═══════════════════════════════════════
+    //  HEX GRID POPULATION (inline center panel)
+    // ═══════════════════════════════════════
 
-      let stagedItems = [];
-      let activeToggle = 'items'; // 'items' | 'modifiers'
-      let currentPrefix = MOD_PREFIXES[0] || 'ADD';
-      let hexEngine = null;
+    function populateHexGrid() {
+      const svg = el.querySelector('#hex-svg');
+      if (!svg) return;
+      svg.innerHTML = '';
 
-      // ── Format header date ──
-      const now = new Date();
-      const dd = String(now.getDate()).padStart(2, '0');
-      const mm = String(now.getMonth() + 1).padStart(2, '0');
-      const yy = String(now.getFullYear()).slice(-2);
-      let hh = now.getHours();
-      const ampm = hh >= 12 ? 'pm' : 'am';
-      hh = hh % 12 || 12;
-      const min = String(now.getMinutes()).padStart(2, '0');
-      const seatList = check.seats.map(s => `s${s.id}`).join(', ');
+      const GAP = 1.05;
+      const CAT_R = 55;
+      const SUB_R = 42;
+      const ITEM_R = 32;
+      const categories = Object.keys(FALLBACK_MENU);
+      const colors = ['#FF8C00', '#00CED1', '#39b54a', '#E84040', '#fcbe40', '#b48efa'];
 
-      // ── Chamfer styles (clip-path property + polygon value) ──
-      const chamferLg = `clip-path:${chamfer('lg')}`;
-      const chamferMd = `clip-path:${chamfer('md')}`;
-
-      // ── Drop shadow & tap animation styles ──
-      const btnShadow = 'filter:drop-shadow(2px 3px 0px #1a1a1a);';
-      const btnTapStyle = 'transition:transform 50ms, filter 50ms;';
-
-      // ── Build overlay DOM ──
-      ov.innerHTML = `
-        <!-- Header Bar -->
-        <div style="height:${T.barH}; background:${T.mint}; color:${T.bg}; font-family:${T.fh}; display:flex; align-items:center; justify-content:space-between; padding:0 12px; font-size:28px; flex-shrink:0;">
-          <span>${dd}/${mm}/${yy} // ${hh}:${min} ${ampm} <> ${check.id} // Seat(s): ${seatList} // Add Item(s)</span>
-          <div id="add-close-btn" style="width:44px; height:44px; background:${T.clrRed}; ${chamferMd}; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#fff; font-family:${T.fh}; font-size:24px; ${btnShadow} ${btnTapStyle}">\u2715</div>
-        </div>
-
-        <!-- Two-Panel Layout -->
-        <div style="flex:1; display:flex; overflow:hidden; gap:0;">
-
-          <!-- Left Ticket Panel -->
-          <div style="width:310px; flex-shrink:0; border:${T.borderW} solid ${T.mint}; ${chamferLg}; background:${T.bg2}; display:flex; flex-direction:column; overflow:hidden;">
-            <div id="add-ticket-panel" style="flex:1; overflow-y:auto; padding:8px 10px;">
-            </div>
-          </div>
-
-          <!-- Right Hex Workspace -->
-          <div style="flex:1; border:${T.borderW} solid ${T.mint}; ${chamferLg}; background:${T.bg}; display:flex; flex-direction:column; overflow:hidden;">
-            <!-- Hex Container -->
-            <div id="add-hex-container" style="flex:1; position:relative; overflow:hidden;">
-            </div>
-
-            <!-- Prefix Row (hidden by default, shown in modifier mode) -->
-            <div id="add-prefix-row" style="display:none; padding:4px 10px; gap:6px; flex-shrink:0; background:${T.bg2}; border-top:2px solid ${T.bg3};">
-            </div>
-
-            <!-- Action Bar -->
-            <div style="height:52px; flex-shrink:0; display:flex; align-items:center; padding:0 10px; gap:10px; border-top:${T.borderW} solid ${T.mint}; background:${T.bg2};">
-              <div id="add-toggle-items" style="font-family:${T.fb}; font-size:28px; padding:4px 16px; cursor:pointer; background:${T.mint}; color:${T.bg}; ${chamferMd}; ${btnShadow} ${btnTapStyle}">+ Items</div>
-              <div id="add-toggle-mods" style="font-family:${T.fb}; font-size:28px; padding:4px 16px; cursor:pointer; border:${T.borderW} solid ${T.gold}; color:${T.gold}; background:transparent; ${chamferMd}; ${btnShadow} ${btnTapStyle}">+ Modifiers</div>
-              <div style="flex:1;"></div>
-              <div id="add-back-btn" style="width:44px; height:44px; background:${T.clrRed}; ${chamferMd}; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#fff; font-family:${T.fh}; font-size:20px; ${btnShadow} ${btnTapStyle}">\u2190</div>
-              <div id="add-fwd-btn" style="width:44px; height:44px; background:${T.goGreen}; ${chamferMd}; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#fff; font-family:${T.fh}; font-size:20px; ${btnShadow} ${btnTapStyle}">>>></div>
-            </div>
-          </div>
-        </div>
-      `;
-
-      el.appendChild(ov);
-
-      // ── Targeted re-render: ticket panel only ──
-      function renderTicketPanel() {
-        const panel = ov.querySelector('#add-ticket-panel');
-        if (!panel) return;
-
-        if (stagedItems.length === 0) {
-          panel.innerHTML = '';
-          return;
+      function getChildPositions(px, py, parentR, childR, count, occupiedAngles) {
+        const dist = (parentR + childR) * GAP;
+        const positions = [];
+        for (let face = 0; face < 6 && positions.length < count; face++) {
+          const angle = (Math.PI / 3) * face;
+          let skip = false;
+          if (occupiedAngles) {
+            for (const oa of occupiedAngles) {
+              const diff = Math.abs(angle - oa);
+              if (diff < 0.3 || Math.abs(diff - 2 * Math.PI) < 0.3) { skip = true; break; }
+            }
+          }
+          if (!skip) positions.push({ x: px + dist * Math.cos(angle), y: py + dist * Math.sin(angle) });
         }
-
-        panel.innerHTML = stagedItems.map((item, idx) => {
-          let itemTotal = item.price;
-          if (item.mods) item.mods.forEach(m => { if (m.price) itemTotal += m.price; });
-          return `
-            <div style="display:flex; justify-content:space-between; align-items:baseline; padding:4px 0; font-family:${T.fb}; font-size:28px; color:${T.mint};">
-              <span>x${item.qty || 1}  ${item.name}</span>
-              <span style="color:${T.gold};">$${itemTotal.toFixed(2)}</span>
-            </div>
-            ${item.mods ? item.mods.map(m => `
-              <div style="margin-left:20px; margin-bottom:2px;">
-                <span style="font-family:${T.fb}; font-size:22px; background:${T.gold}; color:${T.bg}; padding:1px 6px; clip-path:${chamfer('sm')};">${m.prefix} ${m.name}${m.price > 0 ? ` +$${m.price.toFixed(2)}` : ''}</span>
-              </div>
-            `).join('') : ''}
-          `;
-        }).join('');
+        if (positions.length < count) {
+          const dist2 = (parentR + childR) * 2.1;
+          for (let i = 0; i < 12 && positions.length < count; i++) {
+            const angle = (Math.PI / 6) * i;
+            positions.push({ x: px + dist2 * Math.cos(angle), y: py + dist2 * Math.sin(angle) });
+          }
+        }
+        return positions.slice(0, count);
       }
 
-      // ── Update toggle button styles ──
-      function updateToggleStyles() {
-        const itemsBtn = ov.querySelector('#add-toggle-items');
-        const modsBtn = ov.querySelector('#add-toggle-mods');
-        const prefixRow = ov.querySelector('#add-prefix-row');
+      function angleBetween(px, py, cx, cy) {
+        let a = Math.atan2(cy - py, cx - px);
+        if (a < 0) a += 2 * Math.PI;
+        return a;
+      }
 
-        if (activeToggle === 'items') {
-          itemsBtn.style.background = T.mint;
-          itemsBtn.style.color = T.bg;
-          itemsBtn.style.border = 'none';
-          modsBtn.style.background = 'transparent';
-          modsBtn.style.color = T.gold;
-          modsBtn.style.border = `${T.borderW} solid ${T.gold}`;
-          prefixRow.style.display = 'none';
+      function catPositions(sx, sy, r, count) {
+        const pos = [{ x: sx, y: sy }];
+        const dist = r * 2 * GAP;
+        for (let i = 0; i < Math.min(count - 1, 6); i++) {
+          const angle = (Math.PI / 3) * i;
+          pos.push({ x: sx + dist * Math.cos(angle), y: sy + dist * Math.sin(angle) });
+        }
+        return pos.slice(0, count);
+      }
+
+      const panel = el.querySelector('#hex-panel');
+      const startX = (panel?.clientWidth || 400) / 2;
+      const startY = (panel?.clientHeight || 400) / 2;
+
+      // ── Categories ──
+      if (currentLevel === 'categories') {
+        const positions = catPositions(startX, startY, CAT_R, categories.length);
+        navPositions = {};
+        categories.forEach((cat, i) => {
+          const p = positions[i];
+          navPositions[cat] = { x: p.x, y: p.y };
+          drawHex(svg, p.x, p.y, CAT_R, cat, colors[i % colors.length], () => {
+            navPath = [cat];
+            const catData = FALLBACK_MENU[cat];
+            currentLevel = Array.isArray(catData) ? 'items' : 'subcategories';
+            draw();
+          });
+        });
+      }
+
+      // ── Subcategories ──
+      else if (currentLevel === 'subcategories') {
+        const catName = navPath[0];
+        const catIdx = categories.indexOf(catName);
+        const catColor = colors[catIdx % colors.length];
+        const ax = navPositions[catName]?.x || startX;
+        const ay = navPositions[catName]?.y || startY;
+
+        drawHex(svg, ax, ay, CAT_R, catName, catColor, () => {
+          currentLevel = 'categories'; navPath = []; draw();
+        }, true);
+
+        const subcats = Object.keys(FALLBACK_MENU[catName]);
+        const subPositions = getChildPositions(ax, ay, CAT_R, SUB_R, subcats.length, null);
+        subcats.forEach((sub, i) => {
+          const p = subPositions[i];
+          navPositions[sub] = { x: p.x, y: p.y };
+          drawHex(svg, p.x, p.y, SUB_R, sub, catColor, () => {
+            navPath = [catName, sub]; currentLevel = 'items'; draw();
+          });
+        });
+      }
+
+      // ── Items ──
+      else if (currentLevel === 'items') {
+        const catName = navPath[0];
+        const catIdx = categories.indexOf(catName);
+        const catColor = colors[catIdx % colors.length];
+        const catData = FALLBACK_MENU[catName];
+        const ax = navPositions[catName]?.x || startX;
+        const ay = navPositions[catName]?.y || startY;
+
+        drawHex(svg, ax, ay, CAT_R, catName, catColor, () => {
+          currentLevel = 'categories'; navPath = []; draw();
+        }, true);
+
+        let items, parentX, parentY, parentR, occupiedAngles;
+        if (Array.isArray(catData)) {
+          items = catData; parentX = ax; parentY = ay; parentR = CAT_R; occupiedAngles = null;
         } else {
-          itemsBtn.style.background = 'transparent';
-          itemsBtn.style.color = T.mint;
-          itemsBtn.style.border = `${T.borderW} solid ${T.mint}`;
-          modsBtn.style.background = T.gold;
-          modsBtn.style.color = T.bg;
-          modsBtn.style.border = 'none';
-          prefixRow.style.display = 'flex';
-          renderPrefixRow();
+          const subName = navPath[1];
+          const sx = navPositions[subName]?.x || ax + 120;
+          const sy = navPositions[subName]?.y || ay + 80;
+          drawHex(svg, sx, sy, SUB_R, subName, catColor, () => {
+            currentLevel = 'subcategories'; navPath = [catName]; draw();
+          }, true);
+          items = catData[subName] || [];
+          parentX = sx; parentY = sy; parentR = SUB_R;
+          occupiedAngles = [angleBetween(sx, sy, ax, ay)];
         }
-      }
 
-      // ── Render modifier prefix toggles ──
-      function renderPrefixRow() {
-        const row = ov.querySelector('#add-prefix-row');
-        if (!row) return;
-        row.innerHTML = MOD_PREFIXES.map(p => `
-          <div class="prefix-toggle" data-prefix="${p}" style="font-family:${T.fb}; font-size:22px; padding:4px 12px; cursor:pointer; ${currentPrefix === p ? `background:${T.gold}; color:${T.bg};` : `background:transparent; color:${T.gold}; border:2px solid ${T.gold};`} clip-path:${chamfer('sm')};">${p}</div>
-        `).join('');
+        const itemPositions = getChildPositions(parentX, parentY, parentR, ITEM_R, items.length, occupiedAngles);
+        items.forEach((item, i) => {
+          const p = itemPositions[i];
+          const is86 = item.is86 || false;
+          const isSpecial = item.isSpecial || false;
 
-        row.querySelectorAll('.prefix-toggle').forEach(btn => {
-          btn.onclick = () => {
-            currentPrefix = btn.dataset.prefix;
-            renderPrefixRow();
-          };
+          drawHex(svg, p.x, p.y, ITEM_R, item.name,
+            is86 ? '#666' : (isSpecial ? '#fcbe40' : catColor),
+            () => {
+              if (is86) return;
+              const newItem = { ...item };
+              if (item.requiresMod) {
+                showModifierModal([newItem], (cancelled) => {
+                  if (!cancelled) stagedItems.push(newItem);
+                  draw();
+                });
+              } else {
+                stagedItems.push(newItem);
+                draw();
+              }
+            }, false, is86, isSpecial);
         });
       }
-
-      // ── Handle item/modifier selection ──
-      function handleItemSelect(item) {
-        if (activeToggle === 'items') {
-          // Check if same item already staged → increment qty
-          const existing = stagedItems.find(s => s.name === item.label && !s.mods?.length);
-          if (existing) {
-            existing.qty = (existing.qty || 1) + 1;
-          } else {
-            stagedItems.push({
-              name: item.label,
-              price: item.price || 0,
-              qty: 1,
-              mods: [],
-              category_id: item.id,
-              _src: item._src || null,
-            });
-          }
-        } else {
-          // Modifier mode — apply to last staged item
-          if (stagedItems.length === 0) return;
-          const lastItem = stagedItems[stagedItems.length - 1];
-          lastItem.mods = lastItem.mods || [];
-          const existingIdx = lastItem.mods.findIndex(m => m.name === item.label);
-          if (existingIdx !== -1) {
-            lastItem.mods.splice(existingIdx, 1);
-          } else {
-            lastItem.mods.push({
-              prefix: currentPrefix,
-              name: item.label,
-              price: currentPrefix === 'NO' ? 0 : (item.price || 0),
-            });
-          }
-        }
-        renderTicketPanel();
-      }
-
-      // ── Bind action bar events ──
-      ov.querySelector('#add-close-btn').onclick = () => {
-        if (stagedItems.length > 0) {
-          if (!confirm(`Discard ${stagedItems.length} item(s)?`)) return;
-        }
-        if (hexEngine) hexEngine.destroy();
-        ov.remove();
-      };
-
-      ov.querySelector('#add-toggle-items').onclick = () => {
-        if (activeToggle === 'items') return;
-        activeToggle = 'items';
-        updateToggleStyles();
-        if (hexEngine) hexEngine.setData(menuToHexData(FALLBACK_MENU));
-      };
-
-      ov.querySelector('#add-toggle-mods').onclick = () => {
-        if (activeToggle === 'modifiers') return;
-        activeToggle = 'modifiers';
-        updateToggleStyles();
-        if (hexEngine) hexEngine.setData(modifiersToHexData(MODIFIERS));
-      };
-
-      ov.querySelector('#add-back-btn').onclick = () => {
-        if (hexEngine) hexEngine.back();
-      };
-
-      ov.querySelector('#add-fwd-btn').onclick = () => {
-        if (stagedItems.length === 0) return;
-        const targetSeatId = isAllSeats ? 1 : activeSeatId;
-        const targetSeat = check.seats.find(s => s.id === targetSeatId);
-        stagedItems.forEach(item => {
-          // Expand qty into individual items for the check
-          const count = item.qty || 1;
-          for (let q = 0; q < count; q++) {
-            targetSeat.items.push({
-              ...item,
-              id: `item-${Date.now()}-${Math.random()}`,
-              state: 'unsent',
-              qty: 1,
-            });
-          }
-        });
-        if (hexEngine) hexEngine.destroy();
-        ov.remove();
-        draw();
-      };
-
-      // Add tap animation to all action buttons
-      ov.querySelectorAll('#add-close-btn, #add-back-btn, #add-fwd-btn, #add-toggle-items, #add-toggle-mods').forEach(btn => {
-        btn.addEventListener('pointerdown', () => {
-          btn.style.transform = 'translate(2px, 3px)';
-          btn.style.filter = 'none';
-        });
-        btn.addEventListener('pointerup', () => {
-          btn.style.transform = '';
-          btn.style.filter = 'drop-shadow(2px 3px 0px #1a1a1a)';
-        });
-        btn.addEventListener('pointerleave', () => {
-          btn.style.transform = '';
-          btn.style.filter = 'drop-shadow(2px 3px 0px #1a1a1a)';
-        });
-      });
-
-      // ── Initialize HexEngine after layout ──
-      requestAnimationFrame(() => {
-        const container = ov.querySelector('#add-hex-container');
-        if (!container) return;
-        hexEngine = new HexEngine({
-          container,
-          data: menuToHexData(FALLBACK_MENU),
-          onSelect: (item) => handleItemSelect(item),
-          onBack: () => {},
-          sizes: {
-            category:  { w: 140, h: 154 },
-            item:      { w: 100, h: 110 },
-            modifier:  { w: 80,  h: 88 },
-          },
-        });
-      });
-
-      renderTicketPanel();
     }
 
-    function showPaymentPanel() {
-      const rightPanel = $('right-panel');
-      const originalHTML = rightPanel.innerHTML;
-
-      const allItems = check.seats.flatMap(s => s.items).filter(i => i.state !== 'voided');
-      const subtotal = allItems.reduce((sum, i) => sum + i.price, 0);
-      const tax = subtotal * CFG.TAX;
-      const total = subtotal + tax;
-
-      rightPanel.innerHTML = `
-        <div style="flex:1; display:flex; flex-direction:column; background:var(--bg2); padding:20px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-            <div style="font-family:var(--fh); font-size:24px; color:var(--mint);">PAYMENT</div>
-            <div id="pay-cancel" class="btn-s" style="padding:10px 20px;">BACK</div>
+    // ── Comp Dialog (replaces DISCOUNT) ──
+    function showCompDialog(sel) {
+      const ov = document.createElement('div');
+      ov.className = 'overlay';
+      ov.style.zIndex = '300';
+      ov.innerHTML = `
+        <div class="dialog" style="width:320px;">
+          <div class="dlg-h" style="background:${T.mint};color:${T.bg};">COMP ${sel.length} ITEM(S)</div>
+          <div class="dlg-b" style="display:flex;flex-direction:column;gap:10px;">
+            <div class="btn-p" id="comp-full" style="font-size:18px;padding:12px;">FULL COMP (100%)</div>
+            <div class="btn-s" id="comp-50" style="font-size:16px;padding:10px;">50% COMP</div>
+            <div class="btn-s" id="comp-custom" style="font-size:16px;padding:10px;">CUSTOM %</div>
           </div>
-          
-          <div style="flex:1; display:flex; flex-direction:column; gap:20px;">
-            <div style="background:var(--bg); border:2px solid #444; padding:20px; display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-size:18px; color:var(--mint);">TOTAL DUE</span>
-              <span style="font-size:32px; color:#fcbe40; font-weight:bold;">$${total.toFixed(2)}</span>
-            </div>
-
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; flex:1;">
-               <div class="btn-p" id="pay-cash" style="font-size:20px;">CASH</div>
-               <div class="btn-p" id="pay-card" style="font-size:20px;">CARD</div>
-            </div>
+          <div class="dlg-f">
+            <div class="btn-s" id="comp-cancel">Cancel</div>
           </div>
         </div>
       `;
+      el.appendChild(ov);
 
-      $('pay-cancel').onclick = () => {
-        rightPanel.innerHTML = originalHTML;
-        bindEvents();
+      const applyComp = (pct) => {
+        sel.forEach(i => {
+          i.price *= (1 - pct / 100);
+          i.mods = i.mods || [];
+          i.mods.push({ prefix: 'COMP', name: `${pct}%`, price: 0 });
+        });
+        selectedItems.clear();
+        ov.remove();
+        draw();
+        showToast(`COMP ${pct}% applied`, true);
       };
 
+      $('comp-full').onclick = () => applyComp(100);
+      $('comp-50').onclick = () => applyComp(50);
+      $('comp-custom').onclick = () => {
+        const pct = prompt('Comp %:', '25');
+        if (pct && !isNaN(parseInt(pct))) applyComp(parseInt(pct));
+      };
+      $('comp-cancel').onclick = () => ov.remove();
+    }
+
+    function showPaymentOverlay() {
+      const allItems = check.seats.flatMap(s => s.items).filter(i => i.state !== 'voided');
+      const totals = calcOrder({ items: allItems });
+
+      const ov = document.createElement('div');
+      ov.className = 'overlay';
+      ov.style.zIndex = '200';
+      ov.innerHTML = `
+        <div class="dialog" style="width:400px;">
+          <div class="dlg-h" style="background:${T.mint};color:${T.bg};">PAYMENT</div>
+          <div class="dlg-b" style="display:flex;flex-direction:column;gap:16px;">
+            <div style="background:${T.bg};border:2px solid ${T.mint};clip-path:${chamfer('lg')};padding:16px;display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:18px;color:${T.mint};">TOTAL DUE</span>
+              <span style="font-size:32px;color:${T.gold};font-weight:bold;">$${totals.card.toFixed(2)}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;color:${T.mint};font-size:13px;">
+              <span>Cash price: $${totals.cash.toFixed(2)}</span>
+              <span>Card price: $${totals.card.toFixed(2)}</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <div class="btn-p" id="pay-cash" style="font-size:20px;padding:16px;">CASH</div>
+              <div class="btn-p" id="pay-card" style="font-size:20px;padding:16px;">CARD</div>
+            </div>
+          </div>
+          <div class="dlg-f">
+            <div class="btn-s" id="pay-cancel">Cancel</div>
+          </div>
+        </div>
+      `;
+      el.appendChild(ov);
+
+      $('pay-cancel').onclick = () => ov.remove();
+
       $('pay-cash').onclick = async () => {
-        const items = check.seats.flatMap(s => s.items);
-        await printToRole('receipt', { 
-            type: 'FINAL_RECEIPT',
-            method: 'CASH',
-            check_number: check.id,
-            server: APP.staff.name,
-            subtotal: totals.subtotal,
-            tax: totals.tax,
-            total: totals.cash, // Emphasize total matching actual payment method
-            dual_pricing: {
-                cash: totals.cash,
-                card: totals.card
-            },
-            change: 0 // Assume exact for now
-        }, items);
+        await printToRole('receipt', {
+          type: 'FINAL_RECEIPT', method: 'CASH', check_number: check.id,
+          server: APP.staff?.name, subtotal: totals.sub, tax: totals.tax,
+          total: totals.cash, dual_pricing: { cash: totals.cash, card: totals.card }, change: 0
+        }, allItems);
         allItems.forEach(i => i.state = 'paid');
-        showToast("Payment Successful", true);
-        rightPanel.innerHTML = originalHTML;
-        bindEvents();
+        showToast('Payment Successful', true);
+        ov.remove();
         draw();
       };
 
       $('pay-card').onclick = () => {
-        showToast("Processing Card...");
+        showToast('Processing Card...');
         setTimeout(async () => {
-          const items = check.seats.flatMap(s => s.items);
-          await printToRole('receipt', { 
-              type: 'FINAL_RECEIPT',
-              method: 'CARD',
-              check_number: check.id,
-              server: APP.staff.name,
-              subtotal: totals.subtotal,
-              tax: totals.tax,
-              total: totals.card,
-              dual_pricing: {
-                  cash: totals.cash,
-                  card: totals.card
-              }
-          }, items);
+          await printToRole('receipt', {
+            type: 'FINAL_RECEIPT', method: 'CARD', check_number: check.id,
+            server: APP.staff?.name, subtotal: totals.sub, tax: totals.tax,
+            total: totals.card, dual_pricing: { cash: totals.cash, card: totals.card }
+          }, allItems);
           allItems.forEach(i => i.state = 'paid');
-          showToast("Payment Successful", true);
-          rightPanel.innerHTML = originalHTML;
-          bindEvents();
+          showToast('Payment Successful', true);
+          ov.remove();
           draw();
         }, 1500);
       };
