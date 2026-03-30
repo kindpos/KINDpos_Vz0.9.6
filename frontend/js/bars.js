@@ -22,6 +22,7 @@ const SCREEN_TITLES = {
   'check-overview': 'Check Overview',
   'check-editing':  'Check Editing',
   'add-item':       'Add Item',
+  'add-items':      'Add Items',
   'modify':         'Modify',
   'payment':        'Payment',
   'close-day':      'Close Day',

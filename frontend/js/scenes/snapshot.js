@@ -120,7 +120,7 @@ registerScene('snapshot',{
         ov.innerHTML=`<div class="dialog"><div class="dlg-h"><span>New Check</span><span style="cursor:pointer;" id="nc-close">\u2715</span></div><div class="dlg-b"><div><div style="font-size:15px;opacity:0.3;margin-bottom:4px;">Table Name</div><input type="text" id="nc-n" placeholder="e.g. Window 2" value="${name}" maxlength="20"></div><div><div style="font-size:15px;opacity:0.3;margin-bottom:4px;">Guests</div><div style="display:flex;gap:4px;flex-wrap:wrap;" id="nc-g"></div></div></div><div class="dlg-f"><div class="btn-s" style="border:1px solid var(--mint-dim);" id="nc-cancel">Cancel</div><div class="btn-p ${ready?'':'btn-off'}" id="nc-ok">Open \u25B6</div></div></div>`;
         ov.querySelector('#nc-close').onclick=()=>ov.remove();ov.querySelector('#nc-cancel').onclick=()=>ov.remove();ov.querySelector('#nc-n').oninput=e=>{name=e.target.value;};
         const gc=ov.querySelector('#nc-g');for(let n=1;n<=8;n++){const b=document.createElement('div');b.className=guests===n?'btn-p':'btn-s';b.style.cssText=`width:46px;height:42px;font-size:17px;font-weight:bold;${guests!==n?'border:1px solid var(--mint-dim);':''}`;b.textContent=n;b.onclick=()=>{guests=n;dd();};gc.appendChild(b);}
-        ov.querySelector('#nc-ok').onclick=()=>{if(!guests)return;const o={id:'C-'+APP.nextNum++,label:name.trim()||('Table '+(APP.nextNum-1)),guest_count:guests,server:staff.name,status:'open',elapsed:'0:00',items:[]};APP.orders.push(o);ov.remove();go('check-editing',{order:o});};
+        ov.querySelector('#nc-ok').onclick=()=>{if(!guests)return;const o={id:'C-'+APP.nextNum++,label:name.trim()||('Table '+(APP.nextNum-1)),guest_count:guests,server:staff.name,status:'open',elapsed:'0:00',items:[]};APP.orders.push(o);ov.remove();go('check-overview',{order:o});};
       }
       dd();el.appendChild(ov);
     }
@@ -538,7 +538,7 @@ registerScene('snapshot',{
       // ── Wire action bar ──
       const bEd=$('act-edit');if(bEd)bEd.onclick=()=>{
         const o=APP.orders.find(o=>o.id===[...selTables][0]);
-        if(o)go('check-editing',{check:o});
+        if(o)go('check-overview',{check:o});
       };
       const bPr=$('act-print');if(bPr)bPr.onclick=()=>showToast('Printing '+selTables.size+' checks...');
       const bTr=$('act-transfer');if(bTr)bTr.onclick=()=>showTransferOverlay();
@@ -631,7 +631,7 @@ registerScene('snapshot',{
         const t=document.createElement('div');t.style.cssText=`width:78px;height:77px;border:2px solid ${cols[o.status]||T.mint};background:${sel?T.mint:T.bg};color:${sel?T.bg:T.mint};clip-path:${chamfer('sm')};cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;user-select:none;`;
         t.innerHTML=`<span style="font-size:14px;font-weight:bold;">${o.label}</span><span style="font-size:11px;">${o.guest_count}g \u00B7 ${o.elapsed}</span><span style="font-size:18px;color:${sel?T.bg:T.gold};text-shadow:${sel?'none':'0 0 6px rgba(252,190,64,0.3)'};">$${tot.toFixed(2)}</span>`;
         t.onclick=()=>{selTables.has(o.id)?selTables.delete(o.id):selTables.add(o.id);draw();};
-        let lp;t.onmousedown=()=>{lp=setTimeout(()=>go('check-editing',{check:o}),400);};t.onmouseup=()=>clearTimeout(lp);t.onmouseleave=()=>clearTimeout(lp);t.ontouchstart=()=>{lp=setTimeout(()=>go('check-editing',{check:o}),400);};t.ontouchend=()=>clearTimeout(lp);
+        let lp;t.onmousedown=()=>{lp=setTimeout(()=>go('check-overview',{check:o}),400);};t.onmouseup=()=>clearTimeout(lp);t.onmouseleave=()=>clearTimeout(lp);t.ontouchstart=()=>{lp=setTimeout(()=>go('check-overview',{check:o}),400);};t.ontouchend=()=>clearTimeout(lp);
         c.appendChild(t);
       });
       if(addNew){const nb=document.createElement('div');nb.style.cssText=`width:78px;height:77px;border:2px dashed ${T.mintDim};clip-path:${chamfer('sm')};display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:26px;color:${T.mint};`;nb.textContent='\uFF0B';nb.onclick=()=>showNewCheck();c.appendChild(nb);}
@@ -645,7 +645,7 @@ registerScene('snapshot',{
       ${!multi?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div class="btn-p" style="font-size:20px;padding:14px;" id="ec-open">Open</div><div class="btn-s" style="font-size:20px;padding:14px;border:1px solid ${T.mintDim};" id="ec-print">Print</div><div class="btn-p" style="font-size:20px;padding:14px;background:#FFD700;color:${T.bg};" id="ec-pay">Pay</div><div class="btn-s" style="font-size:20px;padding:14px;border:1px solid ${T.mintDim};" id="ec-transfer">Transfer</div></div>`:`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div class="btn-p" style="font-size:20px;padding:14px;" id="ec-merge">Merge</div><div class="btn-s" style="font-size:20px;padding:14px;border:1px solid ${T.mintDim};" id="ec-printall">Print All</div></div>`}`;
       eb.innerHTML='';eb.appendChild(card);
       $('edit-close').onclick=()=>{selTables.clear();draw();};
-      if(!multi){$('ec-open').onclick=()=>go('check-editing',{check:APP.orders.find(x=>x.id===o.id)});$('ec-print').onclick=()=>showToast('Printing '+o.label);$('ec-pay').onclick=()=>go('payment',{order:APP.orders.find(x=>x.id===o.id)});$('ec-transfer').onclick=()=>showToast('Transfer '+o.label);}
+      if(!multi){$('ec-open').onclick=()=>go('check-overview',{check:APP.orders.find(x=>x.id===o.id)});$('ec-print').onclick=()=>showToast('Printing '+o.label);$('ec-pay').onclick=()=>go('payment',{order:APP.orders.find(x=>x.id===o.id)});$('ec-transfer').onclick=()=>showToast('Transfer '+o.label);}
       else{$('ec-merge').onclick=()=>showToast('Merging '+selO.length+' checks');$('ec-printall').onclick=()=>showToast('Printing '+selO.length+' checks');}
     }
 
