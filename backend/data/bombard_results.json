@@ -10,7 +10,7 @@
       {
         "name": "Sequential IDs (no gaps)",
         "passed": true,
-        "detail": "5162 sequential events"
+        "detail": "5115 sequential events"
       },
       {
         "name": "No duplicate event IDs",
@@ -36,54 +36,54 @@
       {
         "name": "Closed order count",
         "passed": true,
-        "detail": "Projected: 346, Day-summary: 346"
+        "detail": "Projected: 339, Day-summary: 339"
       },
       {
         "name": "Total sales consistency",
         "passed": true,
-        "detail": "Computed: 30823.41, Day-summary: 30823.41"
+        "detail": "Computed: 30138.50, Day-summary: 30138.50"
       },
       {
         "name": "Card total match",
         "passed": true,
-        "detail": "Projected: 19173.41, Day-summary: 19173.41"
+        "detail": "Projected: 20963.59, Day-summary: 20963.59"
       },
       {
         "name": "Cash total match",
         "passed": true,
-        "detail": "Projected: 11650.00, Day-summary: 11650.00"
+        "detail": "Projected: 9174.91, Day-summary: 9174.91"
       },
       {
         "name": "Tips total match",
         "passed": true,
-        "detail": "Projected: 3950.80, Day-summary: 3950.80"
+        "detail": "Projected: 4104.90, Day-summary: 4104.90"
       }
     ],
     "result": "PASS",
     "financial_summary": {
-      "gross_sales": "29171.50",
-      "discounts_comps": "365.00",
-      "voids": "334.38",
-      "net_sales": "28806.50",
-      "tax": "2016.91",
-      "total_tips": "3950.80",
-      "card_payments": "19173.41",
-      "cash_payments": "11650.00",
-      "closed_orders": 346,
-      "voided_orders": 4
+      "gross_sales": "28492.50",
+      "discounts_comps": "326.00",
+      "voids": "811.06",
+      "net_sales": "28166.50",
+      "tax": "1972.00",
+      "total_tips": "4104.90",
+      "card_payments": "20963.59",
+      "cash_payments": "9174.91",
+      "closed_orders": 339,
+      "voided_orders": 11
     }
   },
   {
     "section": "Performance Metrics",
     "result": "METRICS",
     "metrics": {
-      "wall_clock_s": 2.12,
-      "total_events": 5162,
-      "avg_write_ms": 0.326,
-      "p95_write_ms": 0.329,
-      "max_write_ms": 16.566,
-      "events_per_sec": 2434.1,
-      "avg_events_per_check": 14.7
+      "wall_clock_s": 2.07,
+      "total_events": 5115,
+      "avg_write_ms": 0.319,
+      "p95_write_ms": 0.36,
+      "max_write_ms": 13.839,
+      "events_per_sec": 2473.8,
+      "avg_events_per_check": 14.6
     },
     "warnings": []
   },
@@ -210,7 +210,7 @@
       {
         "name": "DAY_CLOSED sales match projection",
         "passed": true,
-        "detail": "DAY_CLOSED: 30823.41, Projection: 30823.41"
+        "detail": "DAY_CLOSED: 30138.50, Projection: 30138.50"
       }
     ],
     "result": "PASS"
@@ -269,32 +269,32 @@
       {
         "name": "Split tender",
         "passed": true,
-        "detail": "57 split tenders"
+        "detail": "50 split tenders"
       },
       {
         "name": "Mid-check void",
         "passed": true,
-        "detail": "11 item voids"
+        "detail": "16 item voids"
       },
       {
         "name": "Full check void",
         "passed": true,
-        "detail": "4 full voids"
+        "detail": "11 full voids"
       },
       {
         "name": "Comp",
         "passed": true,
-        "detail": "22 comps"
+        "detail": "15 comps"
       },
       {
         "name": "Second-round addition",
         "passed": true,
-        "detail": "34 second rounds"
+        "detail": "43 second rounds"
       },
       {
         "name": "86'd item rejection",
         "passed": true,
-        "detail": "6 rejections"
+        "detail": "11 rejections"
       },
       {
         "name": "Un-86 mid-day",
@@ -304,7 +304,7 @@
       {
         "name": "Modifier pricing",
         "passed": true,
-        "detail": "445 modifiers"
+        "detail": "417 modifiers"
       },
       {
         "name": "2dp precision (high volume)",
@@ -319,12 +319,12 @@
       {
         "name": "Table reuse",
         "passed": true,
-        "detail": "Max turns: 21"
+        "detail": "Max turns: 25"
       },
       {
         "name": "Tip adjustment on card",
         "passed": true,
-        "detail": "248 tip adjustments"
+        "detail": "257 tip adjustments"
       },
       {
         "name": "Cash payment with change",
@@ -344,27 +344,27 @@
     "section": "Event Ledger Statistics",
     "result": "STATISTICS",
     "stats": {
-      "total_events": 5162,
+      "total_events": 5115,
       "top10_types": [
         [
           "item.added",
-          1459
+          1460
         ],
         [
           "item.sent",
-          1459
+          1460
         ],
         [
           "item.modifier_applied",
-          445
+          417
         ],
         [
           "payment.initiated",
-          403
+          389
         ],
         [
           "payment.confirmed",
-          403
+          389
         ],
         [
           "order.created",
@@ -372,57 +372,57 @@
         ],
         [
           "order.closed",
-          346
+          339
         ],
         [
           "payment.tip_adjusted",
-          248
-        ],
-        [
-          "discount.approved",
-          22
+          257
         ],
         [
           "item.removed",
-          11
+          16
+        ],
+        [
+          "discount.approved",
+          15
         ]
       ],
       "events_per_hour": {
-        "0": 5162
+        "19": 5115
       },
-      "avg_events_per_check": 14.7,
+      "avg_events_per_check": 14.6,
       "distribution": {
-        "order_lifecycle": "700 (13.6%)",
-        "items": "3374 (65.4%)",
-        "payments": "1054 (20.4%)",
-        "other": "34"
+        "order_lifecycle": "700 (13.7%)",
+        "items": "3353 (65.6%)",
+        "payments": "1035 (20.2%)",
+        "other": "27"
       },
       "table_turns": {
-        "table_01": 14,
-        "table_02": 12,
-        "table_03": 17,
+        "table_01": 11,
+        "table_02": 10,
+        "table_03": 9,
         "table_04": 17,
-        "table_05": 12,
-        "table_06": 8,
-        "table_07": 12,
-        "table_08": 15,
-        "table_09": 21,
-        "table_10": 16,
-        "table_11": 13,
-        "table_12": 13,
-        "table_13": 11,
-        "table_14": 14,
-        "table_15": 18,
-        "table_16": 17,
-        "table_17": 8,
-        "table_18": 19,
+        "table_05": 13,
+        "table_06": 11,
+        "table_07": 15,
+        "table_08": 25,
+        "table_09": 19,
+        "table_10": 14,
+        "table_11": 11,
+        "table_12": 12,
+        "table_13": 12,
+        "table_14": 16,
+        "table_15": 12,
+        "table_16": 20,
+        "table_17": 17,
+        "table_18": 16,
         "table_19": 12,
-        "table_20": 17,
-        "table_21": 8,
-        "table_22": 14,
-        "table_23": 14,
-        "table_24": 13,
-        "table_25": 15
+        "table_20": 12,
+        "table_21": 13,
+        "table_22": 15,
+        "table_23": 12,
+        "table_24": 9,
+        "table_25": 17
       }
     }
   }
