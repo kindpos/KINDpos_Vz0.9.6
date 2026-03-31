@@ -6,7 +6,7 @@
 import { APP, $, apiFetch } from '../app.js';
 import { CFG, FALLBACK_ROSTER } from '../config.js';
 import { registerLiteScene, liteGo } from '../lite-scene-manager.js';
-import { T } from '../theme-manager.js';
+import { T, chamfer } from '../theme-manager.js';
 
 registerLiteScene('lite-login', {
   onEnter(el) {
@@ -70,6 +70,11 @@ registerLiteScene('lite-login', {
       }
     }
 
+    // ── Shared Style Constants ──
+    const SUNKEN_BORDER = `border:${T.borderW} solid #1a1a1a;border-top-color:#555;border-left-color:#555;`;
+    const RAISED_BORDER = `border:${T.borderW} solid #1a1a1a;border-bottom-color:#555;border-right-color:#555;`;
+    const LIGHT_MINT = '#D8FFCC';
+
     // ── Draw Login Screen ──
     function draw() {
       // Override tbar with lite time format
@@ -79,48 +84,52 @@ registerLiteScene('lite-login', {
       const sbar = $('sbar');
       if (sbar) sbar.style.display = 'none';
 
-      // PIN display dots/underscores
+      // PIN display dots/underscores — 4 evenly spaced positions
       const pinChars = Array.from({length: 4}, (_, i) =>
         i < pin.length
-          ? `<span style="color:${T.mint};">\u25CF</span>`
-          : `<span style="color:${T.mint};opacity:0.4;">_</span>`
-      ).join('&nbsp;&nbsp;');
+          ? `<span style="color:${T.mint};font-size:36px;">\u25CF</span>`
+          : `<span style="color:${T.mint};opacity:0.4;font-size:36px;">_</span>`
+      ).join('');
 
       // Mode button style helper
       const modeStyle = (mode) => {
         const isSelected = selectedMode === mode;
-        const border = isSelected
-          ? `border:7px solid ${T.cyan};box-shadow:0 0 12px ${T.cyan};`
-          : 'border:7px solid #1a1a1a;';
-        return `background:#E0FFD6;${border}border-radius:0;font-family:${T.fh};font-size:36px;color:#1a1a1a;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;flex:1;line-height:1.1;`;
+        const borderStyle = isSelected
+          ? `border:${T.borderW} solid ${T.cyan};box-shadow:0 0 8px ${T.cyan};`
+          : `${RAISED_BORDER}`;
+        return `background:${LIGHT_MINT};${borderStyle}border-radius:0;font-family:${T.fh};font-size:36px;color:#1a1a1a;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;flex:1;line-height:1.1;padding:16px 12px;`;
       };
 
+      // Admin button base style (sunken/inset feel)
+      const adminBtnStyle = (bg) =>
+        `background:${bg};${SUNKEN_BORDER}border-radius:0;font-family:${T.fh};color:#1a1a1a;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;flex:1;line-height:1.1;padding:16px 12px;`;
+
       el.innerHTML = `
-        <div style="display:grid;grid-template-columns:25% 25% 50%;height:100%;padding:12px;gap:12px;position:relative;">
-          <!-- COLUMN 1: Admin Buttons -->
-          <div style="display:flex;flex-direction:column;gap:12px;">
-            <div id="btn-clock" style="background:${T.mint};border:7px solid #1a1a1a;border-radius:0;font-family:${T.fh};font-size:40px;color:#1a1a1a;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;flex:1;line-height:1.1;">Clock<br>in/out</div>
-            <div id="btn-reporting" style="background:${T.mint};border:7px solid #1a1a1a;border-radius:0;font-family:${T.fh};font-size:40px;color:#1a1a1a;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;flex:1;line-height:1.1;">Reporting</div>
-            <div id="btn-config" style="background:${T.gold};border:7px solid #1a1a1a;border-radius:0;font-family:${T.fh};font-size:32px;color:#1a1a1a;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;flex:0.7;line-height:1.1;">Configuration</div>
+        <div style="display:grid;grid-template-columns:25% 25% 1fr;height:100%;padding:20px;gap:16px;position:relative;">
+          <!-- COLUMN 1: Admin Buttons (recessed panel) -->
+          <div style="background:${T.bg};border:2px solid #555;border-top-color:#1a1a1a;border-left-color:#1a1a1a;border-radius:0;padding:12px;display:flex;flex-direction:column;gap:14px;">
+            <div id="btn-clock" style="${adminBtnStyle(T.mint)}font-size:40px;">CLOCK<br>IN/OUT</div>
+            <div id="btn-reporting" style="${adminBtnStyle(T.mint)}font-size:40px;">REPORTING</div>
+            <div id="btn-config" style="${adminBtnStyle(T.gold)}font-size:32px;flex:0.7;">CONFIGURATION</div>
           </div>
 
           <!-- COLUMN 2: Mode Buttons -->
-          <div style="display:flex;flex-direction:column;gap:12px;">
-            <div id="btn-qs" style="${modeStyle('quick-service')}">Quick<br>Service</div>
-            <div id="btn-qb" style="${modeStyle('quick-bar')}">Quick<br>Bar</div>
-            <div id="btn-qp" style="${modeStyle('quick-pay')}">Quick<br>Pay</div>
+          <div style="display:flex;flex-direction:column;gap:14px;padding:4px 0;">
+            <div id="btn-qs" style="${modeStyle('quick-service')}">QUICK<br>SERVICE</div>
+            <div id="btn-qb" style="${modeStyle('quick-bar')}">QUICK<br>BAR</div>
+            <div id="btn-qp" style="${modeStyle('quick-pay')}">QUICK<br>PAY</div>
           </div>
 
-          <!-- COLUMN 3: PIN Pad Panel -->
-          <div style="background:${T.mint};border:7px solid ${T.mint};border-radius:0;padding:8px;display:flex;flex-direction:column;gap:6px;">
-            <!-- PIN Display Strip -->
-            <div id="pin-display" style="background:#1a1a1a;border:2px inset;border-radius:0;padding:10px;display:flex;align-items:center;justify-content:center;font-family:${T.fh};font-size:40px;letter-spacing:12px;min-height:52px;">${pinChars}</div>
+          <!-- COLUMN 3: PIN Pad Panel (Win98 sunken mint panel) -->
+          <div style="background:${T.mint};border:${T.borderW} solid ${T.mint};border-radius:0;padding:14px;display:flex;flex-direction:column;gap:10px;box-shadow:inset 2px 2px 0 #1a1a1a;">
+            <!-- PIN Display Strip (sunken inset) -->
+            <div id="pin-display" style="background:#1a1a1a;border:2px solid #555;border-top-color:#1a1a1a;border-left-color:#1a1a1a;border-radius:0;padding:10px 16px;display:flex;align-items:center;justify-content:space-around;font-family:${T.fh};min-height:56px;margin-bottom:4px;">${pinChars}</div>
             <!-- Number Grid -->
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;flex:1;" id="pad"></div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;flex:1;" id="pad"></div>
           </div>
 
           <!-- Watermark -->
-          <div style="position:absolute;bottom:2px;right:12px;font-family:${T.fh};font-size:14px;user-select:none;pointer-events:none;"><span style="color:${T.gold};">KIND</span><span style="color:#ff3355;">pos</span><span style="color:${T.mint};">/lite_</span><span style="color:${T.gold};">Vz1.0</span></div>
+          <div style="position:absolute;bottom:4px;right:20px;font-family:${T.fh};font-size:14px;user-select:none;pointer-events:none;"><span style="color:${T.gold};">KIND</span><span style="color:#ff3355;">pos</span><span style="color:${T.mint};">/lite_</span><span style="color:${T.gold};">Vz1.0</span></div>
         </div>`;
 
       buildNumpad();
@@ -141,15 +150,20 @@ registerLiteScene('lite-login', {
 
       const keys = ['1','2','3','4','5','6','7','8','9','CLR','0','>>>'];
       keys.forEach(k => {
-        const btn = document.createElement('div');
         const isCLR = k === 'CLR';
         const isENT = k === '>>>';
+
+        // Wrap in btn-wrap for drop-shadow + press effect
+        const wrap = document.createElement('div');
+        wrap.className = 'btn-wrap';
+
+        const btn = document.createElement('div');
 
         let bg, color, text, fontSize;
         if (isCLR) {
           bg = '#ff3355';
           color = '#1a1a1a';
-          text = 'clr';
+          text = 'CLR';
           fontSize = '42px';
         } else if (isENT) {
           bg = '#9ACD32';
@@ -160,11 +174,11 @@ registerLiteScene('lite-login', {
           bg = '#1a1a1a';
           color = T.mint;
           text = k;
-          fontSize = '64px';
+          fontSize = '56px';
         }
 
         btn.textContent = text;
-        btn.style.cssText = `background:${bg};color:${color};border-radius:0;font-family:${T.fh};font-size:${fontSize};display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;border:none;`;
+        btn.style.cssText = `background:${bg};color:${color};border-radius:0;font-family:${T.fh};font-size:${fontSize};display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;border:none;clip-path:${chamfer('sm')};`;
 
         btn.addEventListener('click', () => press(k));
 
@@ -180,7 +194,8 @@ registerLiteScene('lite-login', {
           btn.addEventListener('touchend', endHold);
         }
 
-        pad.appendChild(btn);
+        wrap.appendChild(btn);
+        pad.appendChild(wrap);
       });
     }
 
