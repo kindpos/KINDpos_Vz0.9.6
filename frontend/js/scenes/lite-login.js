@@ -71,12 +71,16 @@ registerLiteScene('lite-login', {
 
     // ── Style Constants ──
     const ADMIN_GREEN = '#33ff99';
-    const CONFIG_PEACH = '#ffcba4';
+    const CONFIG_GOLD = '#faad74';
 
     // ── Draw Login Screen ──
     function draw() {
       // Override tbar with lite time format
       updateClock();
+
+      // Hide sbar for clean look
+      const sbar = $('sbar');
+      if (sbar) sbar.style.display = 'none';
 
       // PIN display: 4 dots/underscores
       const pinChars = Array.from({length: 4}, (_, i) =>
@@ -89,9 +93,9 @@ registerLiteScene('lite-login', {
       const adminBtn = (bg, fontSize) =>
         `background:${bg};border:${T.borderW} solid #1a1a1a;font-family:${T.fb};font-size:${fontSize || '32px'};color:${T.bg};display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;line-height:1.1;padding:14px 12px;clip-path:${chamfer('lg')};`;
 
-      // Mode button style helper (solid mint bg, dark text)
+      // Mode button style helper (light mint bg, thick mint border)
       const modeBtn = () =>
-        `background:${T.mint};border:${T.borderW} solid #1a1a1a;font-family:${T.fb};font-size:32px;color:${T.bg};display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;line-height:1.1;padding:14px 12px;clip-path:${chamfer('lg')};`;
+        `background:#d5ffcc;border:7px solid ${T.mint};font-family:${T.fb};font-size:32px;color:#1a1a1a;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;line-height:1.1;padding:14px 12px;clip-path:${chamfer('lg')};`;
 
       el.innerHTML = `
         <div id="login-content" style="display:grid;grid-template-columns:25% 25% 1fr;height:100%;padding:14px 16px;gap:10px;position:relative;">
@@ -104,7 +108,7 @@ registerLiteScene('lite-login', {
               <div id="btn-reporting" style="${adminBtn(ADMIN_GREEN)}width:100%;height:100%;">Reporting</div>
             </div>
             <div class="btn-wrap" style="flex:30;">
-              <div id="btn-config" style="${adminBtn(CONFIG_PEACH, '28px')}width:100%;height:100%;">Configuration</div>
+              <div id="btn-config" style="${adminBtn(CONFIG_GOLD, '28px')}width:100%;height:100%;">Configuration</div>
             </div>
           </div>
 
@@ -129,6 +133,8 @@ registerLiteScene('lite-login', {
             <div style="${numpadContainerStyle()}flex:1;padding:4px;" id="pad"></div>
           </div>
 
+          <!-- Version Stamp -->
+          <div style="position:absolute;bottom:4px;right:16px;font-family:${T.fb};font-size:14px;user-select:none;pointer-events:none;"><span style="color:${T.gold};">KIND</span><span style="color:#ff3355;">pos</span><span style="color:${T.mint};">/lite_</span><span style="color:${T.gold};">Vz1.0</span></div>
         </div>`;
 
       buildNumpad();
@@ -301,6 +307,8 @@ registerLiteScene('lite-login', {
     return () => {
       window.removeEventListener('keydown', keyHandler);
       clearInterval(clockInterval);
+      const sbar = $('sbar');
+      if (sbar) sbar.style.display = '';
     };
   }
 });
