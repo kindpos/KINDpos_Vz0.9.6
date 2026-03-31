@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════
 //  KINDpos Lite — Login Scene
-//  Three-column layout: Admin | Mode | PIN Pad
+//  Three-column layout: Admin | Quick-Login | PIN Pad
 // ═══════════════════════════════════════════════════
 
 import { APP, $, apiFetch } from '../app.js';
@@ -12,7 +12,6 @@ registerLiteScene('lite-login', {
   onEnter(el) {
     let pin = '';
     let err = '';
-    let selectedMode = null; // null | 'quick-service' | 'quick-bar' | 'quick-pay'
     let roster = [...FALLBACK_ROSTER];
     let clockInterval = null;
 
@@ -70,10 +69,10 @@ registerLiteScene('lite-login', {
       }
     }
 
-    // ── Shared Style Constants ──
+    // ── Style Constants ──
     const ADMIN_GREEN = '#33ff99';
-    const CONFIG_ORANGE = '#faad74';
-    const MODE_MINT = '#C6FFBB';
+    const CONFIG_PEACH = '#ffcba4';
+    const MODE_BG = 'rgba(198,255,187,0.25)';
 
     // ── Draw Login Screen ──
     function draw() {
@@ -84,70 +83,65 @@ registerLiteScene('lite-login', {
       const sbar = $('sbar');
       if (sbar) sbar.style.display = 'none';
 
-      // PIN display dots/underscores — 4 evenly spaced positions
+      // PIN display: 4 dots/underscores
       const pinChars = Array.from({length: 4}, (_, i) =>
         i < pin.length
           ? `<span style="color:${T.mint};font-size:36px;">\u25CF</span>`
           : `<span style="color:${T.mint};opacity:0.4;font-size:36px;">_</span>`
       ).join('');
 
-      // Mode button style helper
-      const modeStyle = (mode) => {
-        const isSelected = selectedMode === mode;
-        const borderStyle = isSelected
-          ? `border:${T.borderW} solid ${T.cyan};box-shadow:0 0 8px ${T.cyan};`
-          : `border:${T.borderW} solid #1a1a1a;`;
-        return `background:${MODE_MINT};${borderStyle}font-family:${T.fb};font-size:36px;color:#1a1a1a;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;line-height:1.1;padding:14px 12px;clip-path:${chamfer('lg')};`;
-      };
+      // Admin button style helper (solid fill, dark text)
+      const adminBtn = (bg, fontSize) =>
+        `background:${bg};border:${T.borderW} solid #1a1a1a;font-family:${T.fb};font-size:${fontSize || '32px'};color:${T.bg};display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;line-height:1.1;padding:14px 12px;clip-path:${chamfer('lg')};`;
 
-      // Admin button base style
-      const adminBtnStyle = (bg) =>
-        `background:${bg};border:${T.borderW} solid #1a1a1a;font-family:${T.fb};color:#1a1a1a;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;line-height:1.1;padding:14px 12px;clip-path:${chamfer('lg')};`;
+      // Mode button style helper (light mint bg, bordered)
+      const modeBtn = () =>
+        `background:${MODE_BG};border:2px solid ${T.mint};font-family:${T.fb};font-size:32px;color:${T.bg2};display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;line-height:1.1;padding:14px 12px;clip-path:${chamfer('lg')};`;
 
       el.innerHTML = `
-        <div style="display:grid;grid-template-columns:160px 180px 1fr;height:100%;padding:14px 16px;gap:10px;position:relative;">
-          <!-- COLUMN 1: Admin Buttons -->
-          <div style="display:flex;flex-direction:column;gap:8px;align-self:start;">
-            <div class="btn-wrap">
-              <div id="btn-clock" style="${adminBtnStyle(ADMIN_GREEN)}font-size:32px;width:100%;height:120px;">Clock<br>in/out</div>
+        <div id="login-content" style="display:grid;grid-template-columns:25% 25% 1fr;height:100%;padding:14px 16px;gap:10px;position:relative;">
+          <!-- COLUMN 1: Pre-Login Actions -->
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div class="btn-wrap" style="flex:35;">
+              <div id="btn-clock" style="${adminBtn(ADMIN_GREEN)}width:100%;height:100%;">Clock<br>in/out</div>
             </div>
-            <div class="btn-wrap">
-              <div id="btn-reporting" style="${adminBtnStyle(ADMIN_GREEN)}font-size:32px;width:100%;height:120px;">Reporting</div>
+            <div class="btn-wrap" style="flex:35;">
+              <div id="btn-reporting" style="${adminBtn(ADMIN_GREEN)}width:100%;height:100%;">Reporting</div>
             </div>
-            <div class="btn-wrap">
-              <div id="btn-config" style="${adminBtnStyle(CONFIG_ORANGE)}font-size:24px;width:100%;height:50px;">Configuration</div>
-            </div>
-          </div>
-
-          <!-- COLUMN 2: Mode Buttons -->
-          <div style="display:flex;flex-direction:column;gap:8px;align-self:start;">
-            <div class="btn-wrap">
-              <div id="btn-qs" style="${modeStyle('quick-service')}width:100%;height:120px;">Quick<br>Service</div>
-            </div>
-            <div class="btn-wrap">
-              <div id="btn-qb" style="${modeStyle('quick-bar')}width:100%;height:120px;">Quick<br>Bar</div>
-            </div>
-            <div class="btn-wrap">
-              <div id="btn-qp" style="${modeStyle('quick-pay')}width:100%;height:120px;">Quick<br>Pay</div>
+            <div class="btn-wrap" style="flex:30;">
+              <div id="btn-config" style="${adminBtn(CONFIG_PEACH, '28px')}width:100%;height:100%;">Configuration</div>
             </div>
           </div>
 
-          <!-- COLUMN 3: PIN Pad Panel -->
-          <div style="background:${T.mint};border:${T.borderW} solid ${T.mint};padding:8px;display:flex;flex-direction:column;gap:6px;clip-path:${chamfer('xl')};">
+          <!-- COLUMN 2: Quick Login Shortcuts -->
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div class="btn-wrap" style="flex:1;">
+              <div id="btn-qs" style="${modeBtn()}width:100%;height:100%;">Quick<br>Service</div>
+            </div>
+            <div class="btn-wrap" style="flex:1;">
+              <div id="btn-qb" style="${modeBtn()}width:100%;height:100%;">Quick<br>Bar</div>
+            </div>
+            <div class="btn-wrap" style="flex:1;">
+              <div id="btn-qp" style="${modeBtn()}width:100%;height:100%;">Quick<br>Pay</div>
+            </div>
+          </div>
+
+          <!-- COLUMN 3: Numpad with PIN Display -->
+          <div style="background:${T.mint};border:${T.borderW} solid ${T.mint};padding:10px;display:flex;flex-direction:column;gap:6px;clip-path:${chamfer('xl')};">
             <!-- PIN Display Strip (sunken inset) -->
             <div id="pin-display" style="background:#1a1a1a;border:2px inset #1a1a1a;padding:6px 16px;display:flex;align-items:center;justify-content:space-around;font-family:${T.fb};height:36px;clip-path:${chamfer('lg')};">${pinChars}</div>
-            <!-- Number Grid (reuses numpad container style) -->
+            <!-- Number Grid -->
             <div style="${numpadContainerStyle()}flex:1;padding:4px;" id="pad"></div>
           </div>
 
-          <!-- Watermark -->
+          <!-- Version Stamp -->
           <div style="position:absolute;bottom:4px;right:16px;font-family:${T.fb};font-size:14px;user-select:none;pointer-events:none;"><span style="color:${T.gold};">KIND</span><span style="color:#ff3355;">pos</span><span style="color:${T.mint};">/lite_</span><span style="color:${T.gold};">Vz1.0</span></div>
         </div>`;
 
       buildNumpad();
       wireButtons();
 
-      // Show error via design-system errBanner
+      // Show error via errBanner
       if (err) {
         const errDiv = document.createElement('div');
         errDiv.style.cssText = 'position:absolute;bottom:30px;left:50%;transform:translateX(-50%);z-index:10;';
@@ -176,53 +170,51 @@ registerLiteScene('lite-login', {
       });
     }
 
+    // ── Wire Column 1 + Column 2 Buttons ──
     function wireButtons() {
-      // Admin buttons — validate PIN before routing
+      // Column 1: Pre-login actions (no PIN required — navigate directly)
+      // REVIEW: Clock in/out navigates to lite-clock; if that scene needs staff identity,
+      // it should handle its own PIN prompt. Reporting/Config are stub scenes for now.
       const clockBtn = $('btn-clock');
       const reportBtn = $('btn-reporting');
       const configBtn = $('btn-config');
 
-      if (clockBtn) clockBtn.addEventListener('click', () => {
-        if (!requirePin()) return;
-        liteGo('lite-clock');
-      });
-      if (reportBtn) reportBtn.addEventListener('click', () => {
-        if (!requirePin()) return;
-        liteGo('lite-reporting');
-      });
-      if (configBtn) configBtn.addEventListener('click', () => {
-        if (!requirePin()) return;
-        liteGo('lite-config');
-      });
+      if (clockBtn) clockBtn.addEventListener('click', () => { liteGo('lite-clock'); });
+      if (reportBtn) reportBtn.addEventListener('click', () => { liteGo('lite-reporting'); });
+      if (configBtn) configBtn.addEventListener('click', () => { liteGo('lite-config'); });
 
-      // Mode buttons — radio selection (toggle)
+      // Column 2: Quick-login shortcuts (PIN required, then route)
       const qsBtn = $('btn-qs');
       const qbBtn = $('btn-qb');
       const qpBtn = $('btn-qp');
 
-      if (qsBtn) qsBtn.addEventListener('click', () => selectMode('quick-service'));
-      if (qbBtn) qbBtn.addEventListener('click', () => selectMode('quick-bar'));
-      if (qpBtn) qpBtn.addEventListener('click', () => selectMode('quick-pay'));
+      if (qsBtn) qsBtn.addEventListener('click', () => quickLogin('quick-service'));
+      if (qbBtn) qbBtn.addEventListener('click', () => quickLogin('quick-bar'));
+      if (qpBtn) qpBtn.addEventListener('click', () => quickLogin('quick-pay'));
     }
 
-    function selectMode(mode) {
-      selectedMode = selectedMode === mode ? null : mode;
-      draw();
-    }
-
-    function requirePin() {
+    // ── Quick Login: validate PIN, then navigate to role-specific workflow ──
+    function quickLogin(mode) {
       if (!pin) {
         flashPinPad();
-        return false;
+        return;
       }
       if (!matchPin()) {
         err = 'PIN not recognised.';
         pin = '';
         draw();
         shakePinDisplay();
-        return false;
+        return;
       }
-      return true;
+      if (mode === 'quick-service') {
+        const o = makeOrder();
+        liteGo('lite-order', { order: o, mode: 'quick-service' });
+      } else if (mode === 'quick-bar') {
+        const o = makeOrder();
+        liteGo('lite-order', { order: o, mode: 'quick-bar' });
+      } else if (mode === 'quick-pay') {
+        liteGo('lite-payment');
+      }
     }
 
     function flashPinPad() {
@@ -241,6 +233,7 @@ registerLiteScene('lite-login', {
       }
     }
 
+    // ── Key Press Handler ──
     function press(k) {
       err = '';
       if (k === 'CLR') {
@@ -254,6 +247,7 @@ registerLiteScene('lite-login', {
       draw();
     }
 
+    // ── Submit PIN ──
     function submit() {
       if (!pin) {
         flashPinPad();
@@ -266,22 +260,11 @@ registerLiteScene('lite-login', {
         shakePinDisplay();
         return;
       }
-
-      // Route based on selected mode
-      if (selectedMode === 'quick-service') {
-        const o = makeOrder();
-        liteGo('lite-order', { order: o, mode: 'quick-service' });
-      } else if (selectedMode === 'quick-bar') {
-        const o = makeOrder();
-        liteGo('lite-order', { order: o, mode: 'quick-bar' });
-      } else if (selectedMode === 'quick-pay') {
-        liteGo('lite-payment');
-      } else {
-        // No mode selected — open/closed checks view
-        liteGo('lite-snapshot');
-      }
+      // No mode selected — go to snapshot
+      liteGo('lite-snapshot');
     }
 
+    // ── Match PIN against roster ──
     function matchPin() {
       const match = roster.find(r => r.pin === pin);
       if (match) {
@@ -291,6 +274,7 @@ registerLiteScene('lite-login', {
       return false;
     }
 
+    // ── Make a new order ──
     function makeOrder() {
       const o = {
         id: `C-${APP.nextNum++}`,
