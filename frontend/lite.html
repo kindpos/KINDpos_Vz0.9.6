@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KINDpos Lite — Terminal Vz1</title>
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/base.css">
+</head>
+<body>
+  <div id="app">
+    <div id="tbar"></div>
+    <div id="scene"></div>
+    <div id="sbar"></div>
+  </div>
+
+  <script type="module">
+    // ═══════════════════════════════════════════════════
+    //  KINDpos Lite — Boot Sequence
+    //  Nice. Dependable. Yours.
+    // ═══════════════════════════════════════════════════
+
+    // Import lite scenes (each self-registers via registerLiteScene)
+    import './js/scenes/lite-login.js';
+    import './js/scenes/lite-snapshot.js';
+    import './js/scenes/lite-order.js';
+    import './js/scenes/lite-payment.js';
+    import './js/scenes/lite-close-day.js';
+
+    // Import lite navigation
+    import { liteGo } from './js/lite-scene-manager.js';
+
+    // Boot
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('  KINDpos Lite — Nice. Dependable. Yours.');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('  Fallback PINs: Manager=0000  Server=9999');
+
+    liteGo('lite-login');
+  </script>
+</body>
+</html>
