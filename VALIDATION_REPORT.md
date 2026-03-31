@@ -7,7 +7,7 @@
 - **Snapshot (Manager):** PASS. All cards render, charts functional.
 - **Snapshot (Server):** PASS. Data binding from `/api/v1/servers/{id}/snapshot` verified.
 - **Settings:** PASS. Hardware and System sub-screens render without errors.
-- **Check Editing:** PASS. Hex navigation (CHOO) and seat management functional.
+- **Check Editing:** PASS. Seat management functional.
 
 ## 2. Theme & Design Language Compliance
 - **Color Semantics:** PASS. `variables.css` updated to spec (#fcbe40, #33ffff, #b48efa, #ffff00, #ff3355).
@@ -21,11 +21,9 @@
 - **Column Expansion:** PASS. Tapping sub-cards correctly expands parent columns.
 - **Close Day Overlay:** PASS. Flow includes tip adjustment and batch summary.
 
-## 4. Hex Navigation (CHOO) Flows
-- **Contextual Rendering:** PASS. Verified in Check Editing.
-- **Touch Targets:** PASS. Hex buttons have sufficient spacing and hit areas.
+<!-- NAV SYSTEM: Pending redesign — hex nav purged 2026-03-31 -->
 
-## 5. Backend API Integration
+## 4. Backend API Integration
 - **Endpoint Round-trip:** PASS. Snapshot and Menu endpoints verified.
 - **Event Ledger Precision:** PASS. Added explicit `round(val, 2)` to `ITEM_ADDED`, `PAYMENT_CONFIRMED`, and `TIP_ADJUSTED` factory functions in `events.py`.
 
@@ -40,5 +38,5 @@
 
 ## Prioritized Fix List
 1. **Refactor Payment Test Suite (HIGH):** Update `tests/test_payment_manager.py` to match the new `TransactionRequest`/`initiate_sale` architecture.
-2. **JS Style Cleanup (MEDIUM):** Remove hardcoded `border-radius` and `#hex-colors` from `snapshot.js` and `login.js`, moving them to CSS classes or variables.
+2. **JS Style Cleanup (MEDIUM):** Remove hardcoded `border-radius` from `snapshot.js` and `login.js`, moving them to CSS classes or variables.
 3. **Mock Synchronization (MEDIUM):** Reconcile `mock_payment_device.py` with `mock_payment.py` to avoid future import confusion.

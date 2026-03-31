@@ -24,7 +24,7 @@
 |----------|---------|-----------|-------------|
 | **warning** | Toast notifications | `check-editing.js:653`, `settings.js:23`, `settings.js:990`, `snapshot.js:708` | 4 separate toast implementations with different styling/behavior. Should be a shared utility in `app.js` |
 | **warning** | Overlay creation | `check-editing.js` (12×), `snapshot.js` (8×), `settings.js` (5×) | Repeated `createElement('div') → className='overlay' → innerHTML → appendChild` pattern with no shared factory |
-| **cleanup** | Hex clip-path | `login.js:38`, `check-editing.js:663` | Same SVG polygon clip-path string defined independently in two files |
+| **cleanup** | ~~Hex clip-path~~ | ~~`login.js:38`, `check-editing.js:663`~~ | Removed — hex nav purged 2026-03-31 |
 | **cleanup** | Date/time parsing | `server_snapshot_service.py:25–29`, `server_snapshot_service.py:140–144`, `server_snapshot_service.py:206–210` | Same `fromisoformat(…replace('Z', '+00:00'))` pattern repeated 3× within one file |
 
 ### 1.3 Hardcoded Values
@@ -37,7 +37,7 @@
 | **warning** | `backend/app/core/adapters/dejavoo_spin.py` | 34 | HTTP timeout 95s | Should be in `Settings` |
 | **warning** | `frontend/js/scenes/check-editing.js` | 911 | Manager PIN hardcoded `'0000'` | Should validate against employee roster |
 | **warning** | `backend/app/api/routes/menu.py` | 28 | `limit=10000` events | Should be configurable |
-| **cleanup** | `frontend/js/scenes/check-editing.js` | 1059–1063 | Hex radii `CAT_R=55, SUB_R=42, ITEM_R=32` | Could reference a layout config |
+| **cleanup** | ~~`frontend/js/scenes/check-editing.js`~~ | ~~1059–1063~~ | ~~Hex radii~~ | Removed — hex nav purged 2026-03-31 |
 | **cleanup** | `frontend/js/config.js` | 19–42 | Fallback roster and menu baked into JS | Acceptable as offline fallback but should be documented as such |
 | **cleanup** | `backend/app/api/routes/system.py` | 66 | Hardcoded path `core/backend/tests` | Should use `Path(__file__).resolve()` relative navigation |
 | **cleanup** | `backend/app/api/routes/printing.py` | 74 | Hardcoded fixture path `core/backend/app/printing/fixtures/` | Same issue |

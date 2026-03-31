@@ -1,66 +1,6 @@
 import { registerScene, go } from '../scene-manager.js';
 import { T, chamfer, overlayCloseBtn, btnWrap } from '../theme-manager.js';
-import { HexEngine } from '../hex-engine.js';
 import { FALLBACK_MENU, MODIFIERS, MOD_PREFIXES } from '../config.js';
-
-const CAT_COLORS = ['#FF8C00', '#00CED1', '#E84040', '#7ac943', '#fcbe40', '#b48efa'];
-
-function menuToHexData(menu) {
-  return Object.entries(menu).map(([catName, catValue], i) => {
-    const color = CAT_COLORS[i % CAT_COLORS.length];
-    if (Array.isArray(catValue)) {
-      return {
-        id: catName.toLowerCase(),
-        label: catName,
-        color,
-        children: catValue.map(item => ({
-          id: item.name.toLowerCase().replace(/\s+/g, '-'),
-          label: item.name,
-          price: item.price,
-          color,
-          disabled: !!item.is86
-        }))
-      };
-    } else {
-      return {
-        id: catName.toLowerCase(),
-        label: catName,
-        color,
-        children: Object.entries(catValue).map(([subName, items]) => ({
-          id: subName.toLowerCase().replace(/\s+/g, '-'),
-          label: subName,
-          color,
-          children: items.map(item => ({
-            id: item.name.toLowerCase().replace(/\s+/g, '-'),
-            label: item.name,
-            price: item.price,
-            color,
-            disabled: !!item.is86
-          }))
-        }))
-      };
-    }
-  });
-}
-
-const MOD_COLORS = ['#fcbe40', '#b48efa', '#00CED1'];
-
-function modifiersToHexData(modifiers) {
-  return Object.entries(modifiers).map(([catName, items], i) => {
-    const color = MOD_COLORS[i % MOD_COLORS.length];
-    return {
-      id: catName.toLowerCase().replace(/\s+/g, '-'),
-      label: catName,
-      color,
-      children: items.map(mod => ({
-        id: mod.name.toLowerCase().replace(/\s+/g, '-'),
-        label: mod.name,
-        price: mod.price,
-        color,
-      }))
-    };
-  });
-}
 
 registerScene('add-items', {
   onEnter(el, p) {
@@ -69,7 +9,6 @@ registerScene('add-items', {
     let stagedItems = [];
     let activeMode = p.mode || 'items';
     let activePrefix = 'ADD';
-    let hexEngine = null;
 
     // If editing modifiers on a specific existing item, pre-load it
     if (p.targetItem) {
@@ -88,33 +27,6 @@ registerScene('add-items', {
       </div>
     `;
 
-    const ITEM_SIZES = {
-      category: { w: 140, h: 158 },
-      item:     { w: 90, h: 102 },
-      modifier: { w: 80, h: 90 },
-    };
-    const MOD_SIZES = {
-      category: { w: 90, h: 102 },
-      item:     { w: 60, h: 68 },
-      modifier: { w: 60, h: 68 },
-    };
-
-    function initHexEngine(mode) {
-      const container = document.getElementById('hex-workspace');
-      if (!container) return;
-      if (hexEngine) { hexEngine.destroy(); hexEngine = null; }
-      hexEngine = new HexEngine({
-        container,
-        data: mode === 'items' ? menuToHexData(FALLBACK_MENU) : modifiersToHexData(MODIFIERS),
-        sizes: mode === 'items' ? ITEM_SIZES : MOD_SIZES,
-        onSelect: handleItemSelected,
-        onBack: () => {},
-      });
-    }
-
-    // Instantiate HexEngine after DOM laid out
-    requestAnimationFrame(() => initHexEngine(activeMode));
-
     bindActionBar();
     updateToggleStyles();
     if (activeMode === 'modifiers') showPrefixRow(); else hidePrefixRow();
@@ -129,7 +41,6 @@ registerScene('add-items', {
     };
 
     return () => {
-      if (hexEngine) { hexEngine.destroy(); hexEngine = null; }
       window.onBackRequested = null;
       stagedItems = [];
     };
@@ -147,7 +58,9 @@ registerScene('add-items', {
     function buildRightArea() {
       return `<div style="flex:1;display:flex;flex-direction:column;gap:0;padding:8px 8px 8px 8px;">
         <div id="prefix-row" style="display:none;height:48px;align-items:center;gap:10px;padding:4px 12px;flex-shrink:0;"></div>
-        <div id="hex-workspace" style="flex:1;background:${T.bg};border:${T.borderW} solid ${T.mint};clip-path:${chamfer('lg')};position:relative;overflow:hidden;"></div>
+        <div id="menu-workspace" style="flex:1;background:${T.bg};border:${T.borderW} solid ${T.mint};clip-path:${chamfer('lg')};position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;">
+          <span style="font-family:${T.fb};font-size:22px;color:${T.mintDim};opacity:0.5;">Menu nav pending redesign</span>
+        </div>
         ${buildActionBar()}
       </div>`;
     }
@@ -234,7 +147,6 @@ registerScene('add-items', {
 
     function setMode(mode) {
       activeMode = mode;
-      initHexEngine(mode);
       if (mode === 'items') {
         hidePrefixRow();
       } else {
@@ -360,7 +272,7 @@ registerScene('add-items', {
       });
 
       document.getElementById('btn-back')?.addEventListener('click', () => {
-        if (hexEngine) hexEngine.back();
+        // Nav back — pending redesign
       });
 
       document.getElementById('btn-confirm')?.addEventListener('click', () => {

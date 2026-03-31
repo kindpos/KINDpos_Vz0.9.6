@@ -36,7 +36,7 @@ This document compiles all configurable values identified in the codebase, group
 
 ### Card: Display & Theme
 - **Brightness / Screen Timeout**: Not found.
-- **Hex Grid Density**: Not found.
+- ~~**Hex Grid Density**~~: Removed — hex nav purged 2026-03-31.
 - **UI Scale / Font Size**: Not found.
 
 ### Card: System
