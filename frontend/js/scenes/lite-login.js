@@ -6,7 +6,7 @@
 import { APP, $, apiFetch } from '../app.js';
 import { CFG, FALLBACK_ROSTER } from '../config.js';
 import { registerLiteScene, liteGo } from '../lite-scene-manager.js';
-import { T, chamfer } from '../theme-manager.js';
+import { T, chamfer, buildNumpadKey, errBanner, numpadContainerStyle } from '../theme-manager.js';
 
 registerLiteScene('lite-login', {
   onEnter(el) {
@@ -71,8 +71,6 @@ registerLiteScene('lite-login', {
     }
 
     // ── Shared Style Constants ──
-    const SUNKEN_BORDER = `border:${T.borderW} solid #1a1a1a;border-top-color:#555;border-left-color:#555;`;
-    const RAISED_BORDER = `border:${T.borderW} solid #1a1a1a;border-bottom-color:#555;border-right-color:#555;`;
     const LIGHT_MINT = '#D8FFCC';
 
     // ── Draw Login Screen ──
@@ -96,36 +94,48 @@ registerLiteScene('lite-login', {
         const isSelected = selectedMode === mode;
         const borderStyle = isSelected
           ? `border:${T.borderW} solid ${T.cyan};box-shadow:0 0 8px ${T.cyan};`
-          : `${RAISED_BORDER}`;
-        return `background:${LIGHT_MINT};${borderStyle}border-radius:0;font-family:${T.fb};font-size:36px;color:#1a1a1a;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;flex:1;line-height:1.1;padding:16px 12px;clip-path:${chamfer('lg')};`;
+          : `border:${T.borderW} solid #1a1a1a;`;
+        return `background:${LIGHT_MINT};${borderStyle}font-family:${T.fb};font-size:36px;color:#1a1a1a;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;flex:1;line-height:1.1;padding:16px 12px;clip-path:${chamfer('lg')};`;
       };
 
-      // Admin button base style (sunken/inset feel)
+      // Admin button base style (Win98 sunken inset)
       const adminBtnStyle = (bg) =>
-        `background:${bg};${SUNKEN_BORDER}border-radius:0;font-family:${T.fb};color:#1a1a1a;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;flex:1;line-height:1.1;padding:16px 12px;clip-path:${chamfer('lg')};`;
+        `background:${bg};border:${T.borderW} solid #1a1a1a;font-family:${T.fb};color:#1a1a1a;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;flex:1;line-height:1.1;padding:16px 12px;clip-path:${chamfer('lg')};`;
 
       el.innerHTML = `
         <div style="display:grid;grid-template-columns:25% 25% 1fr;height:100%;padding:20px;gap:16px;position:relative;">
           <!-- COLUMN 1: Admin Buttons (recessed panel) -->
-          <div style="background:${T.bg};border:2px solid #555;border-top-color:#1a1a1a;border-left-color:#1a1a1a;border-radius:0;padding:12px;display:flex;flex-direction:column;gap:14px;clip-path:${chamfer('lg')};">
-            <div id="btn-clock" style="${adminBtnStyle(T.mint)}font-size:40px;">CLOCK<br>IN/OUT</div>
-            <div id="btn-reporting" style="${adminBtnStyle(T.mint)}font-size:40px;">REPORTING</div>
-            <div id="btn-config" style="${adminBtnStyle(T.gold)}font-size:32px;flex:0.7;">CONFIGURATION</div>
+          <div style="background:${T.bg2};border:${T.borderW} solid ${T.mint};padding:12px;display:flex;flex-direction:column;gap:14px;clip-path:${chamfer('xl')};">
+            <div class="btn-wrap" style="flex:1;display:flex;">
+              <div id="btn-clock" style="${adminBtnStyle(T.mint)}font-size:40px;">CLOCK<br>IN/OUT</div>
+            </div>
+            <div class="btn-wrap" style="flex:1;display:flex;">
+              <div id="btn-reporting" style="${adminBtnStyle(T.mint)}font-size:40px;">REPORTING</div>
+            </div>
+            <div class="btn-wrap" style="flex:0.7;display:flex;">
+              <div id="btn-config" style="${adminBtnStyle(T.gold)}font-size:32px;">CONFIGURATION</div>
+            </div>
           </div>
 
           <!-- COLUMN 2: Mode Buttons -->
           <div style="display:flex;flex-direction:column;gap:14px;padding:4px 0;">
-            <div id="btn-qs" style="${modeStyle('quick-service')}">QUICK<br>SERVICE</div>
-            <div id="btn-qb" style="${modeStyle('quick-bar')}">QUICK<br>BAR</div>
-            <div id="btn-qp" style="${modeStyle('quick-pay')}">QUICK<br>PAY</div>
+            <div class="btn-wrap" style="flex:1;display:flex;">
+              <div id="btn-qs" style="${modeStyle('quick-service')}">QUICK<br>SERVICE</div>
+            </div>
+            <div class="btn-wrap" style="flex:1;display:flex;">
+              <div id="btn-qb" style="${modeStyle('quick-bar')}">QUICK<br>BAR</div>
+            </div>
+            <div class="btn-wrap" style="flex:1;display:flex;">
+              <div id="btn-qp" style="${modeStyle('quick-pay')}">QUICK<br>PAY</div>
+            </div>
           </div>
 
-          <!-- COLUMN 3: PIN Pad Panel (Win98 sunken mint panel) -->
-          <div style="background:${T.mint};border:${T.borderW} solid ${T.mint};border-radius:0;padding:14px;display:flex;flex-direction:column;gap:10px;box-shadow:inset 2px 2px 0 #1a1a1a;clip-path:${chamfer('xl')};">
+          <!-- COLUMN 3: PIN Pad Panel -->
+          <div style="background:${T.mint};border:${T.borderW} solid ${T.mint};padding:14px;display:flex;flex-direction:column;gap:10px;clip-path:${chamfer('xl')};">
             <!-- PIN Display Strip (sunken inset) -->
-            <div id="pin-display" style="background:#1a1a1a;border:2px solid #555;border-top-color:#1a1a1a;border-left-color:#1a1a1a;border-radius:0;padding:10px 16px;display:flex;align-items:center;justify-content:space-around;font-family:${T.fb};min-height:56px;margin-bottom:4px;clip-path:${chamfer('md')};">${pinChars}</div>
-            <!-- Number Grid -->
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;flex:1;" id="pad"></div>
+            <div id="pin-display" style="background:#1a1a1a;border:2px inset #1a1a1a;padding:10px 16px;display:flex;align-items:center;justify-content:space-around;font-family:${T.fb};min-height:56px;margin-bottom:4px;clip-path:${chamfer('lg')};">${pinChars}</div>
+            <!-- Number Grid (reuses numpad container style) -->
+            <div style="${numpadContainerStyle()}flex:1;padding:8px;" id="pad"></div>
           </div>
 
           <!-- Watermark -->
@@ -135,12 +145,12 @@ registerLiteScene('lite-login', {
       buildNumpad();
       wireButtons();
 
-      // Show error if any
+      // Show error via design-system errBanner
       if (err) {
-        const errEl = document.createElement('div');
-        errEl.style.cssText = `position:absolute;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(232,64,64,0.9);border:2px solid ${T.red};padding:6px 16px;font-size:16px;color:white;border-radius:4px;z-index:10;font-family:${T.fb};`;
-        errEl.textContent = '\u26A0 ' + err;
-        el.firstElementChild.appendChild(errEl);
+        const errDiv = document.createElement('div');
+        errDiv.style.cssText = 'position:absolute;bottom:30px;left:50%;transform:translateX(-50%);z-index:10;';
+        errDiv.innerHTML = errBanner(err);
+        el.firstElementChild.appendChild(errDiv);
       }
     }
 
@@ -151,51 +161,16 @@ registerLiteScene('lite-login', {
       const keys = ['1','2','3','4','5','6','7','8','9','CLR','0','>>>'];
       keys.forEach(k => {
         const isCLR = k === 'CLR';
-        const isENT = k === '>>>';
+        const keyEl = buildNumpadKey(k, {
+          onPress: () => press(k),
+          onLongPress: isCLR ? { delay: 500, action: () => { pin = ''; err = ''; draw(); } } : null
+        });
 
-        // Wrap in btn-wrap for drop-shadow + press effect
-        const wrap = document.createElement('div');
-        wrap.className = 'btn-wrap';
+        // Scale down key heights for lite's denser layout
+        const inner = keyEl.querySelector('div');
+        if (inner) inner.style.height = 'auto';
 
-        const btn = document.createElement('div');
-
-        let bg, color, text, fontSize;
-        if (isCLR) {
-          bg = '#ff3355';
-          color = '#1a1a1a';
-          text = 'CLR';
-          fontSize = '42px';
-        } else if (isENT) {
-          bg = '#9ACD32';
-          color = '#1a1a1a';
-          text = '>>>';
-          fontSize = '42px';
-        } else {
-          bg = '#1a1a1a';
-          color = T.mint;
-          text = k;
-          fontSize = '56px';
-        }
-
-        btn.textContent = text;
-        btn.style.cssText = `background:${bg};color:${color};border-radius:0;font-family:${T.fb};font-size:${fontSize};display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;border:none;clip-path:${chamfer('sm')};`;
-
-        btn.addEventListener('click', () => press(k));
-
-        // Long-press on CLR to clear all
-        if (isCLR) {
-          let holdTimer = null;
-          const startHold = () => { holdTimer = setTimeout(() => { pin = ''; err = ''; draw(); }, 500); };
-          const endHold = () => clearTimeout(holdTimer);
-          btn.addEventListener('mousedown', startHold);
-          btn.addEventListener('mouseup', endHold);
-          btn.addEventListener('mouseleave', endHold);
-          btn.addEventListener('touchstart', startHold);
-          btn.addEventListener('touchend', endHold);
-        }
-
-        wrap.appendChild(btn);
-        pad.appendChild(wrap);
+        pad.appendChild(keyEl);
       });
     }
 
