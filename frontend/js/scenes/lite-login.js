@@ -66,7 +66,7 @@ registerLiteScene('lite-login', {
     function updateClock() {
       const tbar = $('tbar');
       if (tbar && APP.screen === 'lite-login') {
-        tbar.innerHTML = `<span style="font-family:${T.fh};font-size:28px;color:#1a1a1a;">${liteTime()}</span>`;
+        tbar.innerHTML = `<span style="font-family:${T.fb};font-size:28px;color:#1a1a1a;">${liteTime()}</span>`;
       }
     }
 
@@ -97,17 +97,17 @@ registerLiteScene('lite-login', {
         const borderStyle = isSelected
           ? `border:${T.borderW} solid ${T.cyan};box-shadow:0 0 8px ${T.cyan};`
           : `${RAISED_BORDER}`;
-        return `background:${LIGHT_MINT};${borderStyle}border-radius:0;font-family:${T.fh};font-size:36px;color:#1a1a1a;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;flex:1;line-height:1.1;padding:16px 12px;`;
+        return `background:${LIGHT_MINT};${borderStyle}border-radius:0;font-family:${T.fb};font-size:36px;color:#1a1a1a;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;flex:1;line-height:1.1;padding:16px 12px;clip-path:${chamfer('lg')};`;
       };
 
       // Admin button base style (sunken/inset feel)
       const adminBtnStyle = (bg) =>
-        `background:${bg};${SUNKEN_BORDER}border-radius:0;font-family:${T.fh};color:#1a1a1a;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;flex:1;line-height:1.1;padding:16px 12px;`;
+        `background:${bg};${SUNKEN_BORDER}border-radius:0;font-family:${T.fb};color:#1a1a1a;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;flex:1;line-height:1.1;padding:16px 12px;clip-path:${chamfer('lg')};`;
 
       el.innerHTML = `
         <div style="display:grid;grid-template-columns:25% 25% 1fr;height:100%;padding:20px;gap:16px;position:relative;">
           <!-- COLUMN 1: Admin Buttons (recessed panel) -->
-          <div style="background:${T.bg};border:2px solid #555;border-top-color:#1a1a1a;border-left-color:#1a1a1a;border-radius:0;padding:12px;display:flex;flex-direction:column;gap:14px;">
+          <div style="background:${T.bg};border:2px solid #555;border-top-color:#1a1a1a;border-left-color:#1a1a1a;border-radius:0;padding:12px;display:flex;flex-direction:column;gap:14px;clip-path:${chamfer('lg')};">
             <div id="btn-clock" style="${adminBtnStyle(T.mint)}font-size:40px;">CLOCK<br>IN/OUT</div>
             <div id="btn-reporting" style="${adminBtnStyle(T.mint)}font-size:40px;">REPORTING</div>
             <div id="btn-config" style="${adminBtnStyle(T.gold)}font-size:32px;flex:0.7;">CONFIGURATION</div>
@@ -121,15 +121,15 @@ registerLiteScene('lite-login', {
           </div>
 
           <!-- COLUMN 3: PIN Pad Panel (Win98 sunken mint panel) -->
-          <div style="background:${T.mint};border:${T.borderW} solid ${T.mint};border-radius:0;padding:14px;display:flex;flex-direction:column;gap:10px;box-shadow:inset 2px 2px 0 #1a1a1a;">
+          <div style="background:${T.mint};border:${T.borderW} solid ${T.mint};border-radius:0;padding:14px;display:flex;flex-direction:column;gap:10px;box-shadow:inset 2px 2px 0 #1a1a1a;clip-path:${chamfer('xl')};">
             <!-- PIN Display Strip (sunken inset) -->
-            <div id="pin-display" style="background:#1a1a1a;border:2px solid #555;border-top-color:#1a1a1a;border-left-color:#1a1a1a;border-radius:0;padding:10px 16px;display:flex;align-items:center;justify-content:space-around;font-family:${T.fh};min-height:56px;margin-bottom:4px;">${pinChars}</div>
+            <div id="pin-display" style="background:#1a1a1a;border:2px solid #555;border-top-color:#1a1a1a;border-left-color:#1a1a1a;border-radius:0;padding:10px 16px;display:flex;align-items:center;justify-content:space-around;font-family:${T.fb};min-height:56px;margin-bottom:4px;clip-path:${chamfer('md')};">${pinChars}</div>
             <!-- Number Grid -->
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;flex:1;" id="pad"></div>
           </div>
 
           <!-- Watermark -->
-          <div style="position:absolute;bottom:4px;right:20px;font-family:${T.fh};font-size:14px;user-select:none;pointer-events:none;"><span style="color:${T.gold};">KIND</span><span style="color:#ff3355;">pos</span><span style="color:${T.mint};">/lite_</span><span style="color:${T.gold};">Vz1.0</span></div>
+          <div style="position:absolute;bottom:4px;right:20px;font-family:${T.fb};font-size:14px;user-select:none;pointer-events:none;"><span style="color:${T.gold};">KIND</span><span style="color:#ff3355;">pos</span><span style="color:${T.mint};">/lite_</span><span style="color:${T.gold};">Vz1.0</span></div>
         </div>`;
 
       buildNumpad();
@@ -178,7 +178,7 @@ registerLiteScene('lite-login', {
         }
 
         btn.textContent = text;
-        btn.style.cssText = `background:${bg};color:${color};border-radius:0;font-family:${T.fh};font-size:${fontSize};display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;border:none;clip-path:${chamfer('sm')};`;
+        btn.style.cssText = `background:${bg};color:${color};border-radius:0;font-family:${T.fb};font-size:${fontSize};display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;border:none;clip-path:${chamfer('sm')};`;
 
         btn.addEventListener('click', () => press(k));
 
