@@ -452,6 +452,23 @@ export class HexEngine {
     const occupied = getOccupiedFaces(parentHex, allHexagons, childRadius);
     let candidates = getPositionsForEmptyFaces(parentHex, occupied, childRadius, CASCADE_FACE_ORDER);
 
+    // Collision check: reject candidates that overlap non-parent locked hexes.
+    // Skip the parent (last in allHexagons) — items are meant to be adjacent to it.
+    // Face occupancy handles the parent's blocked face; this catches overlap with
+    // ancestors (e.g. the larger category hex) that face detection alone can miss
+    // when hex sizes differ significantly.
+    const ancestors = allHexagons.slice(0, -1);
+    if (ancestors.length > 0) {
+      candidates = candidates.filter(pos => {
+        return !ancestors.some(lp => {
+          const dx = pos.x - lp.x;
+          const dy = pos.y - lp.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          return dist < (childRadius + lp.radius);
+        });
+      });
+    }
+
     // Sibling-cluster packing: reorder so each child is nearest to previous sibling
     let positions = clusterByProximity(candidates);
 
