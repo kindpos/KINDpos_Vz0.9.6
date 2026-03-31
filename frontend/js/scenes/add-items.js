@@ -88,7 +88,7 @@ registerScene('add-items', {
     const currentCheck = p.check || null;
     const currentSeat = p.seat || 0;
     let stagedItems = [];       // array of line item objects
-    let selectedLineId = null;  // id of the currently selected ticket line
+    let selectedIds = new Set(); // ids of currently selected ticket lines
     let activeMode = p.mode || 'items';
     let activePrefix = 'ADD';
     let offlineQueue = [];      // queued API calls for offline mode
@@ -98,7 +98,7 @@ registerScene('add-items', {
       const line = createLineItem(p.targetItem, currentSeat);
       line.modifiers = p.targetItem.modifiers || [];
       stagedItems.push(line);
-      selectedLineId = line.id;
+      selectedIds.add(line.id);
       activeMode = 'modifiers';
     }
 
@@ -290,9 +290,9 @@ registerScene('add-items', {
         hidePrefixRow();
         hexNav.setData(buildHexMenuData(FALLBACK_MENU));
       } else {
-        // If no line selected, auto-select the last added item
-        if (!selectedLineId && stagedItems.length > 0) {
-          selectedLineId = stagedItems[stagedItems.length - 1].id;
+        // If no lines selected, auto-select the last added item
+        if (selectedIds.size === 0 && stagedItems.length > 0) {
+          selectedIds.add(stagedItems[stagedItems.length - 1].id);
           renderTicketPanel();
         }
         // If still no items, flash the ticket panel border to indicate
@@ -336,11 +336,11 @@ registerScene('add-items', {
       if (existing) {
         existing.quantity++;
         recalcLineTotal(existing);
-        selectedLineId = existing.id;
+        selectedIds.add(existing.id);
       } else {
         const line = createLineItem(item, currentSeat);
         stagedItems.push(line);
-        selectedLineId = line.id;
+        selectedIds.add(line.id);
       }
       renderTicketPanel();
     }
@@ -353,21 +353,24 @@ registerScene('add-items', {
         return;
       }
 
-      const target = stagedItems.find(si => si.id === selectedLineId);
-      if (!target) {
-        // Auto-select last item if nothing selected
-        if (stagedItems.length > 0) {
-          selectedLineId = stagedItems[stagedItems.length - 1].id;
-          addModifierToSelected(item);
-        }
-        return;
+      // Auto-select last item if nothing selected
+      if (selectedIds.size === 0 && stagedItems.length > 0) {
+        selectedIds.add(stagedItems[stagedItems.length - 1].id);
       }
 
-      target.modifiers.push({
-        id: genId(),
-        name: item.label,
-        prefix: activePrefix,
-      });
+      if (selectedIds.size === 0) return;
+
+      // Apply modifier to ALL selected lines
+      for (const lineId of selectedIds) {
+        const target = stagedItems.find(si => si.id === lineId);
+        if (target) {
+          target.modifiers.push({
+            id: genId(),
+            name: item.label,
+            prefix: activePrefix,
+          });
+        }
+      }
       renderTicketPanel();
     }
 
@@ -386,7 +389,7 @@ registerScene('add-items', {
       }
 
       panel.innerHTML = stagedItems.map(line => {
-        const isSelected = line.id === selectedLineId;
+        const isSelected = selectedIds.has(line.id);
         const selBg = isSelected ? 'rgba(255,215,0,0.12)' : 'transparent';
         const selBorder = isSelected ? `2px solid ${T.mint}` : '2px solid transparent';
 
@@ -424,10 +427,10 @@ registerScene('add-items', {
           // Don't toggle selection when clicking remove
           if (e.target.closest('.line-remove-btn')) return;
           const lineId = lineEl.dataset.lineId;
-          if (selectedLineId === lineId) {
-            selectedLineId = null; // deselect
+          if (selectedIds.has(lineId)) {
+            selectedIds.delete(lineId); // deselect
           } else {
-            selectedLineId = lineId;
+            selectedIds.add(lineId);
           }
           renderTicketPanel();
         });
@@ -446,11 +449,7 @@ registerScene('add-items', {
             recalcLineTotal(line);
           } else {
             stagedItems = stagedItems.filter(si => si.id !== removeId);
-            if (selectedLineId === removeId) {
-              selectedLineId = stagedItems.length > 0
-                ? stagedItems[stagedItems.length - 1].id
-                : null;
-            }
+            selectedIds.delete(removeId);
           }
           renderTicketPanel();
         });

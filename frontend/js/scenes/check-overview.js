@@ -52,7 +52,8 @@ registerScene('check-overview', {
         currentCheck = { id: state.checkId || 'C-NEW', seats: [{ items: [] }] };
         state.seats = ['ALL', 'S1'];
       }
-      const seatIdx = seatIndex(state.activeSeat);
+      // ALL maps to -1, but items need a real seat — use seat 0
+      const seatIdx = Math.max(0, seatIndex(state.activeSeat));
       if (!currentCheck.seats[seatIdx]) {
         currentCheck.seats[seatIdx] = { items: [] };
       }
