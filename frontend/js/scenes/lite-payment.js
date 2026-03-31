@@ -64,7 +64,7 @@ registerLiteScene('lite-payment', {
       $('lite-pay-confirm').addEventListener('click', () => {
         if (!selectedMethod) return;
         console.log(`[Lite] Payment confirmed: ${selectedMethod} for ${check.id} — $${total.toFixed(2)} — PLACEHOLDER`);
-        liteGo('lite-snapshot');
+        liteGo('quick-checks');
       });
       $('lite-pay-back').addEventListener('click', () => liteGo('lite-order', { check }));
     }

@@ -90,11 +90,11 @@ registerLiteScene('lite-close-day', {
       $('lite-batch-submit').addEventListener('click', () => {
         console.log('[Lite] Batch submitted — PLACEHOLDER');
         console.log('[Lite] Tips:', checks.map(c => `${c.id}: $${c.tip.toFixed(2)}`).join(', '));
-        liteGo('lite-snapshot');
+        liteGo('quick-checks');
       });
 
       // Back
-      $('lite-closeday-back').addEventListener('click', () => liteGo('lite-snapshot'));
+      $('lite-closeday-back').addEventListener('click', () => liteGo('quick-checks'));
     }
 
     render();

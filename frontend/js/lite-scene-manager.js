@@ -67,7 +67,7 @@ export function liteGo(screen, p = {}) {
         <div style="font-family:var(--fh);font-size:22px;">${screen.toUpperCase()}</div>
         <div style="opacity:0.4;">Coming Soon</div>
         <div class="btn-s" style="border:1px solid var(--mint);padding:10px 20px;cursor:pointer;"
-             onclick="window.go('lite-snapshot')">← Snapshot</div>
+             onclick="window.go('quick-checks')">← Back</div>
       </div>`;
   }
 }

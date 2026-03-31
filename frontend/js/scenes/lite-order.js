@@ -161,7 +161,7 @@ registerLiteScene('lite-order', {
 
       // Back button
       const backBtn = $('lite-back-btn');
-      if (backBtn) backBtn.addEventListener('click', () => liteGo('lite-snapshot'));
+      if (backBtn) backBtn.addEventListener('click', () => liteGo('quick-checks'));
     }
 
     render();

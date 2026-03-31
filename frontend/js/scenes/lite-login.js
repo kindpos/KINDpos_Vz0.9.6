@@ -260,7 +260,7 @@ registerLiteScene('lite-login', {
         return;
       }
       // No mode selected — go to snapshot
-      liteGo('lite-snapshot');
+      liteGo('quick-checks');
     }
 
     // ── Match PIN against roster ──
