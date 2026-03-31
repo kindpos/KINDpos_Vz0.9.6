@@ -71,7 +71,9 @@ registerLiteScene('lite-login', {
     }
 
     // ── Shared Style Constants ──
-    const LIGHT_MINT = '#D8FFCC';
+    const ADMIN_GREEN = '#33ff99';
+    const CONFIG_ORANGE = '#faad74';
+    const MODE_MINT = '#C6FFBB';
 
     // ── Draw Login Screen ──
     function draw() {
@@ -95,51 +97,51 @@ registerLiteScene('lite-login', {
         const borderStyle = isSelected
           ? `border:${T.borderW} solid ${T.cyan};box-shadow:0 0 8px ${T.cyan};`
           : `border:${T.borderW} solid #1a1a1a;`;
-        return `background:${LIGHT_MINT};${borderStyle}font-family:${T.fb};font-size:36px;color:#1a1a1a;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;flex:1;line-height:1.1;padding:16px 12px;clip-path:${chamfer('lg')};`;
+        return `background:${MODE_MINT};${borderStyle}font-family:${T.fb};font-size:36px;color:#1a1a1a;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;line-height:1.1;padding:14px 12px;clip-path:${chamfer('lg')};`;
       };
 
-      // Admin button base style (Win98 sunken inset)
+      // Admin button base style
       const adminBtnStyle = (bg) =>
-        `background:${bg};border:${T.borderW} solid #1a1a1a;font-family:${T.fb};color:#1a1a1a;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;flex:1;line-height:1.1;padding:16px 12px;clip-path:${chamfer('lg')};`;
+        `background:${bg};border:${T.borderW} solid #1a1a1a;font-family:${T.fb};color:#1a1a1a;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;line-height:1.1;padding:14px 12px;clip-path:${chamfer('lg')};`;
 
       el.innerHTML = `
-        <div style="display:grid;grid-template-columns:25% 25% 1fr;height:100%;padding:20px;gap:16px;position:relative;">
-          <!-- COLUMN 1: Admin Buttons (recessed panel) -->
-          <div style="background:${T.bg2};border:${T.borderW} solid ${T.mint};padding:12px;display:flex;flex-direction:column;gap:14px;clip-path:${chamfer('xl')};">
+        <div style="display:grid;grid-template-columns:25% 25% 1fr;height:100%;padding:16px 20px 28px 20px;gap:14px;position:relative;">
+          <!-- COLUMN 1: Admin Buttons (no container — buttons on dark bg) -->
+          <div style="display:flex;flex-direction:column;gap:10px;">
             <div class="btn-wrap" style="flex:1;display:flex;">
-              <div id="btn-clock" style="${adminBtnStyle(T.mint)}font-size:40px;">CLOCK<br>IN/OUT</div>
+              <div id="btn-clock" style="${adminBtnStyle(ADMIN_GREEN)}font-size:36px;width:100%;">Clock<br>in/out</div>
             </div>
             <div class="btn-wrap" style="flex:1;display:flex;">
-              <div id="btn-reporting" style="${adminBtnStyle(T.mint)}font-size:40px;">REPORTING</div>
+              <div id="btn-reporting" style="${adminBtnStyle(ADMIN_GREEN)}font-size:36px;width:100%;">Reporting</div>
             </div>
-            <div class="btn-wrap" style="flex:0.7;display:flex;">
-              <div id="btn-config" style="${adminBtnStyle(T.gold)}font-size:32px;">CONFIGURATION</div>
+            <div class="btn-wrap" style="flex:0 0 auto;display:flex;">
+              <div id="btn-config" style="${adminBtnStyle(CONFIG_ORANGE)}font-size:28px;width:100%;padding:10px 12px;">Configuration</div>
             </div>
           </div>
 
           <!-- COLUMN 2: Mode Buttons -->
-          <div style="display:flex;flex-direction:column;gap:14px;padding:4px 0;">
+          <div style="display:flex;flex-direction:column;gap:10px;">
             <div class="btn-wrap" style="flex:1;display:flex;">
-              <div id="btn-qs" style="${modeStyle('quick-service')}">QUICK<br>SERVICE</div>
+              <div id="btn-qs" style="${modeStyle('quick-service')}width:100%;">Quick<br>Service</div>
             </div>
             <div class="btn-wrap" style="flex:1;display:flex;">
-              <div id="btn-qb" style="${modeStyle('quick-bar')}">QUICK<br>BAR</div>
+              <div id="btn-qb" style="${modeStyle('quick-bar')}width:100%;">Quick<br>Bar</div>
             </div>
             <div class="btn-wrap" style="flex:1;display:flex;">
-              <div id="btn-qp" style="${modeStyle('quick-pay')}">QUICK<br>PAY</div>
+              <div id="btn-qp" style="${modeStyle('quick-pay')}width:100%;">Quick<br>Pay</div>
             </div>
           </div>
 
           <!-- COLUMN 3: PIN Pad Panel -->
-          <div style="background:${T.mint};border:${T.borderW} solid ${T.mint};padding:14px;display:flex;flex-direction:column;gap:10px;clip-path:${chamfer('xl')};">
+          <div style="background:${T.mint};border:${T.borderW} solid ${T.mint};padding:10px;display:flex;flex-direction:column;gap:8px;clip-path:${chamfer('xl')};">
             <!-- PIN Display Strip (sunken inset) -->
-            <div id="pin-display" style="background:#1a1a1a;border:2px inset #1a1a1a;padding:10px 16px;display:flex;align-items:center;justify-content:space-around;font-family:${T.fb};min-height:56px;margin-bottom:4px;clip-path:${chamfer('lg')};">${pinChars}</div>
+            <div id="pin-display" style="background:#1a1a1a;border:2px inset #1a1a1a;padding:8px 16px;display:flex;align-items:center;justify-content:space-around;font-family:${T.fb};min-height:44px;clip-path:${chamfer('lg')};">${pinChars}</div>
             <!-- Number Grid (reuses numpad container style) -->
-            <div style="${numpadContainerStyle()}flex:1;padding:8px;" id="pad"></div>
+            <div style="${numpadContainerStyle()}flex:1;padding:6px;" id="pad"></div>
           </div>
 
           <!-- Watermark -->
-          <div style="position:absolute;bottom:4px;right:20px;font-family:${T.fb};font-size:14px;user-select:none;pointer-events:none;"><span style="color:${T.gold};">KIND</span><span style="color:#ff3355;">pos</span><span style="color:${T.mint};">/lite_</span><span style="color:${T.gold};">Vz1.0</span></div>
+          <div style="position:absolute;bottom:6px;right:20px;font-family:${T.fb};font-size:14px;user-select:none;pointer-events:none;"><span style="color:${T.gold};">KIND</span><span style="color:#ff3355;">pos</span><span style="color:${T.mint};">/lite_</span><span style="color:${T.gold};">Vz1.0</span></div>
         </div>`;
 
       buildNumpad();
