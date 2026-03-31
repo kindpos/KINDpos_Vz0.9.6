@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1024">
+  <title>KINDpos/lite — Order</title>
+  <link rel="stylesheet" href="css/variables.css">
+  <style>
+    /* ── Reset ── */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #1a1a1a;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      width: 100vw;
+      font-family: 'Sevastopol Interface', monospace;
+      color: #C6FFBB;
+    }
+
+    #lite-app {
+      width: 1024px;
+      height: 600px;
+      background: #333333;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Zone 1: Status Bar ── */
+    #status-bar {
+      height: 28px;
+      width: 100%;
+      background: #222222;
+      border-bottom: 2px solid #C6FFBB;
+      padding: 0 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+      color: #C6FFBB;
+      flex-shrink: 0;
+    }
+
+    /* ── Zone 2: Main Content Box ── */
+    #main-content {
+      flex: 1;
+      margin: 2px 8px 0 8px;
+      border: 2px solid #C6FFBB;
+      display: flex;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    /* ── Zone 2A: Left Column (Ticket Panel) ── */
+    #ticket-panel {
+      width: 293px;
+      flex-shrink: 0;
+      border-right: 2px solid #C6FFBB;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #ticket-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 10px;
+      min-height: 0;
+    }
+
+    .ticket-line {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      color: #ffffff;
+      font-size: 13px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .ticket-line.selected {
+      background: rgba(252, 190, 64, 0.12);
+      border-left: 3px solid #fcbe40;
+      padding-left: 7px;
+    }
+
+    .ticket-line.sent {
+      opacity: 0.45;
+    }
+
+    .modifier-line {
+      color: #fcbe40;
+      font-size: 11px;
+      padding-left: 12px;
+    }
+
+    #totals-panel {
+      border-top: 2px solid #C6FFBB;
+      padding: 6px 10px;
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 1px 0;
+    }
+
+    /* ── Zone 2B: Right Column (Hex Nav Panel) ── */
+    #hex-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    #hex-canvas {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background: #222222;
+      min-height: 0;
+    }
+
+    #tab-row {
+      height: 44px;
+      border-top: 2px solid #C6FFBB;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      background: #1a1a1a;
+      flex-shrink: 0;
+    }
+
+    .tab-btn {
+      height: 28px;
+      font-family: 'Sevastopol Interface', monospace;
+      font-size: 13px;
+      letter-spacing: 1px;
+      cursor: pointer;
+      background: transparent;
+      border-radius: 0;
+    }
+
+    #tab-items {
+      width: 120px;
+      border: 2px solid #C6FFBB;
+      color: #C6FFBB;
+    }
+
+    #tab-modifiers {
+      width: 160px;
+      border: 2px solid #fcbe40;
+      color: #fcbe40;
+    }
+
+    .tab-btn.active {
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    /* ── Zone 3: Bottom Action Bar ── */
+    #action-bar {
+      height: 78px;
+      width: 100%;
+      background: #1a1a1a;
+      display: flex;
+      flex-shrink: 0;
+    }
+
+    #financial-display {
+      width: 293px;
+      height: 78px;
+      background: #1a1a1a;
+      font-size: 11px;
+      padding: 4px 8px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .fin-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 1px 0;
+    }
+
+    .action-btn {
+      border-radius: 0;
+      border-width: 2px;
+      font-family: 'Sevastopol Interface', monospace;
+      cursor: pointer;
+      letter-spacing: 1px;
+      border-style: solid;
+    }
+
+    .btn-stack {
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    /* VOID / DISC stack */
+    #btn-void {
+      width: 110px;
+      height: 37px;
+      background: #cc2200;
+      color: #ffffff;
+      border-color: #cc2200;
+      font-size: 14px;
+    }
+    #btn-disc {
+      width: 110px;
+      height: 37px;
+      background: #33CC88;
+      color: #1a1a1a;
+      border-color: #33CC88;
+      font-size: 14px;
+    }
+
+    /* SEND / PRINT */
+    #btn-send {
+      width: 176px;
+      height: 78px;
+      background: #228833;
+      color: #ffffff;
+      border-color: #228833;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+    #btn-print {
+      width: 176px;
+      height: 78px;
+      background: #E8A080;
+      color: #1a1a1a;
+      border-color: #E8A080;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+
+    /* Save Order / PAY stack */
+    #btn-save {
+      width: 197px;
+      height: 37px;
+      background: #1a1a1a;
+      color: #C6FFBB;
+      border-color: #C6FFBB;
+      font-size: 14px;
+    }
+    #btn-pay {
+      width: 197px;
+      height: 37px;
+      background: #fcbe40;
+      color: #1a1a1a;
+      border-color: #fcbe40;
+      font-size: 14px;
+    }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed;
+      top: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #222222;
+      color: #C6FFBB;
+      border: 2px solid #C6FFBB;
+      padding: 8px 24px;
+      font-family: 'Sevastopol Interface', monospace;
+      font-size: 13px;
+      z-index: 999;
+      display: none;
+    }
+
+    /* ── Flash animation for ticket border ── */
+    @keyframes flash-border {
+      0%, 100% { border-color: #C6FFBB; }
+      50%      { border-color: #fcbe40; }
+    }
+    .flash-border {
+      animation: flash-border 0.15s ease 3;
+    }
+
+    /* ── Scrollbar styling ── */
+    #ticket-scroll::-webkit-scrollbar {
+      width: 4px;
+    }
+    #ticket-scroll::-webkit-scrollbar-thumb {
+      background: #C6FFBB;
+      border-radius: 0;
+    }
+    #ticket-scroll::-webkit-scrollbar-track {
+      background: #222222;
+    }
+  </style>
+</head>
+<body>
+  <div id="lite-app">
+    <!-- Zone 1: Status Bar -->
+    <div id="status-bar">
+      <span id="status-clock"></span>
+      <span id="status-right"></span>
+    </div>
+
+    <!-- Zone 2: Main Content Box -->
+    <div id="main-content">
+      <!-- Zone 2A: Left Column (Ticket Panel) -->
+      <div id="ticket-panel">
+        <div id="ticket-scroll"></div>
+        <div id="totals-panel">
+          <div class="total-row">
+            <span style="color:#ffffff">Subtotal:</span>
+            <span style="color:#fcbe40" id="tp-subtotal">$0.00</span>
+          </div>
+          <div class="total-row">
+            <span style="color:#ffffff">Tax:</span>
+            <span style="color:#fcbe40" id="tp-tax">$0.00</span>
+          </div>
+          <div class="total-row">
+            <span style="color:#33ffff">Card Price:</span>
+            <span style="color:#33ffff" id="tp-card">$0.00</span>
+          </div>
+          <div class="total-row">
+            <span style="color:#33ffff">Cash Price:</span>
+            <span style="color:#33ffff" id="tp-cash">$0.00</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Zone 2B: Right Column (Hex Nav Panel) -->
+      <div id="hex-panel">
+        <div id="hex-canvas"></div>
+        <div id="tab-row">
+          <button id="tab-items" class="tab-btn active">Items</button>
+          <button id="tab-modifiers" class="tab-btn">modifiers</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Zone 3: Bottom Action Bar -->
+    <div id="action-bar">
+      <div id="financial-display">
+        <div class="fin-row">
+          <span style="color:#ffffff">Subtotal:</span>
+          <span style="color:#fcbe40" id="fd-subtotal">$0.00</span>
+        </div>
+        <div class="fin-row">
+          <span style="color:#ffffff">Tax:</span>
+          <span style="color:#fcbe40" id="fd-tax">$0.00</span>
+        </div>
+        <div class="fin-row">
+          <span style="color:#33ffff">Card Price:</span>
+          <span style="color:#33ffff" id="fd-card">$0.00</span>
+        </div>
+        <div class="fin-row">
+          <span style="color:#33ffff">Cash Price:</span>
+          <span style="color:#33ffff" id="fd-cash">$0.00</span>
+        </div>
+      </div>
+
+      <div class="btn-stack">
+        <button id="btn-void" class="action-btn">VOID</button>
+        <button id="btn-disc" class="action-btn">DISC</button>
+      </div>
+
+      <button id="btn-send" class="action-btn">SEND</button>
+      <button id="btn-print" class="action-btn">PRINT</button>
+
+      <div class="btn-stack">
+        <button id="btn-save" class="action-btn">Save Order</button>
+        <button id="btn-pay" class="action-btn">&lt;&lt;PAY&gt;&gt;</button>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast"></div>
+  </div>
+
+  <script type="module" src="js/scenes/lite-order.js"></script>
+</body>
+</html>
