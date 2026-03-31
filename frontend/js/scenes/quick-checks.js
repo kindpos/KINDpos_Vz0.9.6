@@ -3,10 +3,10 @@
 //  Simplified check management for food trucks & dive bars
 // ──────────────────────────────────────────────────────────
 
-import { registerScene, go } from '../scene-manager.js';
-import { APP, $, fmtTime } from '../app.js';
+import { registerLiteScene, liteGo } from '../lite-scene-manager.js';
+import { APP, $ } from '../app.js';
 import {
-  T, chamfer, btnWrap, footerLogo, footerTerminalId,
+  T, chamfer, btnWrap,
 } from '../theme-manager.js';
 
 const MOCK_CHECKS = [
@@ -23,7 +23,7 @@ const MOCK_CHECKS = [
   { id: 104, name: 'Walk-up', items: 2, total: 22.00, time: '10:55a', status: 'closed', closedAt: '11:05a', paidWith: 'VISA' },
 ];
 
-registerScene('quick-checks', {
+registerLiteScene('quick-checks', {
   onEnter(el, p) {
     // ── State ──
     const state = {
