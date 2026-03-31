@@ -57,6 +57,8 @@ registerLiteScene('lite-snapshot', {
           <button class="btn-s" style="border:var(--border-w) solid var(--lavender);padding:8px 16px;cursor:pointer;font-family:var(--fb);color:var(--lavender);border-radius:0;"
                   onclick="window._liteDiscount()">Discount <span style="opacity:0.5;font-size:11px;">PLACEHOLDER</span></button>
           <div style="flex:1;"></div>
+          <button class="btn-s" style="border:var(--border-w) solid var(--cyan);padding:8px 16px;cursor:pointer;font-family:var(--fb);color:var(--cyan);border-radius:0;"
+                  onclick="window.go('quick-checks')">Quick Checks</button>
           <button class="btn-p" style="padding:8px 20px;cursor:pointer;font-family:var(--fb);border-radius:0;border:var(--border-w) solid var(--mint);"
                   onclick="window.go('lite-close-day')">Batch / Tip Adjust</button>
         </div>
