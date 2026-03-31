@@ -16,26 +16,25 @@ function buildHexMenuData(menu) {
   for (const [catName, catVal] of Object.entries(menu)) {
     const color = CATEGORY_COLORS[catName] || 'var(--mint)';
     const cat = { id: catName.toLowerCase(), label: catName.toUpperCase(), color };
-    if (Array.isArray(catVal)) {
-      cat.children = catVal.map(item => ({
-        id: item.name.toLowerCase().replace(/\s+/g, '-'),
-        label: item.name, price: item.price, color,
-        is86: item.is86 || false,
-      }));
-    } else {
-      cat.children = Object.entries(catVal).map(([subName, items]) => ({
-        id: subName.toLowerCase().replace(/\s+/g, '-'),
-        label: subName.toUpperCase(), color,
-        children: items.map(item => ({
-          id: item.name.toLowerCase().replace(/\s+/g, '-'),
-          label: item.name, price: item.price, color,
-          is86: item.is86 || false,
-        })),
-      }));
-    }
+    cat.children = transformNode(catVal, color);
     children.push(cat);
   }
   return children;
+}
+
+function transformNode(val, color) {
+  if (Array.isArray(val)) {
+    return val.map(item => ({
+      id: item.name.toLowerCase().replace(/\s+/g, '-'),
+      label: item.name, price: item.price, color,
+      is86: item.is86 || false,
+    }));
+  }
+  return Object.entries(val).map(([key, sub]) => ({
+    id: key.toLowerCase().replace(/\s+/g, '-'),
+    label: key.toUpperCase(), color,
+    children: transformNode(sub, color),
+  }));
 }
 
 registerScene('add-items', {
