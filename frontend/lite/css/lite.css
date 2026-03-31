@@ -1,0 +1,261 @@
+/* ═══════════════════════════════════════════════════
+   KINDpos Lite — Layout Styles
+   Imports design tokens from theme-manager via CSS variables.
+   ═══════════════════════════════════════════════════ */
+
+/* ── Lite App Shell ── */
+#lite-app {
+  width: var(--app-w);
+  height: var(--app-h);
+  background: var(--bg);
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header Bar ── */
+#lite-tbar {
+  height: var(--bar-h);
+  background: var(--mint);
+  color: var(--bg);
+  font-family: var(--fh);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  font-size: 20px;
+  flex-shrink: 0;
+  z-index: 200;
+}
+
+/* ── Scene Container ── */
+#lite-scene {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ── Footer ── */
+#lite-sbar {
+  height: 36px;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 16px;
+  flex-shrink: 0;
+}
+
+/* ── Login Three-Column Layout ── */
+.lite-login-grid {
+  display: grid;
+  grid-template-columns: 200px 200px 1fr;
+  height: 100%;
+  padding: 16px;
+  gap: 16px;
+}
+
+/* ── Admin & Mode Columns ── */
+.lite-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  justify-content: center;
+}
+
+/* ── Admin Button ── */
+.lite-admin-btn {
+  border: var(--border-w) solid #1a1a1a;
+  border-radius: 0;
+  font-family: var(--fh);
+  font-size: 18px;
+  color: #1a1a1a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+  padding: 12px 8px;
+  line-height: 1.2;
+  clip-path: polygon(
+    6px 0%, calc(100% - 6px) 0%,
+    100% 6px, 100% calc(100% - 6px),
+    calc(100% - 6px) 100%, 6px 100%,
+    0% calc(100% - 6px), 0% 6px
+  );
+}
+
+.lite-admin-btn--mint { background: var(--mint); }
+.lite-admin-btn--gold { background: var(--gold); }
+
+/* ── Mode Button ── */
+.lite-mode-btn {
+  background: #D8FFCC;
+  border: var(--border-w) solid #1a1a1a;
+  border-radius: 0;
+  font-family: var(--fh);
+  font-size: 18px;
+  color: #1a1a1a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+  padding: 12px 8px;
+  line-height: 1.2;
+  transition: border-color 0.1s ease;
+  clip-path: polygon(
+    6px 0%, calc(100% - 6px) 0%,
+    100% 6px, 100% calc(100% - 6px),
+    calc(100% - 6px) 100%, 6px 100%,
+    0% calc(100% - 6px), 0% 6px
+  );
+}
+
+.lite-mode-btn.selected {
+  border-color: var(--cyan);
+  box-shadow: 0 0 8px var(--cyan), inset 0 0 4px rgba(51, 255, 255, 0.15);
+}
+
+/* ── PIN Pad Panel ── */
+.lite-pin-panel {
+  background: var(--mint);
+  border: var(--border-w) solid var(--mint);
+  border-radius: 0;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  clip-path: polygon(
+    8px 0%, calc(100% - 8px) 0%,
+    100% 8px, 100% calc(100% - 8px),
+    calc(100% - 8px) 100%, 8px 100%,
+    0% calc(100% - 8px), 0% 8px
+  );
+}
+
+/* ── PIN Indicator ── */
+.lite-pin-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.lite-pin-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 0;
+  background: #1a1a1a;
+  border: 2px solid #1a1a1a;
+  clip-path: polygon(
+    3px 0%, calc(100% - 3px) 0%,
+    100% 3px, 100% calc(100% - 3px),
+    calc(100% - 3px) 100%, 3px 100%,
+    0% calc(100% - 3px), 0% 3px
+  );
+}
+
+.lite-pin-dot.filled {
+  background: var(--bg);
+}
+
+/* ── Number Key Grid ── */
+.lite-numpad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  flex: 1;
+}
+
+/* ── Number Key ── */
+.lite-num-key {
+  background: #1a1a1a;
+  color: var(--mint);
+  font-family: var(--fh);
+  font-size: 32px;
+  border: none;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  clip-path: polygon(
+    4px 0%, calc(100% - 4px) 0%,
+    100% 4px, 100% calc(100% - 4px),
+    calc(100% - 4px) 100%, 4px 100%,
+    0% calc(100% - 4px), 0% 4px
+  );
+}
+
+.lite-num-key--clr {
+  background: #ff3355;
+  color: #1a1a1a;
+  font-size: 24px;
+}
+
+.lite-num-key--submit {
+  background: #9ACD32;
+  color: #1a1a1a;
+  font-size: 24px;
+}
+
+/* ── PIN Error Flash ── */
+@keyframes pinFlashRed {
+  0%, 100% { border-color: var(--mint); }
+  50% { border-color: #ff3355; }
+}
+
+.lite-pin-panel.error {
+  animation: pinFlashRed 0.3s ease 2;
+}
+
+/* ── Placeholder Scene ── */
+.lite-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 16px;
+}
+
+.lite-placeholder__title {
+  font-family: var(--fh);
+  font-size: 28px;
+  color: var(--mint);
+}
+
+.lite-placeholder__label {
+  font-family: var(--fb);
+  font-size: 16px;
+  color: var(--mint);
+  opacity: 0.5;
+  letter-spacing: 4px;
+}
+
+.lite-placeholder__back {
+  background: var(--bg2);
+  border: 2px solid var(--mint);
+  color: var(--mint);
+  font-family: var(--fb);
+  font-size: 18px;
+  padding: 10px 24px;
+  cursor: pointer;
+  border-radius: 0;
+  clip-path: polygon(
+    6px 0%, calc(100% - 6px) 0%,
+    100% 6px, 100% calc(100% - 6px),
+    calc(100% - 6px) 100%, 6px 100%,
+    0% calc(100% - 6px), 0% 6px
+  );
+}
+
+/* ── Brand Watermark ── */
+.lite-brand {
+  font-family: var(--fh);
+  font-size: 14px;
+}

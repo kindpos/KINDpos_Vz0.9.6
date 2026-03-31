@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KINDpos Lite — Terminal Vz1.0</title>
+  <link rel="stylesheet" href="../css/variables.css">
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="css/lite.css">
+</head>
+<body>
+  <div id="lite-app">
+    <div id="lite-tbar"></div>
+    <div id="lite-scene"></div>
+    <div id="lite-sbar"></div>
+  </div>
+
+  <script type="module">
+    // ═══════════════════════════════════════════════════
+    //  KINDpos Lite — Boot Sequence
+    //  Nice. Dependable. Yours.
+    // ═══════════════════════════════════════════════════
+
+    // Import all scenes (each self-registers)
+    import './scenes/lite-login.js';
+    import './scenes/lite-checks.js';
+    import './scenes/lite-order.js';
+    import './scenes/lite-payment.js';
+    import './scenes/lite-clock.js';
+    import './scenes/lite-reporting.js';
+    import './scenes/lite-config.js';
+    import './scenes/lite-close-day.js';
+
+    // Import and initialize scene manager
+    import { LiteSceneManager } from './lite-scene-manager.js';
+
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('  KINDpos Lite — Nice. Dependable. Yours.');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('  Fallback PINs: Manager=0000  Server=9999');
+
+    LiteSceneManager.init();
+  </script>
+</body>
+</html>
