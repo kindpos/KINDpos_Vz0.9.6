@@ -23,16 +23,29 @@ export const FALLBACK_ROSTER = [
 // Categories with only a few items can be flat arrays (no subcats)
 export const FALLBACK_MENU = {
   "Food": {
-    "Mains":  [{ name: "Smash Burger", price: 12 }, { name: "Chicken Sand.", price: 11 }, { name: "Hot Dog", price: 8, is86: true }, { name: "Veggie Wrap", price: 10 }, { name: "Fish Tacos", price: 13 }, { name: "Ribeye", price: 24, isSpecial: true }],
-    "Sides":  [{ name: "Waffle Fries", price: 5 }, { name: "Onion Rings", price: 5 }, { name: "Slaw", price: 4 }, { name: "Side Salad", price: 4 }, { name: "Mac & Cheese", price: 6 }],
-    "Extras": [{ name: "Cheese +", price: 1 }, { name: "Bacon +", price: 2 }, { name: "Sauce", price: 0.5 }, { name: "Jalapeños", price: 0.5 }, { name: "Avocado", price: 1.5 }],
+    "Appetizers": {
+      "Wings":  [{ name: "Buffalo", price: 13 }, { name: "BBQ", price: 13 }, { name: "Teriyaki", price: 13 }, { name: "Nashville Hot", price: 14 }],
+      "Nachos":  [{ name: "Classic", price: 11 }, { name: "Supreme", price: 13 }, { name: "Chicken", price: 14 }],
+      "Salads":  [{ name: "Caesar", price: 10 }, { name: "House", price: 9 }, { name: "Cobb", price: 12 }],
+    },
+    "Entrees": {
+      "Burgers": [{ name: "Classic", price: 12 }, { name: "Cheese", price: 13 }, { name: "Bacon", price: 14 }, { name: "Mushroom Swiss", price: 15 }],
+      "Pasta":   [{ name: "Alfredo", price: 14 }, { name: "Marinara", price: 13 }, { name: "Carbonara", price: 15 }],
+      "Steaks":  [{ name: "Ribeye", price: 28 }, { name: "NY Strip", price: 26 }, { name: "Filet", price: 32 }],
+    },
+    "Sides": [{ name: "Fries", price: 5 }, { name: "Sweet Potato Fries", price: 6 }, { name: "Onion Rings", price: 5 }, { name: "Mac & Cheese", price: 6 }, { name: "Coleslaw", price: 4 }, { name: "Steamed Veggies", price: 5 }],
   },
   "Drinks": {
-    "Non-Alc": [{ name: "Lemonade", price: 4 }, { name: "Soda", price: 3 }, { name: "Water", price: 2 }, { name: "Iced Tea", price: 3 }, { name: "Coffee", price: 3 }],
-    "Beer":    [{ name: "IPA Draft", price: 7 }, { name: "Lager Draft", price: 6 }, { name: "Pilsner", price: 6 }, { name: "Stout", price: 8 }],
-    "Wine":    [{ name: "House Red", price: 9 }, { name: "House White", price: 9 }, { name: "Prosecco", price: 11 }, { name: "Cab Sauv.", price: 12 }],
+    "Soda":   [{ name: "Cola", price: 3 }, { name: "Lemon-Lime", price: 3 }, { name: "Root Beer", price: 3 }, { name: "Ginger Ale", price: 3 }],
+    "Juice":  [{ name: "Orange", price: 4 }, { name: "Apple", price: 4 }, { name: "Cranberry", price: 4 }],
+    "Coffee": [{ name: "Regular", price: 3 }, { name: "Decaf", price: 3 }, { name: "Espresso", price: 4 }, { name: "Latte", price: 5 }],
+    "Beer":   [{ name: "IPA", price: 7 }, { name: "Lager", price: 6 }, { name: "Stout", price: 8 }, { name: "Pilsner", price: 6 }],
   },
-  "Desserts": [{ name: "Brownie", price: 6 }, { name: "Ice Cream", price: 5 }, { name: "Cheesecake", price: 8 }],
+  "Desserts": {
+    "Cakes":     [{ name: "Chocolate", price: 8 }, { name: "Red Velvet", price: 8 }, { name: "Cheesecake", price: 9 }, { name: "Carrot", price: 8 }],
+    "Ice Cream": [{ name: "Vanilla", price: 5 }, { name: "Chocolate", price: 5 }, { name: "Strawberry", price: 5 }, { name: "Mint Chip", price: 6 }],
+    "Pies":      [{ name: "Apple", price: 7 }, { name: "Pecan", price: 8 }, { name: "Key Lime", price: 8 }],
+  },
 };
 
 export const MODIFIERS = {

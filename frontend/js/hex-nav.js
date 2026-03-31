@@ -64,25 +64,116 @@ function secondRingPositions(cx, cy, centerRadius, ringRadius) {
   return positions;
 }
 
-/** Honeycomb grid from top-left with row wrapping. */
-function honeycombGridPositions(startX, startY, outerW, outerH, count, maxWidth, margin) {
-  const colSpacing = outerW * GAP_MULTIPLIER;
-  const rowSpacing = outerH * 0.75 * GAP_MULTIPLIER;
-  const positions = [];
-  let row = 0;
-  let col = 0;
-  while (positions.length < count) {
-    const isOddRow = row % 2 === 1;
-    const xOffset = isOddRow ? colSpacing / 2 : 0;
-    const x = startX + col * colSpacing + xOffset;
-    const y = startY + row * rowSpacing;
-    if (x + outerW / 2 > maxWidth - margin && col > 0) {
-      row++;
-      col = 0;
-      continue;
+/**
+ * Centered honeycomb positions for root-level items.
+ * Hand-tuned layouts for small counts (1-8), grid fallback for 9+.
+ * All positions centered within the container for a balanced look.
+ */
+function centeredHoneycombPositions(cx, cy, outerW, outerH, count, containerW, containerH, margin) {
+  // Tight spacing — feels clustered like a real honeycomb
+  const colSpacing = outerW * 1.02;
+  const rowSpacing = outerH * 0.76;
+  const halfCol = colSpacing / 2;
+
+  if (count <= 8) {
+    // Hand-tuned centered layouts per count
+    let offsets;
+    switch (count) {
+      case 1:
+        offsets = [[0, 0]];
+        break;
+      case 2:
+        offsets = [[-halfCol, 0], [halfCol, 0]];
+        break;
+      case 3:
+        // Triangle: 1 top centered, 2 below staggered
+        offsets = [
+          [0, -rowSpacing * 0.5],
+          [-halfCol, rowSpacing * 0.5],
+          [halfCol, rowSpacing * 0.5],
+        ];
+        break;
+      case 4:
+        // Diamond: 1 top, 2 middle, 1 bottom
+        offsets = [
+          [0, -rowSpacing],
+          [-halfCol, 0],
+          [halfCol, 0],
+          [0, rowSpacing],
+        ];
+        break;
+      case 5:
+        // 2 top row, 3 bottom row (staggered)
+        offsets = [
+          [-halfCol, -rowSpacing * 0.5],
+          [halfCol, -rowSpacing * 0.5],
+          [-colSpacing, rowSpacing * 0.5],
+          [0, rowSpacing * 0.5],
+          [colSpacing, rowSpacing * 0.5],
+        ];
+        break;
+      case 6:
+        // 3 top row, 3 bottom row (staggered)
+        offsets = [
+          [-colSpacing, -rowSpacing * 0.5],
+          [0, -rowSpacing * 0.5],
+          [colSpacing, -rowSpacing * 0.5],
+          [-halfCol, rowSpacing * 0.5],
+          [halfCol, rowSpacing * 0.5],
+          [colSpacing + halfCol, rowSpacing * 0.5],
+        ];
+        break;
+      case 7:
+        // 3 top, 4 bottom
+        offsets = [
+          [-colSpacing, -rowSpacing * 0.5],
+          [0, -rowSpacing * 0.5],
+          [colSpacing, -rowSpacing * 0.5],
+          [-colSpacing - halfCol, rowSpacing * 0.5],
+          [-halfCol, rowSpacing * 0.5],
+          [halfCol, rowSpacing * 0.5],
+          [colSpacing + halfCol, rowSpacing * 0.5],
+        ];
+        break;
+      case 8:
+        // 3 top, 2 middle, 3 bottom
+        offsets = [
+          [-colSpacing, -rowSpacing],
+          [0, -rowSpacing],
+          [colSpacing, -rowSpacing],
+          [-halfCol, 0],
+          [halfCol, 0],
+          [-colSpacing, rowSpacing],
+          [0, rowSpacing],
+          [colSpacing, rowSpacing],
+        ];
+        break;
+      default:
+        offsets = [[0, 0]];
     }
-    positions.push({ x, y });
-    col++;
+    return offsets.map(([dx, dy]) => ({ x: cx + dx, y: cy + dy }));
+  }
+
+  // 9+ items: centered honeycomb grid fallback
+  const cols = Math.ceil(Math.sqrt(count * 1.15));
+  const rows = Math.ceil(count / cols);
+  const gridW = (cols - 1) * colSpacing + halfCol; // account for stagger
+  const gridH = (rows - 1) * rowSpacing;
+  const startX = cx - gridW / 2;
+  const startY = cy - gridH / 2;
+
+  const positions = [];
+  let idx = 0;
+  for (let r = 0; r < rows && positions.length < count; r++) {
+    const isOddRow = r % 2 === 1;
+    const xOff = isOddRow ? halfCol : 0;
+    const rowCols = isOddRow ? cols - 1 : cols;
+    for (let c = 0; c < rowCols && positions.length < count; c++) {
+      positions.push({
+        x: startX + c * colSpacing + xOff,
+        y: startY + r * rowSpacing,
+      });
+    }
   }
   return positions;
 }
@@ -317,14 +408,14 @@ export class HexNav {
     }
   }
 
-  /** Render root-level items in honeycomb grid from top-left. */
+  /** Render root-level items in centered honeycomb layout. */
   _renderRootItems() {
     const items = this.data;
-    const positions = honeycombGridPositions(
-      this._originX, this._originY,
+    const positions = centeredHoneycombPositions(
+      this._containerW / 2, this._containerH / 2,
       this._outerW, this._outerH,
       items.length,
-      this._containerW, ORIGIN_MARGIN
+      this._containerW, this._containerH, ORIGIN_MARGIN
     );
 
     const maxItems = Math.min(items.length, positions.length);
