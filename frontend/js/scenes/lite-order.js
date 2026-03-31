@@ -1,14 +1,12 @@
 // ═══════════════════════════════════════════════════
 //  KINDpos/lite — Order Entry Scene
 //  Hex-nav item selection + running ticket panel.
-//  Standalone variant — no imports from other scenes.
 // ═══════════════════════════════════════════════════
 
+import { APP, $ } from '../app.js';
+import { registerLiteScene, liteGo } from '../lite-scene-manager.js';
 import { HexNav } from '../hex-nav.js';
 import { CFG, FALLBACK_MENU, MODIFIERS, MOD_PREFIXES } from '../config.js';
-
-// Detect standalone mode (lite-order.html) vs SPA mode (lite.html)
-const STANDALONE = !!document.getElementById('lite-app');
 
 // ── Data Transforms ──────────────────────────────────────────────────────────
 
@@ -23,7 +21,6 @@ function buildHexMenuData(menu) {
     const catNode = { id: `cat-${catName}`, label: catName, color, children: [] };
 
     if (Array.isArray(catVal)) {
-      // Flat array of items — no subcategory level
       for (const item of catVal) {
         catNode.children.push({
           id: `item-${catName}-${item.name}`,
@@ -33,7 +30,6 @@ function buildHexMenuData(menu) {
         });
       }
     } else {
-      // Nested subcategories
       for (const [subName, subVal] of Object.entries(catVal)) {
         if (Array.isArray(subVal)) {
           const subNode = { id: `sub-${catName}-${subName}`, label: subName, color, children: [] };
@@ -47,7 +43,6 @@ function buildHexMenuData(menu) {
           }
           catNode.children.push(subNode);
         } else {
-          // Another nesting level (subcategory → sub-subcategory)
           const subNode = { id: `sub-${catName}-${subName}`, label: subName, color, children: [] };
           for (const [leafCat, leafItems] of Object.entries(subVal)) {
             if (Array.isArray(leafItems)) {
@@ -83,7 +78,6 @@ function buildHexModData(mods) {
       children: [],
     };
     for (const item of items) {
-      // Each modifier shows prefix options as children
       groupNode.children.push({
         id: `mod-${groupName}-${item.name}`,
         label: item.name,
@@ -102,471 +96,334 @@ function buildHexModData(mods) {
   return groups;
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
-// ── Ticket State ─────────────────────────────────────────────────────────────
-
-const ticket = {
-  lines: [],
-  selectedId: null,
-  orderId: `LO-${Date.now().toString(36)}`,
-};
-
-function addTicketLine(item) {
-  // If same item exists and is not sent, increment quantity
-  const existing = ticket.lines.find(l => l.itemId === item.id && !l.sent);
-  if (existing) {
-    existing.quantity++;
-    existing.lineTotal = existing.unitPrice * existing.quantity;
-    renderTicket();
-    updateTotals();
-    return;
-  }
-
-  ticket.lines.push({
-    id: crypto.randomUUID(),
-    itemId: item.id,
-    name: item.label,
-    category: '',
-    quantity: 1,
-    modifiers: [],
-    unitPrice: item.price || 0,
-    lineTotal: item.price || 0,
-    sent: false,
-    seat: null,
-  });
-  renderTicket();
-  updateTotals();
-}
-
-function addModifierToSelected(item) {
-  if (!ticket.selectedId) return;
-  const line = ticket.lines.find(l => l.id === ticket.selectedId);
-  if (!line || line.sent) return;
-
-  line.modifiers.push({
-    id: item.id,
-    name: item.modName || item.label,
-    prefix: item.prefix || 'ADD',
-  });
-  renderTicket();
-}
-
-function getSelectedTicketLine() {
-  if (!ticket.selectedId) return null;
-  return ticket.lines.find(l => l.id === ticket.selectedId) || null;
-}
-
-function calcTotals() {
-  const subtotal = ticket.lines.reduce((s, l) => s + l.lineTotal, 0);
-  const tax = subtotal * CFG.TAX;
-  const cardPrice = subtotal + tax;
-  const cashPrice = subtotal + tax;
-  return { subtotal, tax, cardPrice, cashPrice };
-}
-
-function fmt(n) {
-  return '$' + n.toFixed(2);
-}
-
-
-// ── Rendering ────────────────────────────────────────────────────────────────
-
-function renderTicket() {
-  const el = document.getElementById('ticket-scroll');
-  if (!el) return;
-
-  if (ticket.lines.length === 0) {
-    el.innerHTML = '<div style="text-align:center;opacity:0.35;padding:24px;font-size:12px;">No items</div>';
-    return;
-  }
-
-  let html = '';
-  for (const line of ticket.lines) {
-    const selected = line.id === ticket.selectedId;
-    const classes = ['ticket-line'];
-    if (selected) classes.push('selected');
-    if (line.sent) classes.push('sent');
-
-    html += `<div class="${classes.join(' ')}" data-line-id="${line.id}">`;
-    html += `<span>${line.quantity > 1 ? line.quantity + '× ' : ''}${line.name}</span>`;
-    html += `<span style="color:#fcbe40">${fmt(line.lineTotal)}</span>`;
-    html += `</div>`;
-
-    // Render modifiers
-    for (const mod of line.modifiers) {
-      html += `<div class="modifier-line${line.sent ? ' sent' : ''}">${mod.prefix} ${mod.name}</div>`;
-    }
-  }
-  el.innerHTML = html;
-
-  // Bind click handlers for selection
-  el.querySelectorAll('.ticket-line').forEach(div => {
-    div.addEventListener('click', () => {
-      const id = div.dataset.lineId;
-      if (ticket.selectedId === id) {
-        ticket.selectedId = null; // deselect
-      } else {
-        ticket.selectedId = id;
-      }
-      renderTicket();
-    });
-  });
-}
-
-function updateTotals() {
-  const t = calcTotals();
-
-  // Totals panel (left column)
-  const tpSub = document.getElementById('tp-subtotal');
-  const tpTax = document.getElementById('tp-tax');
-  const tpCard = document.getElementById('tp-card');
-  const tpCash = document.getElementById('tp-cash');
-  if (tpSub) tpSub.textContent = fmt(t.subtotal);
-  if (tpTax) tpTax.textContent = fmt(t.tax);
-  if (tpCard) tpCard.textContent = fmt(t.cardPrice);
-  if (tpCash) tpCash.textContent = fmt(t.cashPrice);
-
-  // Financial display (bottom bar)
-  const fdSub = document.getElementById('fd-subtotal');
-  const fdTax = document.getElementById('fd-tax');
-  const fdCard = document.getElementById('fd-card');
-  const fdCash = document.getElementById('fd-cash');
-  if (fdSub) fdSub.textContent = fmt(t.subtotal);
-  if (fdTax) fdTax.textContent = fmt(t.tax);
-  if (fdCard) fdCard.textContent = fmt(t.cardPrice);
-  if (fdCash) fdCash.textContent = fmt(t.cashPrice);
-}
-
-
-// ── Toast ────────────────────────────────────────────────────────────────────
+function fmt(n) { return '$' + n.toFixed(2); }
 
 function showToast(msg, duration = 1500) {
-  const el = document.getElementById('toast');
+  const el = $('lo-toast');
   if (!el) return;
   el.textContent = msg;
   el.style.display = 'block';
   setTimeout(() => { el.style.display = 'none'; }, duration);
 }
 
-
-// ── Flash border visual guard ────────────────────────────────────────────────
-
 function flashTicketBorder() {
-  const panel = document.getElementById('ticket-panel');
+  const panel = $('lo-ticket-panel');
   if (!panel) return;
-  panel.classList.remove('flash-border');
-  void panel.offsetWidth; // force reflow
-  panel.classList.add('flash-border');
-  panel.addEventListener('animationend', () => panel.classList.remove('flash-border'), { once: true });
+  panel.style.borderColor = '#fcbe40';
+  setTimeout(() => { panel.style.borderColor = ''; }, 450);
 }
 
+// ── Scene Registration ──────────────────────────────────────────────────────
 
-// ── Clock ────────────────────────────────────────────────────────────────────
+registerLiteScene('lite-order', {
+  onEnter(el, p) {
+    const check = p.check || p.order || { id: `C-${APP.nextNum++}`, items: [], server: APP.staff ? APP.staff.name : 'Server' };
 
-function updateClock() {
-  const now = new Date();
-  const date = now.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
-  const time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-  const el = document.getElementById('status-clock');
-  if (el) el.textContent = `${date} <> ${time} <> QS-001`;
-}
+    // ── Ticket State (scoped to this scene entry) ──
+    const ticket = {
+      lines: [],
+      selectedId: null,
+      orderId: check.id || `LO-${Date.now().toString(36)}`,
+    };
 
-
-// ── Tab Management ───────────────────────────────────────────────────────────
-
-let activeTab = 'items';
-let hexNav = null;
-
-function setActiveTab(tab) {
-  activeTab = tab;
-  const itemsBtn = document.getElementById('tab-items');
-  const modsBtn = document.getElementById('tab-modifiers');
-  if (itemsBtn) itemsBtn.classList.toggle('active', tab === 'items');
-  if (modsBtn) modsBtn.classList.toggle('active', tab === 'modifiers');
-}
-
-
-// ── Button Handlers ──────────────────────────────────────────────────────────
-
-function handleSend() {
-  const unsent = ticket.lines.filter(l => !l.sent);
-  if (unsent.length === 0) {
-    // Flash SEND button border
-    const btn = document.getElementById('btn-send');
-    if (btn) {
-      btn.style.borderColor = '#fcbe40';
-      setTimeout(() => { btn.style.borderColor = '#228833'; }, 300);
+    // Hydrate from passed check
+    if (check.items && check.items.length) {
+      ticket.lines = check.items.map(item => ({
+        id: crypto.randomUUID(),
+        itemId: item.name,
+        name: item.name,
+        category: '',
+        quantity: item.qty || 1,
+        modifiers: item.mods ? item.mods.map(m => ({ id: m.name, name: m.name, prefix: 'ADD' })) : [],
+        unitPrice: item.price || 0,
+        lineTotal: (item.price || 0) * (item.qty || 1),
+        sent: false,
+        seat: null,
+      }));
     }
-    return;
-  }
 
-  // Mark sent locally
-  unsent.forEach(l => { l.sent = true; });
-  renderTicket();
-  showToast('Order sent', 1200);
+    let activeTab = 'items';
+    let hexNav = null;
+    let clockInterval = null;
 
-  // Fire to kitchen (best-effort POST)
-  const payload = {
-    orderId: ticket.orderId,
-    items: unsent.map(l => ({
-      id: l.id,
-      itemId: l.itemId,
-      name: l.name,
-      quantity: l.quantity,
-      modifiers: l.modifiers,
-      unitPrice: l.unitPrice,
-      lineTotal: l.lineTotal,
-    })),
-  };
+    // ── Totals ──
+    function calcTotals() {
+      const subtotal = ticket.lines.reduce((s, l) => s + l.lineTotal, 0);
+      const tax = subtotal * CFG.TAX;
+      const cardPrice = subtotal + tax;
+      const cashPrice = subtotal + tax;
+      return { subtotal, tax, cardPrice, cashPrice };
+    }
 
-  fetch((CFG.API_BASE || '') + `/api/orders/${ticket.orderId}/items`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  }).catch(() => {
-    // Queue failed — show indicator
-    const statusRight = document.getElementById('status-right');
-    if (statusRight) statusRight.textContent = '⚠ QUEUED';
-  });
-}
+    function updateTotals() {
+      const t = calcTotals();
+      const ids = [
+        ['lo-tp-sub', t.subtotal], ['lo-tp-tax', t.tax], ['lo-tp-card', t.cardPrice], ['lo-tp-cash', t.cashPrice],
+        ['lo-fd-sub', t.subtotal], ['lo-fd-tax', t.tax], ['lo-fd-card', t.cardPrice], ['lo-fd-cash', t.cashPrice],
+      ];
+      for (const [id, val] of ids) {
+        const e = $(id);
+        if (e) e.textContent = fmt(val);
+      }
+    }
 
-function handlePrint() {
-  const t = calcTotals();
-  const payload = {
-    orderId: ticket.orderId,
-    lines: ticket.lines.map(l => ({
-      name: l.name,
-      quantity: l.quantity,
-      modifiers: l.modifiers,
-      lineTotal: l.lineTotal,
-    })),
-    subtotal: t.subtotal,
-    tax: t.tax,
-    cardPrice: t.cardPrice,
-    cashPrice: t.cashPrice,
-    stationId: 'QS-001',
-    dateTime: new Date().toISOString(),
-  };
+    // ── Ticket Rendering ──
+    function renderTicket() {
+      const scrollEl = $('lo-ticket-scroll');
+      if (!scrollEl) return;
 
-  fetch((CFG.API_BASE || '') + '/api/print/receipt', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  }).then(() => {
-    showToast('Receipt printing', 1200);
-  }).catch(() => {
-    showToast('Print failed — check printer', 2000);
-  });
-}
+      if (ticket.lines.length === 0) {
+        scrollEl.innerHTML = '<div style="text-align:center;opacity:0.35;padding:24px;font-size:12px;">No items</div>';
+        return;
+      }
 
-function handleVoid() {
-  if (!ticket.selectedId) {
-    flashTicketBorder();
-    return;
-  }
-  const idx = ticket.lines.findIndex(l => l.id === ticket.selectedId);
-  if (idx === -1) return;
-  ticket.lines.splice(idx, 1);
-  ticket.selectedId = null;
-  renderTicket();
-  updateTotals();
-}
+      let html = '';
+      for (const line of ticket.lines) {
+        const sel = line.id === ticket.selectedId;
+        const sentCls = line.sent ? 'opacity:0.45;' : '';
+        const selBg = sel ? 'background:rgba(252,190,64,0.12);border-left:3px solid #fcbe40;padding-left:7px;' : '';
+        html += `<div data-lid="${line.id}" style="display:flex;justify-content:space-between;padding:4px 0;color:#fff;font-size:13px;cursor:pointer;user-select:none;${sentCls}${selBg}">`;
+        html += `<span>${line.quantity > 1 ? line.quantity + '× ' : ''}${line.name}</span>`;
+        html += `<span style="color:#fcbe40">${fmt(line.lineTotal)}</span>`;
+        html += `</div>`;
+        for (const mod of line.modifiers) {
+          html += `<div style="color:#fcbe40;font-size:11px;padding-left:12px;${sentCls}">${mod.prefix} ${mod.name}</div>`;
+        }
+      }
+      scrollEl.innerHTML = html;
 
-function handleDisc() {
-  console.log('[KINDpos/lite] DISC — not yet implemented in lite');
-  showToast('DISC — not yet implemented in lite', 1500);
-}
+      scrollEl.querySelectorAll('[data-lid]').forEach(div => {
+        div.addEventListener('click', () => {
+          const id = div.dataset.lid;
+          ticket.selectedId = ticket.selectedId === id ? null : id;
+          renderTicket();
+        });
+      });
+    }
 
-function handleSave() {
-  const t = calcTotals();
-  const payload = {
-    orderId: ticket.orderId,
-    lines: ticket.lines,
-    totals: t,
-    stationId: 'QS-001',
-    savedAt: new Date().toISOString(),
-  };
+    // ── Item / Modifier Actions ──
+    function addTicketLine(item) {
+      const existing = ticket.lines.find(l => l.itemId === item.id && !l.sent);
+      if (existing) {
+        existing.quantity++;
+        existing.lineTotal = existing.unitPrice * existing.quantity;
+      } else {
+        ticket.lines.push({
+          id: crypto.randomUUID(),
+          itemId: item.id,
+          name: item.label,
+          category: '',
+          quantity: 1,
+          modifiers: [],
+          unitPrice: item.price || 0,
+          lineTotal: item.price || 0,
+          sent: false,
+          seat: null,
+        });
+      }
+      renderTicket();
+      updateTotals();
+    }
 
-  fetch((CFG.API_BASE || '') + `/api/orders/${ticket.orderId}/save`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  }).catch(() => {
-    // Silent fail — toast still shows
-  });
+    function addModifierToSelected(item) {
+      if (!ticket.selectedId) return;
+      const line = ticket.lines.find(l => l.id === ticket.selectedId);
+      if (!line || line.sent) return;
+      line.modifiers.push({
+        id: item.id,
+        name: item.modName || item.label,
+        prefix: item.prefix || 'ADD',
+      });
+      renderTicket();
+    }
 
-  showToast('Order saved', 1500);
-}
+    // ── Tab Switching ──
+    function setActiveTab(tab) {
+      activeTab = tab;
+      const itemsBtn = $('lo-tab-items');
+      const modsBtn = $('lo-tab-mods');
+      if (itemsBtn) itemsBtn.style.background = tab === 'items' ? 'rgba(255,255,255,0.06)' : 'transparent';
+      if (modsBtn) modsBtn.style.background = tab === 'modifiers' ? 'rgba(255,255,255,0.06)' : 'transparent';
+    }
 
-function handlePay() {
-  const t = calcTotals();
-  // Navigate to payment — try lite scene manager if available, else direct
-  if (typeof window.go === 'function') {
-    window.go('lite-payment', {
-      orderId: ticket.orderId,
-      check: { id: ticket.orderId, items: ticket.lines, total: t.cardPrice },
-      cardPrice: t.cardPrice,
-      cashPrice: t.cashPrice,
-    });
-  } else {
-    showToast('Payment scene not available', 1500);
-  }
-}
+    // ── Button Handlers ──
+    function handleSend() {
+      const unsent = ticket.lines.filter(l => !l.sent);
+      if (unsent.length === 0) {
+        const btn = $('lo-btn-send');
+        if (btn) { btn.style.borderColor = '#fcbe40'; setTimeout(() => { btn.style.borderColor = '#228833'; }, 300); }
+        return;
+      }
+      unsent.forEach(l => { l.sent = true; });
+      renderTicket();
+      showToast('Order sent', 1200);
 
+      fetch((CFG.API_BASE || '') + `/api/orders/${ticket.orderId}/items`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: ticket.orderId, items: unsent.map(l => ({ id: l.id, itemId: l.itemId, name: l.name, quantity: l.quantity, modifiers: l.modifiers, unitPrice: l.unitPrice, lineTotal: l.lineTotal })) }),
+      }).catch(() => {
+        const sr = $('lo-status-right');
+        if (sr) sr.textContent = '\u26A0 QUEUED';
+      });
+    }
 
-// ── SPA Mode (lite.html) Registration ────────────────────────────────────────
+    function handlePrint() {
+      const t = calcTotals();
+      fetch((CFG.API_BASE || '') + '/api/print/receipt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: ticket.orderId, lines: ticket.lines.map(l => ({ name: l.name, quantity: l.quantity, modifiers: l.modifiers, lineTotal: l.lineTotal })), subtotal: t.subtotal, tax: t.tax, cardPrice: t.cardPrice, cashPrice: t.cashPrice, stationId: 'QS-001', dateTime: new Date().toISOString() }),
+      }).then(() => showToast('Receipt printing', 1200)).catch(() => showToast('Print failed — check printer', 2000));
+    }
 
-if (!STANDALONE) {
-  // Dynamically import lite-scene-manager only in SPA context
-  import('../lite-scene-manager.js').then(({ registerLiteScene }) => {
-    registerLiteScene('lite-order', {
-      onEnter(el, p) {
-        // Build the full lite-order UI inside the SPA scene container
-        el.style.cssText = 'display:flex;flex-direction:column;height:100%;';
-        el.innerHTML = buildSceneHTML();
+    function handleVoid() {
+      if (!ticket.selectedId) { flashTicketBorder(); return; }
+      const idx = ticket.lines.findIndex(l => l.id === ticket.selectedId);
+      if (idx === -1) return;
+      ticket.lines.splice(idx, 1);
+      ticket.selectedId = null;
+      renderTicket();
+      updateTotals();
+    }
 
-        // Use passed check or create a working ticket
-        if (p && p.check) {
-          ticket.orderId = p.check.id || ticket.orderId;
-          if (p.check.items) {
-            ticket.lines = p.check.items.map(item => ({
-              id: crypto.randomUUID(),
-              itemId: item.name,
-              name: item.name,
-              category: '',
-              quantity: item.qty || 1,
-              modifiers: [],
-              unitPrice: item.price || 0,
-              lineTotal: (item.price || 0) * (item.qty || 1),
-              sent: false,
-              seat: null,
-            }));
+    function handleDisc() {
+      console.log('[KINDpos/lite] DISC — not yet implemented in lite');
+      showToast('DISC — not yet implemented in lite', 1500);
+    }
+
+    function handleSave() {
+      const t = calcTotals();
+      fetch((CFG.API_BASE || '') + `/api/orders/${ticket.orderId}/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: ticket.orderId, lines: ticket.lines, totals: t, stationId: 'QS-001', savedAt: new Date().toISOString() }),
+      }).catch(() => {});
+      showToast('Order saved', 1500);
+    }
+
+    function handlePay() {
+      const t = calcTotals();
+      check.items = ticket.lines.map(l => ({ name: l.name, price: l.unitPrice, qty: l.quantity, mods: l.modifiers }));
+      check.total = t.cardPrice;
+      liteGo('lite-payment', { check, cardPrice: t.cardPrice, cashPrice: t.cashPrice });
+    }
+
+    // ── Clock ──
+    function updateClock() {
+      const now = new Date();
+      const date = now.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+      const time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      const e = $('lo-status-clock');
+      if (e) e.textContent = `${date} <> ${time} <> QS-001`;
+    }
+
+    // ── Build DOM ──
+    el.style.cssText = 'display:flex;flex-direction:column;height:100%;';
+    el.innerHTML = `
+      <style>
+        @keyframes lo-flash { 0%,100%{border-color:#C6FFBB} 50%{border-color:#fcbe40} }
+        #lo-ticket-scroll::-webkit-scrollbar{width:4px}
+        #lo-ticket-scroll::-webkit-scrollbar-thumb{background:#C6FFBB;border-radius:0}
+        #lo-ticket-scroll::-webkit-scrollbar-track{background:#222}
+      </style>
+
+      <!-- Status Bar -->
+      <div style="height:28px;width:100%;background:#222;border-bottom:2px solid #C6FFBB;padding:0 10px;display:flex;align-items:center;justify-content:space-between;font-size:13px;color:#C6FFBB;flex-shrink:0;">
+        <span id="lo-status-clock"></span>
+        <span id="lo-status-right"></span>
+      </div>
+
+      <!-- Main Content Box -->
+      <div style="flex:1;margin:2px 8px 0 8px;border:2px solid #C6FFBB;display:flex;overflow:hidden;min-height:0;">
+
+        <!-- Left Column: Ticket Panel -->
+        <div id="lo-ticket-panel" style="width:293px;flex-shrink:0;border-right:2px solid #C6FFBB;display:flex;flex-direction:column;">
+          <div id="lo-ticket-scroll" style="flex:1;overflow-y:auto;padding:8px 10px;min-height:0;"></div>
+          <div style="border-top:2px solid #C6FFBB;padding:6px 10px;font-size:12px;flex-shrink:0;">
+            <div style="display:flex;justify-content:space-between;padding:1px 0"><span style="color:#fff">Subtotal:</span><span style="color:#fcbe40" id="lo-tp-sub">$0.00</span></div>
+            <div style="display:flex;justify-content:space-between;padding:1px 0"><span style="color:#fff">Tax:</span><span style="color:#fcbe40" id="lo-tp-tax">$0.00</span></div>
+            <div style="display:flex;justify-content:space-between;padding:1px 0"><span style="color:#33ffff">Card Price:</span><span style="color:#33ffff" id="lo-tp-card">$0.00</span></div>
+            <div style="display:flex;justify-content:space-between;padding:1px 0"><span style="color:#33ffff">Cash Price:</span><span style="color:#33ffff" id="lo-tp-cash">$0.00</span></div>
+          </div>
+        </div>
+
+        <!-- Right Column: Hex Nav Panel -->
+        <div style="flex:1;display:flex;flex-direction:column;min-width:0;">
+          <div id="lo-hex-canvas" style="flex:1;position:relative;overflow:hidden;background:#222;min-height:0;"></div>
+          <div style="height:44px;border-top:2px solid #C6FFBB;display:flex;align-items:center;justify-content:center;gap:16px;background:#1a1a1a;flex-shrink:0;">
+            <button id="lo-tab-items" style="width:120px;height:28px;border:2px solid #C6FFBB;color:#C6FFBB;background:rgba(255,255,255,0.06);font-family:var(--fb);font-size:13px;letter-spacing:1px;cursor:pointer;border-radius:0;">Items</button>
+            <button id="lo-tab-mods" style="width:160px;height:28px;border:2px solid #fcbe40;color:#fcbe40;background:transparent;font-family:var(--fb);font-size:13px;letter-spacing:1px;cursor:pointer;border-radius:0;">modifiers</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Action Bar -->
+      <div style="height:78px;width:100%;background:#1a1a1a;display:flex;flex-shrink:0;">
+        <div style="width:293px;height:78px;background:#1a1a1a;font-size:11px;padding:4px 8px;display:flex;flex-direction:column;justify-content:center;flex-shrink:0;">
+          <div style="display:flex;justify-content:space-between;padding:1px 0"><span style="color:#fff">Subtotal:</span><span style="color:#fcbe40" id="lo-fd-sub">$0.00</span></div>
+          <div style="display:flex;justify-content:space-between;padding:1px 0"><span style="color:#fff">Tax:</span><span style="color:#fcbe40" id="lo-fd-tax">$0.00</span></div>
+          <div style="display:flex;justify-content:space-between;padding:1px 0"><span style="color:#33ffff">Card Price:</span><span style="color:#33ffff" id="lo-fd-card">$0.00</span></div>
+          <div style="display:flex;justify-content:space-between;padding:1px 0"><span style="color:#33ffff">Cash Price:</span><span style="color:#33ffff" id="lo-fd-cash">$0.00</span></div>
+        </div>
+        <div style="display:flex;flex-direction:column;flex-shrink:0;">
+          <button id="lo-btn-void" style="width:110px;height:37px;background:#cc2200;color:#fff;border:2px solid #cc2200;border-radius:0;font-family:var(--fb);font-size:14px;cursor:pointer;letter-spacing:1px;">VOID</button>
+          <button id="lo-btn-disc" style="width:110px;height:37px;background:#33CC88;color:#1a1a1a;border:2px solid #33CC88;border-radius:0;font-family:var(--fb);font-size:14px;cursor:pointer;letter-spacing:1px;">DISC</button>
+        </div>
+        <button id="lo-btn-send" style="width:176px;height:78px;background:#228833;color:#fff;border:2px solid #228833;border-radius:0;font-family:var(--fb);font-size:22px;cursor:pointer;letter-spacing:1px;flex-shrink:0;">SEND</button>
+        <button id="lo-btn-print" style="width:176px;height:78px;background:#E8A080;color:#1a1a1a;border:2px solid #E8A080;border-radius:0;font-family:var(--fb);font-size:22px;cursor:pointer;letter-spacing:1px;flex-shrink:0;">PRINT</button>
+        <div style="display:flex;flex-direction:column;flex-shrink:0;">
+          <button id="lo-btn-save" style="width:197px;height:37px;background:#1a1a1a;color:#C6FFBB;border:2px solid #C6FFBB;border-radius:0;font-family:var(--fb);font-size:14px;cursor:pointer;letter-spacing:1px;">Save Order</button>
+          <button id="lo-btn-pay" style="width:197px;height:37px;background:#fcbe40;color:#1a1a1a;border:2px solid #fcbe40;border-radius:0;font-family:var(--fb);font-size:14px;cursor:pointer;letter-spacing:1px;">&lt;&lt;PAY&gt;&gt;</button>
+        </div>
+      </div>
+
+      <!-- Toast -->
+      <div id="lo-toast" style="position:absolute;top:40px;left:50%;transform:translateX(-50%);background:#222;color:#C6FFBB;border:2px solid #C6FFBB;padding:8px 24px;font-family:var(--fb);font-size:13px;z-index:999;display:none;"></div>
+    `;
+
+    // ── Wire hex-nav ──
+    const hexContainer = $('lo-hex-canvas');
+    if (hexContainer) {
+      hexNav = new HexNav(hexContainer, {
+        data: buildHexMenuData(FALLBACK_MENU),
+        onSelect: (item) => {
+          if (activeTab === 'modifiers') {
+            addModifierToSelected(item);
+          } else {
+            addTicketLine(item);
           }
-        }
+        },
+        onBack: () => {},
+      });
+    }
 
-        initScene();
-
-        return () => {
-          // Cleanup: destroy hex nav on scene exit
-          if (hexNav) { hexNav.destroy(); hexNav = null; }
-          if (clockInterval) { clearInterval(clockInterval); clockInterval = null; }
-        };
-      },
-    });
-  }).catch(() => {
-    // lite-scene-manager not available — standalone mode fallback
-  });
-}
-
-function buildSceneHTML() {
-  return `
-    <div id="status-bar" style="height:28px;width:100%;background:#222222;border-bottom:2px solid #C6FFBB;padding:0 10px;display:flex;align-items:center;justify-content:space-between;font-size:13px;color:#C6FFBB;flex-shrink:0;">
-      <span id="status-clock"></span>
-      <span id="status-right"></span>
-    </div>
-    <div id="main-content" style="flex:1;margin:2px 8px 0 8px;border:2px solid #C6FFBB;display:flex;overflow:hidden;min-height:0;">
-      <div id="ticket-panel" style="width:293px;flex-shrink:0;border-right:2px solid #C6FFBB;display:flex;flex-direction:column;">
-        <div id="ticket-scroll" style="flex:1;overflow-y:auto;padding:8px 10px;min-height:0;"></div>
-        <div id="totals-panel" style="border-top:2px solid #C6FFBB;padding:6px 10px;font-size:12px;flex-shrink:0;">
-          <div style="display:flex;justify-content:space-between;padding:1px 0;"><span style="color:#fff">Subtotal:</span><span style="color:#fcbe40" id="tp-subtotal">$0.00</span></div>
-          <div style="display:flex;justify-content:space-between;padding:1px 0;"><span style="color:#fff">Tax:</span><span style="color:#fcbe40" id="tp-tax">$0.00</span></div>
-          <div style="display:flex;justify-content:space-between;padding:1px 0;"><span style="color:#33ffff">Card Price:</span><span style="color:#33ffff" id="tp-card">$0.00</span></div>
-          <div style="display:flex;justify-content:space-between;padding:1px 0;"><span style="color:#33ffff">Cash Price:</span><span style="color:#33ffff" id="tp-cash">$0.00</span></div>
-        </div>
-      </div>
-      <div id="hex-panel" style="flex:1;display:flex;flex-direction:column;min-width:0;">
-        <div id="hex-canvas" style="flex:1;position:relative;overflow:hidden;background:#222222;min-height:0;"></div>
-        <div id="tab-row" style="height:44px;border-top:2px solid #C6FFBB;display:flex;align-items:center;justify-content:center;gap:16px;background:#1a1a1a;flex-shrink:0;">
-          <button id="tab-items" style="width:120px;height:28px;border:2px solid #C6FFBB;color:#C6FFBB;background:rgba(255,255,255,0.06);font-family:'Sevastopol Interface',monospace;font-size:13px;letter-spacing:1px;cursor:pointer;border-radius:0;">Items</button>
-          <button id="tab-modifiers" style="width:160px;height:28px;border:2px solid #fcbe40;color:#fcbe40;background:transparent;font-family:'Sevastopol Interface',monospace;font-size:13px;letter-spacing:1px;cursor:pointer;border-radius:0;">modifiers</button>
-        </div>
-      </div>
-    </div>
-    <div id="action-bar" style="height:78px;width:100%;background:#1a1a1a;display:flex;flex-shrink:0;">
-      <div id="financial-display" style="width:293px;height:78px;background:#1a1a1a;font-size:11px;padding:4px 8px;display:flex;flex-direction:column;justify-content:center;flex-shrink:0;">
-        <div style="display:flex;justify-content:space-between;padding:1px 0;"><span style="color:#fff">Subtotal:</span><span style="color:#fcbe40" id="fd-subtotal">$0.00</span></div>
-        <div style="display:flex;justify-content:space-between;padding:1px 0;"><span style="color:#fff">Tax:</span><span style="color:#fcbe40" id="fd-tax">$0.00</span></div>
-        <div style="display:flex;justify-content:space-between;padding:1px 0;"><span style="color:#33ffff">Card Price:</span><span style="color:#33ffff" id="fd-card">$0.00</span></div>
-        <div style="display:flex;justify-content:space-between;padding:1px 0;"><span style="color:#33ffff">Cash Price:</span><span style="color:#33ffff" id="fd-cash">$0.00</span></div>
-      </div>
-      <div style="display:flex;flex-direction:column;flex-shrink:0;">
-        <button id="btn-void" style="width:110px;height:37px;background:#cc2200;color:#fff;border:2px solid #cc2200;border-radius:0;font-family:'Sevastopol Interface',monospace;font-size:14px;cursor:pointer;letter-spacing:1px;">VOID</button>
-        <button id="btn-disc" style="width:110px;height:37px;background:#33CC88;color:#1a1a1a;border:2px solid #33CC88;border-radius:0;font-family:'Sevastopol Interface',monospace;font-size:14px;cursor:pointer;letter-spacing:1px;">DISC</button>
-      </div>
-      <button id="btn-send" style="width:176px;height:78px;background:#228833;color:#fff;border:2px solid #228833;border-radius:0;font-family:'Sevastopol Interface',monospace;font-size:22px;cursor:pointer;letter-spacing:1px;flex-shrink:0;">SEND</button>
-      <button id="btn-print" style="width:176px;height:78px;background:#E8A080;color:#1a1a1a;border:2px solid #E8A080;border-radius:0;font-family:'Sevastopol Interface',monospace;font-size:22px;cursor:pointer;letter-spacing:1px;flex-shrink:0;">PRINT</button>
-      <div style="display:flex;flex-direction:column;flex-shrink:0;">
-        <button id="btn-save" style="width:197px;height:37px;background:#1a1a1a;color:#C6FFBB;border:2px solid #C6FFBB;border-radius:0;font-family:'Sevastopol Interface',monospace;font-size:14px;cursor:pointer;letter-spacing:1px;">Save Order</button>
-        <button id="btn-pay" style="width:197px;height:37px;background:#fcbe40;color:#1a1a1a;border:2px solid #fcbe40;border-radius:0;font-family:'Sevastopol Interface',monospace;font-size:14px;cursor:pointer;letter-spacing:1px;">&lt;&lt;PAY&gt;&gt;</button>
-      </div>
-    </div>
-    <div id="toast" style="position:absolute;top:40px;left:50%;transform:translateX(-50%);background:#222;color:#C6FFBB;border:2px solid #C6FFBB;padding:8px 24px;font-family:'Sevastopol Interface',monospace;font-size:13px;z-index:999;display:none;"></div>
-  `;
-}
-
-// Shared init for both modes
-function initScene() {
-  updateClock();
-  clockInterval = setInterval(updateClock, 1000);
-
-  const hexContainer = document.getElementById('hex-canvas');
-  if (hexContainer) {
-    hexNav = new HexNav(hexContainer, {
-      data: buildHexMenuData(FALLBACK_MENU),
-      onSelect: (item) => {
-        if (activeTab === 'modifiers') {
-          addModifierToSelected(item);
-        } else {
-          addTicketLine(item);
-        }
-      },
-      onBack: () => {},
-    });
-  }
-
-  // Tab switching
-  const tabItems = document.getElementById('tab-items');
-  const tabMods = document.getElementById('tab-modifiers');
-  if (tabItems) {
-    tabItems.addEventListener('click', () => {
-      hexNav.setData(buildHexMenuData(FALLBACK_MENU));
-      setActiveTab('items');
-    });
-  }
-  if (tabMods) {
-    tabMods.addEventListener('click', () => {
-      if (!getSelectedTicketLine()) { flashTicketBorder(); return; }
+    // ── Wire tabs ──
+    const tabItems = $('lo-tab-items');
+    const tabMods = $('lo-tab-mods');
+    if (tabItems) tabItems.addEventListener('click', () => { hexNav.setData(buildHexMenuData(FALLBACK_MENU)); setActiveTab('items'); });
+    if (tabMods) tabMods.addEventListener('click', () => {
+      if (!ticket.selectedId || !ticket.lines.find(l => l.id === ticket.selectedId)) { flashTicketBorder(); return; }
       hexNav.setData(buildHexModData(MODIFIERS));
       setActiveTab('modifiers');
     });
-  }
 
-  // Button handlers
-  const handlers = {
-    'btn-send': handleSend,
-    'btn-print': handlePrint,
-    'btn-void': handleVoid,
-    'btn-disc': handleDisc,
-    'btn-save': handleSave,
-    'btn-pay': handlePay,
-  };
-  for (const [id, fn] of Object.entries(handlers)) {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener('click', fn);
-  }
+    // ── Wire buttons ──
+    const btns = { 'lo-btn-send': handleSend, 'lo-btn-print': handlePrint, 'lo-btn-void': handleVoid, 'lo-btn-disc': handleDisc, 'lo-btn-save': handleSave, 'lo-btn-pay': handlePay };
+    for (const [id, fn] of Object.entries(btns)) { const b = $(id); if (b) b.addEventListener('click', fn); }
 
-  renderTicket();
-  updateTotals();
-}
+    // ── Boot ──
+    updateClock();
+    clockInterval = setInterval(updateClock, 1000);
+    renderTicket();
+    updateTotals();
 
-let clockInterval = null;
-
-// ── Standalone Boot (lite-order.html) ────────────────────────────────────────
-
-if (STANDALONE) {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initScene);
-  } else {
-    initScene();
-  }
-}
+    // ── Cleanup on exit ──
+    return () => {
+      if (hexNav) { hexNav.destroy(); hexNav = null; }
+      if (clockInterval) { clearInterval(clockInterval); clockInterval = null; }
+    };
+  },
+});
