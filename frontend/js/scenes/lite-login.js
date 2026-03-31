@@ -1,19 +1,20 @@
 // ═══════════════════════════════════════════════════
 //  KINDpos Lite — Login Scene
-//  Replicates the login UI but routes to lite scenes.
+//  Three-column layout: Admin | Mode | PIN Pad
 // ═══════════════════════════════════════════════════
 
 import { APP, $, apiFetch } from '../app.js';
-import { CFG, FALLBACK_ROSTER, PALM_LOGO } from '../config.js';
+import { CFG, FALLBACK_ROSTER } from '../config.js';
 import { registerLiteScene, liteGo } from '../lite-scene-manager.js';
-import { T, pinFrame, errBanner, buildNumpadKey, buildActionButton, numpadContainerStyle } from '../theme-manager.js';
+import { T } from '../theme-manager.js';
 
 registerLiteScene('lite-login', {
   onEnter(el) {
     let pin = '';
     let err = '';
-    let holdTimer = null;
+    let selectedMode = null; // null | 'quick-service' | 'quick-bar' | 'quick-pay'
     let roster = [...FALLBACK_ROSTER];
+    let clockInterval = null;
 
     // Fetch live roster + config
     fetchRoster();
@@ -48,56 +49,204 @@ registerLiteScene('lite-login', {
       } catch (_) { /* keep existing tax rate */ }
     }
 
+    // ── Time formatter: dd/mm/yyyy <> hh:mmam/pm ──
+    function liteTime() {
+      const n = new Date();
+      const dd = String(n.getDate()).padStart(2, '0');
+      const mm = String(n.getMonth() + 1).padStart(2, '0');
+      const yyyy = n.getFullYear();
+      let h = n.getHours();
+      const ampm = h >= 12 ? 'pm' : 'am';
+      h = h % 12 || 12;
+      const hh = String(h).padStart(2, '0');
+      const min = String(n.getMinutes()).padStart(2, '0');
+      return `${dd}/${mm}/${yyyy} <> ${hh}:${min}${ampm}`;
+    }
+
+    function updateClock() {
+      const tbar = $('tbar');
+      if (tbar && APP.screen === 'lite-login') {
+        tbar.innerHTML = `<span style="font-family:${T.fh};font-size:28px;color:#1a1a1a;">${liteTime()}</span>`;
+      }
+    }
+
     // ── Draw Login Screen ──
     function draw() {
+      // Override tbar with lite time format
+      updateClock();
+
+      // Hide sbar for clean look
+      const sbar = $('sbar');
+      if (sbar) sbar.style.display = 'none';
+
+      // PIN display dots/underscores
+      const pinChars = Array.from({length: 4}, (_, i) =>
+        i < pin.length
+          ? `<span style="color:${T.mint};">\u25CF</span>`
+          : `<span style="color:${T.mint};opacity:0.4;">_</span>`
+      ).join('&nbsp;&nbsp;');
+
+      // Mode button style helper
+      const modeStyle = (mode) => {
+        const isSelected = selectedMode === mode;
+        const border = isSelected
+          ? `border:7px solid ${T.cyan};box-shadow:0 0 12px ${T.cyan};`
+          : 'border:7px solid #1a1a1a;';
+        return `background:#E0FFD6;${border}border-radius:0;font-family:${T.fh};font-size:36px;color:#1a1a1a;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;flex:1;line-height:1.1;`;
+      };
+
       el.innerHTML = `
-        <div id="login-content" style="display:grid;grid-template-columns:280px 400px 1fr;height:100%;padding:16px;gap:16px;padding-bottom:56px;">
-          <!-- LEFT: BRANDING -->
-          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
-            <img src="${PALM_LOGO}" style="height:300px;width:auto;object-fit:contain;">
-            <div style="font-family:${T.fhiSolid};font-size:36px;color:${T.mint};">KINDpos LITE</div>
+        <div style="display:grid;grid-template-columns:25% 25% 50%;height:100%;padding:12px;gap:12px;position:relative;">
+          <!-- COLUMN 1: Admin Buttons -->
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div id="btn-clock" style="background:${T.mint};border:7px solid #1a1a1a;border-radius:0;font-family:${T.fh};font-size:40px;color:#1a1a1a;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;flex:1;line-height:1.1;">Clock<br>in/out</div>
+            <div id="btn-reporting" style="background:${T.mint};border:7px solid #1a1a1a;border-radius:0;font-family:${T.fh};font-size:40px;color:#1a1a1a;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;flex:1;line-height:1.1;">Reporting</div>
+            <div id="btn-config" style="background:${T.gold};border:7px solid #1a1a1a;border-radius:0;font-family:${T.fh};font-size:32px;color:#1a1a1a;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;flex:0.7;line-height:1.1;">Configuration</div>
           </div>
 
-          <!-- CENTER: NUMPAD -->
-          <div style="display:flex;flex-direction:column;justify-content:center;">
-            <div style="${numpadContainerStyle()}" id="pad"></div>
+          <!-- COLUMN 2: Mode Buttons -->
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div id="btn-qs" style="${modeStyle('quick-service')}">Quick<br>Service</div>
+            <div id="btn-qb" style="${modeStyle('quick-bar')}">Quick<br>Bar</div>
+            <div id="btn-qp" style="${modeStyle('quick-pay')}">Quick<br>Pay</div>
           </div>
 
-          <!-- RIGHT: PIN DISPLAY + ACTIONS -->
-          <div style="display:flex;flex-direction:column;gap:0;">
-            ${pinFrame(pin.length)}
-            <div style="width:100%;">${errBanner(err)}</div>
-            <div style="display:flex;flex-direction:column;justify-content:center;gap:10px;flex:1;" id="action-btns"></div>
+          <!-- COLUMN 3: PIN Pad Panel -->
+          <div style="background:${T.mint};border:7px solid ${T.mint};border-radius:0;padding:8px;display:flex;flex-direction:column;gap:6px;">
+            <!-- PIN Display Strip -->
+            <div id="pin-display" style="background:#1a1a1a;border:2px inset;border-radius:0;padding:10px;display:flex;align-items:center;justify-content:center;font-family:${T.fh};font-size:40px;letter-spacing:12px;min-height:52px;">${pinChars}</div>
+            <!-- Number Grid -->
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;flex:1;" id="pad"></div>
           </div>
+
+          <!-- Watermark -->
+          <div style="position:absolute;bottom:2px;right:12px;font-family:${T.fh};font-size:14px;user-select:none;pointer-events:none;"><span style="color:${T.gold};">KIND</span><span style="color:#ff3355;">pos</span><span style="color:${T.mint};">/lite_</span><span style="color:${T.gold};">Vz1.0</span></div>
         </div>`;
 
       buildNumpad();
-      buildActionButtons();
+      wireButtons();
+
+      // Show error if any
+      if (err) {
+        const errEl = document.createElement('div');
+        errEl.style.cssText = `position:absolute;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(232,64,64,0.9);border:2px solid ${T.red};padding:6px 16px;font-size:16px;color:white;border-radius:4px;z-index:10;font-family:${T.fb};`;
+        errEl.textContent = '\u26A0 ' + err;
+        el.firstElementChild.appendChild(errEl);
+      }
     }
 
     function buildNumpad() {
       const pad = $('pad');
       if (!pad) return;
+
       const keys = ['1','2','3','4','5','6','7','8','9','CLR','0','>>>'];
       keys.forEach(k => {
+        const btn = document.createElement('div');
         const isCLR = k === 'CLR';
-        const btn = buildNumpadKey(k, {
-          onPress: () => press(k),
-          onLongPress: isCLR ? { delay: 500, action: () => { pin = ''; err = ''; draw(); } } : null
-        });
+        const isENT = k === '>>>';
+
+        let bg, color, text, fontSize;
+        if (isCLR) {
+          bg = '#ff3355';
+          color = '#1a1a1a';
+          text = 'clr';
+          fontSize = '42px';
+        } else if (isENT) {
+          bg = '#9ACD32';
+          color = '#1a1a1a';
+          text = '>>>';
+          fontSize = '42px';
+        } else {
+          bg = '#1a1a1a';
+          color = T.mint;
+          text = k;
+          fontSize = '64px';
+        }
+
+        btn.textContent = text;
+        btn.style.cssText = `background:${bg};color:${color};border-radius:0;font-family:${T.fh};font-size:${fontSize};display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;border:none;`;
+
+        btn.addEventListener('click', () => press(k));
+
+        // Long-press on CLR to clear all
+        if (isCLR) {
+          let holdTimer = null;
+          const startHold = () => { holdTimer = setTimeout(() => { pin = ''; err = ''; draw(); }, 500); };
+          const endHold = () => clearTimeout(holdTimer);
+          btn.addEventListener('mousedown', startHold);
+          btn.addEventListener('mouseup', endHold);
+          btn.addEventListener('mouseleave', endHold);
+          btn.addEventListener('touchstart', startHold);
+          btn.addEventListener('touchend', endHold);
+        }
+
         pad.appendChild(btn);
       });
     }
 
-    function buildActionButtons() {
-      const ab = $('action-btns');
-      if (!ab) return;
-      const actions = [
-        { label: 'Quick Service', act: () => { if (!matchPin()) return; const o = makeOrder(); liteGo('lite-order', { order: o }); } },
-        { label: 'Settings',      act: () => { console.log('[Lite] Settings — PLACEHOLDER'); } },
-        { label: 'Clock in/out',  act: () => { console.log('[Lite] Clock — PLACEHOLDER'); } },
-      ];
-      actions.forEach(a => ab.appendChild(buildActionButton(a.label, a.act)));
+    function wireButtons() {
+      // Admin buttons — validate PIN before routing
+      const clockBtn = $('btn-clock');
+      const reportBtn = $('btn-reporting');
+      const configBtn = $('btn-config');
+
+      if (clockBtn) clockBtn.addEventListener('click', () => {
+        if (!requirePin()) return;
+        liteGo('lite-clock');
+      });
+      if (reportBtn) reportBtn.addEventListener('click', () => {
+        if (!requirePin()) return;
+        liteGo('lite-reporting');
+      });
+      if (configBtn) configBtn.addEventListener('click', () => {
+        if (!requirePin()) return;
+        liteGo('lite-config');
+      });
+
+      // Mode buttons — radio selection (toggle)
+      const qsBtn = $('btn-qs');
+      const qbBtn = $('btn-qb');
+      const qpBtn = $('btn-qp');
+
+      if (qsBtn) qsBtn.addEventListener('click', () => selectMode('quick-service'));
+      if (qbBtn) qbBtn.addEventListener('click', () => selectMode('quick-bar'));
+      if (qpBtn) qpBtn.addEventListener('click', () => selectMode('quick-pay'));
+    }
+
+    function selectMode(mode) {
+      selectedMode = selectedMode === mode ? null : mode;
+      draw();
+    }
+
+    function requirePin() {
+      if (!pin) {
+        flashPinPad();
+        return false;
+      }
+      if (!matchPin()) {
+        err = 'PIN not recognised.';
+        pin = '';
+        draw();
+        shakePinDisplay();
+        return false;
+      }
+      return true;
+    }
+
+    function flashPinPad() {
+      const display = $('pin-display');
+      if (display) {
+        display.style.boxShadow = `0 0 20px ${T.cyan}`;
+        setTimeout(() => { if ($('pin-display')) $('pin-display').style.boxShadow = ''; }, 600);
+      }
+    }
+
+    function shakePinDisplay() {
+      const display = $('pin-display');
+      if (display) {
+        display.style.animation = 'shake 0.3s ease';
+        setTimeout(() => { if ($('pin-display')) $('pin-display').style.animation = ''; }, 400);
+      }
     }
 
     function press(k) {
@@ -107,27 +256,37 @@ registerLiteScene('lite-login', {
       } else if (k === '>>>') {
         submit();
         return;
-      } else if (pin.length < 6) {
+      } else if (pin.length < 4) {
         pin += k;
       }
       draw();
     }
 
     function submit() {
-      if (!pin) return;
+      if (!pin) {
+        flashPinPad();
+        return;
+      }
       if (!matchPin()) {
         err = 'PIN not recognised.';
         pin = '';
         draw();
-        shakeFrame();
+        shakePinDisplay();
         return;
       }
-      // Role-based routing
-      const role = (APP.staff.role || '').toLowerCase();
-      if (role === 'manager' || role === 'admin' || role === 'mgr') {
-        liteGo('lite-snapshot');
+
+      // Route based on selected mode
+      if (selectedMode === 'quick-service') {
+        const o = makeOrder();
+        liteGo('lite-order', { order: o, mode: 'quick-service' });
+      } else if (selectedMode === 'quick-bar') {
+        const o = makeOrder();
+        liteGo('lite-order', { order: o, mode: 'quick-bar' });
+      } else if (selectedMode === 'quick-pay') {
+        liteGo('lite-payment');
       } else {
-        liteGo('lite-order');
+        // No mode selected — open/closed checks view
+        liteGo('lite-snapshot');
       }
     }
 
@@ -138,14 +297,6 @@ registerLiteScene('lite-login', {
         return true;
       }
       return false;
-    }
-
-    function shakeFrame() {
-      const f = $('pin-frame');
-      if (f) {
-        f.style.animation = 'shake 0.3s ease';
-        setTimeout(() => { if (f) f.style.animation = ''; }, 400);
-      }
     }
 
     function makeOrder() {
@@ -172,11 +323,18 @@ registerLiteScene('lite-login', {
     }
 
     window.addEventListener('keydown', keyHandler);
+
+    // Start clock interval
+    clockInterval = setInterval(updateClock, 30000);
+
     draw();
 
     return () => {
       window.removeEventListener('keydown', keyHandler);
-      clearTimeout(holdTimer);
+      clearInterval(clockInterval);
+      // Restore sbar visibility
+      const sbar = $('sbar');
+      if (sbar) sbar.style.display = '';
     };
   }
 });
