@@ -416,7 +416,9 @@ export class HexEngine {
     const outerSize = this._outer[childSizeKey];
     const childRadius = outerSize.w / 2;
 
-    // Build allHexagons tracking array with actual radii for each locked ancestor
+    // Build allHexagons tracking array with actual radii for each locked ancestor.
+    // Two radii per hex: `radius` (includes border) for placement/face-detection,
+    // `visualRadius` (raw hex size, no border) for overlap collision checks.
     const allHexagons = [];
     for (let i = 0; i < this._selections.length; i++) {
       const sel = this._selections[i];
@@ -429,6 +431,7 @@ export class HexEngine {
         x: sel.position.x,
         y: sel.position.y,
         radius: lockedOuterW / 2,
+        visualRadius: this._sizes[ancestorSizeKey].w / 2,
         label: sel.item.label,
       });
     }
@@ -454,9 +457,9 @@ export class HexEngine {
 
     // Collision check: reject candidates that overlap non-parent locked hexes.
     // Skip the parent (last in allHexagons) — items are meant to be adjacent to it.
-    // Face occupancy handles the parent's blocked face; this catches overlap with
-    // ancestors (e.g. the larger category hex) that face detection alone can miss
-    // when hex sizes differ significantly.
+    // Uses visualRadius (raw hex size without borders) so adjacent-face items that
+    // are close but not overlapping don't get falsely rejected.
+    const childVisualRadius = this._sizes[childSizeKey].w / 2;
     const ancestors = allHexagons.slice(0, -1);
     if (ancestors.length > 0) {
       candidates = candidates.filter(pos => {
@@ -464,7 +467,7 @@ export class HexEngine {
           const dx = pos.x - lp.x;
           const dy = pos.y - lp.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          return dist < (childRadius + lp.radius);
+          return dist < (childVisualRadius + lp.visualRadius);
         });
       });
     }
