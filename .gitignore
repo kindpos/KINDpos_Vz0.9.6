@@ -4,6 +4,7 @@
 *.db
 .venv/
 
-# Test database artifacts
-data/test_printer_api.db-shm
-data/test_printer_api.db-wal
+# SQLite runtime artifacts
+*.db-shm
+*.db-wal
+*.db-journal
