@@ -1,6 +1,42 @@
 import { registerScene, go } from '../scene-manager.js';
 import { T, chamfer, overlayCloseBtn, btnWrap } from '../theme-manager.js';
 import { FALLBACK_MENU, MODIFIERS, MOD_PREFIXES } from '../config.js';
+import { HexNav } from '../hex-nav.js';
+
+// ── Menu Data Transformers ──
+// Convert FALLBACK_MENU / MODIFIERS config format to HexNav tree format
+
+const CATEGORY_COLORS = {
+  Food: 'var(--mint)', Drinks: 'var(--cyan)', Desserts: 'var(--lavender)',
+  Produce: 'var(--mint)', Protein: 'var(--gold)', Sauce: 'var(--cyan)',
+};
+
+function buildHexMenuData(menu) {
+  const children = [];
+  for (const [catName, catVal] of Object.entries(menu)) {
+    const color = CATEGORY_COLORS[catName] || 'var(--mint)';
+    const cat = { id: catName.toLowerCase(), label: catName.toUpperCase(), color };
+    if (Array.isArray(catVal)) {
+      cat.children = catVal.map(item => ({
+        id: item.name.toLowerCase().replace(/\s+/g, '-'),
+        label: item.name, price: item.price, color,
+        is86: item.is86 || false,
+      }));
+    } else {
+      cat.children = Object.entries(catVal).map(([subName, items]) => ({
+        id: subName.toLowerCase().replace(/\s+/g, '-'),
+        label: subName.toUpperCase(), color,
+        children: items.map(item => ({
+          id: item.name.toLowerCase().replace(/\s+/g, '-'),
+          label: item.name, price: item.price, color,
+          is86: item.is86 || false,
+        })),
+      }));
+    }
+    children.push(cat);
+  }
+  return children;
+}
 
 registerScene('add-items', {
   onEnter(el, p) {
@@ -31,6 +67,16 @@ registerScene('add-items', {
     updateToggleStyles();
     if (activeMode === 'modifiers') showPrefixRow(); else hidePrefixRow();
 
+    // Mount hex navigation in workspace
+    const workspace = document.getElementById('menu-workspace');
+    const hexNav = new HexNav(workspace, {
+      data: activeMode === 'modifiers'
+        ? buildHexMenuData(MODIFIERS)
+        : buildHexMenuData(FALLBACK_MENU),
+      onSelect: (item) => handleItemSelected(item),
+      onBack: () => {},
+    });
+
     // Back navigation
     window.onBackRequested = () => {
       if (stagedItems.length === 0) {
@@ -41,6 +87,7 @@ registerScene('add-items', {
     };
 
     return () => {
+      hexNav.destroy();
       window.onBackRequested = null;
       stagedItems = [];
     };
@@ -58,8 +105,7 @@ registerScene('add-items', {
     function buildRightArea() {
       return `<div style="flex:1;display:flex;flex-direction:column;gap:0;padding:8px 8px 8px 8px;">
         <div id="prefix-row" style="display:none;height:48px;align-items:center;gap:10px;padding:4px 12px;flex-shrink:0;"></div>
-        <div id="menu-workspace" style="flex:1;background:${T.bg};border:${T.borderW} solid ${T.mint};clip-path:${chamfer('lg')};position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;">
-          <span style="font-family:${T.fb};font-size:22px;color:${T.mintDim};opacity:0.5;">Menu nav pending redesign</span>
+        <div id="menu-workspace" style="flex:1;background:${T.bg};border:${T.borderW} solid ${T.mint};clip-path:${chamfer('lg')};position:relative;overflow:hidden;">
         </div>
         ${buildActionBar()}
       </div>`;
@@ -149,8 +195,10 @@ registerScene('add-items', {
       activeMode = mode;
       if (mode === 'items') {
         hidePrefixRow();
+        hexNav.setData(buildHexMenuData(FALLBACK_MENU));
       } else {
         showPrefixRow();
+        hexNav.setData(buildHexMenuData(MODIFIERS));
       }
       updateToggleStyles();
     }
@@ -272,7 +320,7 @@ registerScene('add-items', {
       });
 
       document.getElementById('btn-back')?.addEventListener('click', () => {
-        // Nav back — pending redesign
+        hexNav.back();
       });
 
       document.getElementById('btn-confirm')?.addEventListener('click', () => {
