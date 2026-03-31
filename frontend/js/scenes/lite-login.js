@@ -105,7 +105,7 @@ registerLiteScene('lite-login', {
         `background:${bg};border:${T.borderW} solid #1a1a1a;font-family:${T.fb};color:#1a1a1a;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;user-select:none;line-height:1.1;padding:14px 12px;clip-path:${chamfer('lg')};`;
 
       el.innerHTML = `
-        <div style="display:grid;grid-template-columns:160px 180px 1fr;grid-template-rows:1fr auto;height:100%;padding:14px 16px 24px 16px;gap:10px;position:relative;">
+        <div style="display:grid;grid-template-columns:160px 180px 1fr;height:100%;padding:14px 16px;gap:10px;position:relative;">
           <!-- COLUMN 1: Admin Buttons -->
           <div style="display:flex;flex-direction:column;gap:8px;align-self:start;">
             <div class="btn-wrap">
@@ -133,15 +133,15 @@ registerLiteScene('lite-login', {
           </div>
 
           <!-- COLUMN 3: PIN Pad Panel -->
-          <div style="background:${T.mint};border:${T.borderW} solid ${T.mint};padding:8px;display:flex;flex-direction:column;gap:6px;clip-path:${chamfer('xl')};grid-row:1/3;">
+          <div style="background:${T.mint};border:${T.borderW} solid ${T.mint};padding:8px;display:flex;flex-direction:column;gap:6px;clip-path:${chamfer('xl')};">
             <!-- PIN Display Strip (sunken inset) -->
             <div id="pin-display" style="background:#1a1a1a;border:2px inset #1a1a1a;padding:6px 16px;display:flex;align-items:center;justify-content:space-around;font-family:${T.fb};height:36px;clip-path:${chamfer('lg')};">${pinChars}</div>
             <!-- Number Grid (reuses numpad container style) -->
             <div style="${numpadContainerStyle()}flex:1;padding:4px;" id="pad"></div>
           </div>
 
-          <!-- Watermark (in grid footer, right-aligned) -->
-          <div style="grid-column:1/4;text-align:right;font-family:${T.fb};font-size:14px;user-select:none;pointer-events:none;padding-right:4px;"><span style="color:${T.gold};">KIND</span><span style="color:#ff3355;">pos</span><span style="color:${T.mint};">/lite_</span><span style="color:${T.gold};">Vz1.0</span></div>
+          <!-- Watermark -->
+          <div style="position:absolute;bottom:4px;right:16px;font-family:${T.fb};font-size:14px;user-select:none;pointer-events:none;"><span style="color:${T.gold};">KIND</span><span style="color:#ff3355;">pos</span><span style="color:${T.mint};">/lite_</span><span style="color:${T.gold};">Vz1.0</span></div>
         </div>`;
 
       buildNumpad();
