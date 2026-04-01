@@ -67,31 +67,21 @@ function buildHexMenuData(menu) {
   return cats;
 }
 
-/** Transform MODIFIERS config into HexNav data shape with prefix children. */
+/** Transform MODIFIERS config into HexNav data shape — flat leaves, prefix applied from bar. */
 function buildHexModData(mods) {
   const groups = [];
   for (const [groupName, items] of Object.entries(mods)) {
-    const groupNode = {
+    groups.push({
       id: `mod-group-${groupName}`,
       label: groupName,
       color: '#fcbe40',
-      children: [],
-    };
-    for (const item of items) {
-      groupNode.children.push({
+      children: items.map(item => ({
         id: `mod-${groupName}-${item.name}`,
         label: item.name,
         color: '#fcbe40',
-        children: MOD_PREFIXES.map(pfx => ({
-          id: `mod-${groupName}-${item.name}-${pfx}`,
-          label: `${pfx} ${item.name}`,
-          color: '#fcbe40',
-          modName: item.name,
-          prefix: pfx,
-        })),
-      });
-    }
-    groups.push(groupNode);
+        price: item.price,
+      })),
+    });
   }
   return groups;
 }
@@ -145,6 +135,7 @@ registerLiteScene('lite-order', {
     }
 
     let activeTab = 'items';
+    let activePrefix = 'ADD';
     let hexNav = null;
     let clockInterval = null;
 
@@ -262,8 +253,8 @@ registerLiteScene('lite-order', {
       if (!line || line.sent) return;
       line.modifiers.push({
         id: item.id,
-        name: item.modName || item.label,
-        prefix: item.prefix || 'ADD',
+        name: item.label,
+        prefix: activePrefix,
       });
       renderTicket();
     }
@@ -273,8 +264,31 @@ registerLiteScene('lite-order', {
       activeTab = tab;
       const itemsBtn = $('lo-tab-items');
       const modsBtn = $('lo-tab-mods');
+      const prefixBar = $('lo-prefix-bar');
       if (itemsBtn) itemsBtn.style.background = tab === 'items' ? 'rgba(255,255,255,0.06)' : 'transparent';
       if (modsBtn) modsBtn.style.background = tab === 'modifiers' ? 'rgba(255,255,255,0.06)' : 'transparent';
+      if (prefixBar) {
+        prefixBar.style.display = tab === 'modifiers' ? 'flex' : 'none';
+        if (tab === 'modifiers') renderPrefixBar();
+      }
+    }
+
+    function renderPrefixBar() {
+      const bar = $('lo-prefix-bar');
+      if (!bar) return;
+      bar.innerHTML = MOD_PREFIXES.map(pfx => {
+        const active = activePrefix === pfx;
+        const bg = active ? '#fcbe40' : 'transparent';
+        const color = active ? '#1a1a1a' : '#fcbe40';
+        return `<div data-pfx="${pfx}" style="background:${bg};color:${color};border:2px solid #fcbe40;border-radius:0;font-family:var(--fb);font-size:12px;padding:4px 10px;cursor:pointer;letter-spacing:1px;user-select:none;">${pfx}</div>`;
+      }).join('');
+
+      bar.querySelectorAll('[data-pfx]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          activePrefix = btn.dataset.pfx;
+          renderPrefixBar();
+        });
+      });
     }
 
     // ── Button Handlers ──
@@ -411,6 +425,7 @@ registerLiteScene('lite-order', {
 
         <!-- Right Column: Hex Nav Panel -->
         <div style="flex:1;display:flex;flex-direction:column;min-width:0;">
+          <div id="lo-prefix-bar" style="display:none;gap:6px;padding:6px 10px;background:#1a1a1a;border-bottom:2px solid #fcbe40;flex-shrink:0;flex-wrap:wrap;align-items:center;"></div>
           <div id="lo-hex-canvas" style="flex:1;position:relative;overflow:hidden;background:#222;min-height:0;"></div>
           <div style="height:44px;border-top:2px solid #C6FFBB;display:flex;align-items:center;justify-content:center;gap:16px;background:#1a1a1a;flex-shrink:0;">
             <button id="lo-tab-items" style="width:120px;height:28px;border:2px solid #C6FFBB;color:#C6FFBB;background:rgba(255,255,255,0.06);font-family:var(--fb);font-size:13px;letter-spacing:1px;cursor:pointer;border-radius:0;">Items</button>
@@ -462,7 +477,7 @@ registerLiteScene('lite-order', {
     // ── Wire tabs ──
     const tabItems = $('lo-tab-items');
     const tabMods = $('lo-tab-mods');
-    if (tabItems) tabItems.addEventListener('click', () => { hexNav.setData(buildHexMenuData(FALLBACK_MENU)); setActiveTab('items'); });
+    if (tabItems) tabItems.addEventListener('click', () => { activePrefix = 'ADD'; hexNav.setData(buildHexMenuData(FALLBACK_MENU)); setActiveTab('items'); });
     if (tabMods) tabMods.addEventListener('click', () => {
       if (!ticket.selectedId || !ticket.lines.find(l => l.id === ticket.selectedId)) { flashTicketBorder(); return; }
       hexNav.setData(buildHexModData(MODIFIERS));
