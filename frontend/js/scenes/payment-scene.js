@@ -375,7 +375,7 @@ registerScene('payment', {
       document.head.appendChild(styleEl);
     }
 
-    el.style.cssText = 'position:relative;width:1024px;height:600px;overflow:hidden;';
+    el.style.cssText = 'position:relative;width:1024px;height:100%;overflow:hidden;';
 
     const dropShadow = 'filter:drop-shadow(4px 6px 0 rgba(0,0,0,0.5));';
 
@@ -389,7 +389,7 @@ registerScene('payment', {
           'left   center right'
           'footer footer footer';
         width:1024px;
-        height:600px;
+        height:100%;
         background:${BG_MINT};
         overflow:hidden;
         position:relative;
@@ -405,8 +405,8 @@ registerScene('payment', {
           justify-content:space-between;
           padding:0 12px;
         ">
-          <div style="font-family:var(--fb);font-size:20px;color:${DARK};">
-            ${headerTimeStr()} &lt;&gt; ${order.id} // Seat(s): ${seatLabel} // Payment
+          <div style="font-family:var(--fb);font-size:20px;color:${DARK};white-space:nowrap;flex:1;margin-right:8px;">
+            ${headerTimeStr()} // ${order.id} // ${seatLabel} // Payment
           </div>
           <div class="btn-wrap">
             <div id="ps-back" style="
@@ -465,11 +465,14 @@ registerScene('payment', {
             display:grid;
             grid-template-columns:1fr 60px;
             grid-template-rows:1fr 1fr;
+            grid-template-areas:
+              'card  exact'
+              'cash  exact';
             gap:6px;
             min-height:0;
           ">
             <!-- CARD Button -->
-            <div class="btn-wrap" style="min-height:0;">
+            <div class="btn-wrap" style="grid-area:card;min-height:0;${dropShadow}">
               <div id="ps-card-btn" style="
                 width:100%;height:100%;
                 background:${DARK};
@@ -478,14 +481,13 @@ registerScene('payment', {
                 clip-path:${cLg};
                 display:flex;align-items:center;justify-content:center;
                 cursor:pointer;user-select:none;
-                ${dropShadow}
               ">
                 <span style="font-family:var(--fh);font-size:48px;color:${TEXT_CYAN};">CARD</span>
               </div>
             </div>
 
             <!-- EXACT Button (spans 2 rows) -->
-            <div class="btn-wrap" style="grid-row:1/3;min-height:0;">
+            <div class="btn-wrap" style="grid-area:exact;min-height:0;">
               <div id="ps-exact-btn" style="
                 width:100%;height:100%;
                 background:${DENOM_BG};
@@ -501,7 +503,7 @@ registerScene('payment', {
             </div>
 
             <!-- CASH Button -->
-            <div class="btn-wrap" style="min-height:0;">
+            <div class="btn-wrap" style="grid-area:cash;min-height:0;${dropShadow}">
               <div id="ps-cash-btn" style="
                 width:100%;height:100%;
                 background:${CASH_GREEN};
@@ -509,7 +511,6 @@ registerScene('payment', {
                 clip-path:${cLg};
                 display:flex;align-items:center;justify-content:center;
                 cursor:pointer;user-select:none;
-                ${dropShadow}
               ">
                 <span style="font-family:var(--fh);font-size:48px;color:${DARK};">CASH</span>
               </div>
