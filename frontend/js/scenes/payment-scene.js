@@ -375,7 +375,15 @@ registerLiteScene('lite-payment', {
       document.head.appendChild(styleEl);
     }
 
-    el.style.cssText = 'position:relative;width:1024px;height:100%;overflow:hidden;';
+    // Hide app chrome (tbar/sbar) — payment scene takes over full screen
+    const tbar = $('tbar');
+    const sbar = $('sbar');
+    const sceneEl = $('scene');
+    if (tbar) tbar.style.display = 'none';
+    if (sbar) sbar.style.display = 'none';
+    if (sceneEl) sceneEl.style.cssText = 'height:600px;';
+
+    el.style.cssText = 'position:relative;width:1024px;height:600px;overflow:hidden;';
 
     const dropShadow = 'filter:drop-shadow(4px 6px 0 rgba(0,0,0,0.5));';
 
@@ -389,8 +397,8 @@ registerLiteScene('lite-payment', {
           'left   center right'
           'footer footer footer';
         width:1024px;
-        height:100%;
-        background:${BG_MINT};
+        height:600px;
+        background:#333333;
         overflow:hidden;
         position:relative;
       ">
@@ -631,12 +639,15 @@ registerLiteScene('lite-payment', {
     // Global for inline onclick compatibility
     window._paySelectMethod = selectMethod;
 
-    // Cleanup
+    // Cleanup — restore app chrome
     return () => {
       delete window.addCashAmount;
       delete window._paySelectMethod;
       const s = document.getElementById('ps-active-styles');
       if (s) s.remove();
+      if (tbar) tbar.style.display = '';
+      if (sbar) sbar.style.display = '';
+      if (sceneEl) sceneEl.style.cssText = '';
     };
   }
 });
