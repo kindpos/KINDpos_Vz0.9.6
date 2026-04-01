@@ -7,6 +7,7 @@ import { APP, $ } from '../app.js';
 import { registerLiteScene, liteGo } from '../lite-scene-manager.js';
 import { HexNav } from '../hex-nav.js';
 import { CFG, FALLBACK_MENU, MODIFIERS, MOD_PREFIXES } from '../config.js';
+import { showPaymentOverlay } from './payment-scene.js';
 
 // ── Data Transforms ──────────────────────────────────────────────────────────
 
@@ -381,7 +382,10 @@ registerLiteScene('lite-order', {
       const t = calcTotals();
       check.items = ticket.lines.map(l => ({ name: l.name, price: l.unitPrice, qty: l.quantity, mods: l.modifiers }));
       check.total = t.cardPrice;
-      liteGo('lite-payment', { check, cardPrice: t.cardPrice, cashPrice: t.cashPrice });
+      showPaymentOverlay({
+        order: check,
+        onClose: () => { /* stays on order screen */ },
+      });
     }
 
     // ── Clock ──
