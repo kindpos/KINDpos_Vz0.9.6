@@ -164,9 +164,17 @@ registerLiteScene('quick-checks', {
       showToast(action + ' \u2192 ' + count + ' check(s)');
 
       switch (action) {
-        case 'OPEN':
+        case 'OPEN': {
+          const openSel = selectedOpen();
+          if (openSel.length === 1) {
+            const c = openSel[0];
+            state.selectedIds.clear();
+            liteGo('lite-order', { check: c });
+            return;
+          }
           state.selectedIds.clear();
           break;
+        }
         case 'PAY':
           selectedOpen().forEach(c => {
             c.status = 'closed';
