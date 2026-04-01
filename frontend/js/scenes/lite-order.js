@@ -209,22 +209,49 @@ registerLiteScene('lite-order', {
       if (existing) {
         existing.quantity++;
         existing.lineTotal = existing.unitPrice * existing.quantity;
-      } else {
-        ticket.lines.push({
-          id: crypto.randomUUID(),
-          itemId: item.id,
-          name: item.label,
-          category: '',
-          quantity: 1,
-          modifiers: [],
-          unitPrice: item.price || 0,
-          lineTotal: item.price || 0,
-          sent: false,
-          seat: null,
-        });
+        renderTicket();
+        updateTotals();
+        return;
       }
+
+      const line = {
+        id: crypto.randomUUID(),
+        itemId: item.id,
+        name: item.label,
+        category: '',
+        quantity: 1,
+        modifiers: [],
+        unitPrice: item.price || 0,
+        lineTotal: item.price || 0,
+        sent: false,
+        seat: null,
+        backendItemId: null,
+      };
+      ticket.lines.push(line);
       renderTicket();
       updateTotals();
+
+      // POST /api/orders/{order_id}/items — AddItemRequest
+      fetch((CFG.API_BASE || '') + `/api/orders/${ticket.orderId}/items`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          menu_item_id: item.id,
+          name: item.label,
+          price: item.price || 0,
+          quantity: 1,
+          category: item.category || null,
+        }),
+      }).then(r => r.json()).then(data => {
+        // Capture backend item_id from the response for void
+        if (data && data.items) {
+          const added = data.items[data.items.length - 1];
+          if (added) line.backendItemId = added.item_id;
+        }
+      }).catch(() => {
+        const sr = $('lo-status-right');
+        if (sr) sr.textContent = '\u26A0 OFFLINE';
+      });
     }
 
     function addModifierToSelected(item) {
@@ -260,10 +287,10 @@ registerLiteScene('lite-order', {
       renderTicket();
       showToast('Order sent', 1200);
 
-      fetch((CFG.API_BASE || '') + `/api/orders/${ticket.orderId}/items`, {
+      // POST /api/orders/{id}/send — marks unsent items as sent on backend
+      fetch((CFG.API_BASE || '') + `/api/orders/${ticket.orderId}/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId: ticket.orderId, items: unsent.map(l => ({ id: l.id, itemId: l.itemId, name: l.name, quantity: l.quantity, modifiers: l.modifiers, unitPrice: l.unitPrice, lineTotal: l.lineTotal })) }),
       }).catch(() => {
         const sr = $('lo-status-right');
         if (sr) sr.textContent = '\u26A0 QUEUED';
@@ -271,22 +298,28 @@ registerLiteScene('lite-order', {
     }
 
     function handlePrint() {
-      const t = calcTotals();
-      fetch((CFG.API_BASE || '') + '/api/print/receipt', {
+      // POST /api/print/receipt/{order_id}
+      fetch((CFG.API_BASE || '') + `/api/print/receipt/${ticket.orderId}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId: ticket.orderId, lines: ticket.lines.map(l => ({ name: l.name, quantity: l.quantity, modifiers: l.modifiers, lineTotal: l.lineTotal })), subtotal: t.subtotal, tax: t.tax, cardPrice: t.cardPrice, cashPrice: t.cashPrice, stationId: 'QS-001', dateTime: new Date().toISOString() }),
       }).then(() => showToast('Receipt printing', 1200)).catch(() => showToast('Print failed — check printer', 2000));
     }
 
     function handleVoid() {
       if (!ticket.selectedId) { flashTicketBorder(); return; }
-      const idx = ticket.lines.findIndex(l => l.id === ticket.selectedId);
-      if (idx === -1) return;
+      const line = ticket.lines.find(l => l.id === ticket.selectedId);
+      if (!line) return;
+      const idx = ticket.lines.indexOf(line);
       ticket.lines.splice(idx, 1);
       ticket.selectedId = null;
       renderTicket();
       updateTotals();
+
+      // DELETE /api/orders/{order_id}/items/{item_id}
+      if (line.backendItemId) {
+        fetch((CFG.API_BASE || '') + `/api/orders/${ticket.orderId}/items/${line.backendItemId}`, {
+          method: 'DELETE',
+        }).catch(() => {});
+      }
     }
 
     function handleDisc() {
@@ -295,12 +328,6 @@ registerLiteScene('lite-order', {
     }
 
     function handleSave() {
-      const t = calcTotals();
-      fetch((CFG.API_BASE || '') + `/api/orders/${ticket.orderId}/save`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId: ticket.orderId, lines: ticket.lines, totals: t, stationId: 'QS-001', savedAt: new Date().toISOString() }),
-      }).catch(() => {});
       showToast('Order saved', 1500);
     }
 
