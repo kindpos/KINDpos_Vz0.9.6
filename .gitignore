@@ -8,3 +8,8 @@
 *.db-shm
 *.db-wal
 *.db-journal
+
+# Node/npm artifacts
+node_modules/
+package.json
+package-lock.json
