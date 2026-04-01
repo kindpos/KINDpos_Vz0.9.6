@@ -6,7 +6,7 @@
 
 import { APP, $, calcOrder, apiFetch } from '../app.js';
 import { CFG } from '../config.js';
-import { registerScene, go } from '../scene-manager.js';
+import { registerLiteScene, liteGo } from '../lite-scene-manager.js';
 import { chamfer } from '../theme-manager.js';
 
 /* ── Chamfer shortcuts ── */
@@ -28,7 +28,7 @@ const NUMPAD_BD   = '#333333';
 const CASH_GREEN  = '#8bc34a';
 const CLR_RED     = '#da331c';
 
-registerScene('payment', {
+registerLiteScene('lite-payment', {
   onEnter(el, params) {
     // ── Receive check data ──
     const order = params.order || params.check || { id: 'C-000', seats: [{ id: 1, items: [] }], items: [] };
@@ -224,7 +224,7 @@ registerScene('payment', {
       if (isFullyPaid()) {
         allItems.forEach(i => i.state = 'paid');
         showToast('Payment Complete', true);
-        setTimeout(() => go('snapshot'), 1200);
+        setTimeout(() => liteGo('quick-checks'), 1200);
       }
     }
 
@@ -283,7 +283,7 @@ registerScene('payment', {
         if (isFullyPaid()) {
           allItems.forEach(i => i.state = 'paid');
           showToast('Payment Complete', true);
-          setTimeout(() => go('snapshot'), 1200);
+          setTimeout(() => liteGo('quick-checks'), 1200);
         }
 
       } catch (e) {
@@ -295,7 +295,7 @@ registerScene('payment', {
     // ── Back navigation with partial-payment warning ──
     function navigateBack() {
       if (hasPartialPayment) { showBackWarning(); }
-      else { go('snapshot'); }
+      else { liteGo('quick-checks'); }
     }
 
     function showBackWarning() {
@@ -337,7 +337,7 @@ registerScene('payment', {
       `;
       el.querySelector('.payment-scene').appendChild(ov);
       ov.querySelector('#ps-warn-stay')?.addEventListener('click', () => ov.remove());
-      ov.querySelector('#ps-warn-leave')?.addEventListener('click', () => go('snapshot'));
+      ov.querySelector('#ps-warn-leave')?.addEventListener('click', () => liteGo('quick-checks'));
     }
 
     // ── Format header date/time ──
