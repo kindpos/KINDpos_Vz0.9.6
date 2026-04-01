@@ -328,7 +328,37 @@ registerLiteScene('lite-order', {
     }
 
     function handleSave() {
-      showToast('Order saved', 1500);
+      // Sync check object with current ticket state
+      check.items = ticket.lines.map(l => ({ name: l.name, price: l.unitPrice, qty: l.quantity, mods: l.modifiers }));
+      const t = calcTotals();
+      check.total = t.cardPrice;
+      check.status = 'open';
+
+      // Ensure check is in APP.orders so quick-checks can see it
+      if (!APP.orders.find(o => o.id === check.id)) {
+        APP.orders.push(check);
+      }
+
+      // Create order on backend (best-effort)
+      fetch((CFG.API_BASE || '') + '/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          server_id: APP.staff ? APP.staff.id : null,
+          server_name: APP.staff ? APP.staff.name : 'Server',
+          order_type: 'quick_service',
+          guest_count: check.guest_count || 1,
+        }),
+      }).then(r => r.json()).then(data => {
+        // Update local ID to match backend
+        if (data && data.order_id) {
+          ticket.orderId = data.order_id;
+          check.backendId = data.order_id;
+        }
+      }).catch(() => {});
+
+      showToast('Order saved', 1200);
+      liteGo('quick-checks');
     }
 
     function handlePay() {
