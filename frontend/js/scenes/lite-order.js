@@ -129,7 +129,7 @@ registerLiteScene('lite-order', {
     };
 
     // Hydrate from passed check
-    if (check.items && check.items.length) {
+    if (Array.isArray(check.items) && check.items.length) {
       ticket.lines = check.items.map(item => ({
         id: crypto.randomUUID(),
         itemId: item.name,
@@ -209,6 +209,7 @@ registerLiteScene('lite-order', {
       if (existing) {
         existing.quantity++;
         existing.lineTotal = existing.unitPrice * existing.quantity;
+        ticket.selectedId = existing.id;
         renderTicket();
         updateTotals();
         return;
@@ -228,6 +229,7 @@ registerLiteScene('lite-order', {
         backendItemId: null,
       };
       ticket.lines.push(line);
+      ticket.selectedId = line.id;
       renderTicket();
       updateTotals();
 
