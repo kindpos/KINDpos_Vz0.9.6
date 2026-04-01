@@ -114,7 +114,7 @@ registerLiteScene('lite-payment', {
       const cashBtn = $('ps-cash-btn');
       if (cardBtn) {
         if (method === 'card') {
-          cardBtn.style.border = '3px solid #00ccff';
+          cardBtn.style.border = 'var(--border-w) solid #00ccff';
           cardBtn.style.boxShadow = '0 0 12px rgba(0, 204, 255, 0.4)';
         } else {
           cardBtn.style.border = 'var(--border-w) solid #66cc66';
@@ -123,7 +123,7 @@ registerLiteScene('lite-payment', {
       }
       if (cashBtn) {
         if (method === 'cash') {
-          cashBtn.style.border = '3px solid #00ccff';
+          cashBtn.style.border = 'var(--border-w) solid #00ccff';
           cashBtn.style.boxShadow = '0 0 12px rgba(0, 204, 255, 0.4)';
         } else {
           cashBtn.style.border = 'none';
@@ -390,12 +390,11 @@ registerLiteScene('lite-payment', {
     el.innerHTML = `
       <div class="payment-scene" style="
         display:grid;
-        grid-template-rows:50px 1fr 14px;
+        grid-template-rows:50px 1fr;
         grid-template-columns:330px 1fr 330px;
         grid-template-areas:
           'header header header'
-          'left   center right'
-          'footer footer footer';
+          'left   center right';
         width:1024px;
         height:600px;
         background:#333333;
@@ -484,7 +483,7 @@ registerLiteScene('lite-payment', {
               <div id="ps-card-btn" style="
                 width:100%;height:100%;
                 background:${DARK};
-                border:3px solid #00ccff;
+                border:var(--border-w) solid #00ccff;
                 box-shadow:0 0 12px rgba(0, 204, 255, 0.4);
                 clip-path:${cLg};
                 display:flex;align-items:center;justify-content:center;
@@ -588,17 +587,13 @@ registerLiteScene('lite-payment', {
             padding:8px;
             flex:1;
             min-height:0;
+            background:var(--mint);
+            clip-path:${cLg};
           ">
             ${numpadKeys()}
           </div>
         </div>
 
-        <!-- ═══ FOOTER ═══ -->
-        <div style="
-          grid-area:footer;
-          background:${BORDER_MINT};
-          height:14px;
-        "></div>
       </div>
     `;
 
