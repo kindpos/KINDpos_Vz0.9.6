@@ -1053,13 +1053,7 @@ const DISCOUNTS = [
   { id: 3, name: 'Military',      amount: '10%', type: 'DISC', active: true },
 ];
 
-const TIP_ADJ_CHECKS = [
-  { id: 1042, server: 'Sarah M.', table: 'T12', guests: 2, total: 84.50, cc: '4821', tip: null, status: 'ADJ' },
-  { id: 1038, server: 'Marcus C.', table: 'T5', guests: 4, total: 132.00, cc: '7733', tip: null, status: 'ADJ' },
-  { id: 1035, server: 'Dana K.', table: 'B3', guests: 2, total: 63.75, cc: '9102', tip: 12.00, status: 'DONE' },
-  { id: 1031, server: 'Jake T.', table: 'T8', guests: 3, total: 97.25, cc: '3344', tip: 19.00, status: 'DONE' },
-  { id: 1028, server: 'Sarah M.', table: 'T2', guests: 2, total: 55.00, cc: '6655', tip: null, status: 'ADJ' },
-];
+const TIP_ADJ_CHECKS = [];
 
 const CHECKOUT_SECTIONS = ['Tax', 'Tips', 'Disc', 'Pay', 'Tip Adj', 'Batch'];
 
@@ -1197,9 +1191,9 @@ function renderBatch() {
     `)}
     ${sunkenPanel('Live Batch Status', `
       <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:0.7rem;">
-        <span style="color:#fcbe40;">Transactions:</span><span>47</span>
-        <span style="color:#fcbe40;">CC Total:</span><span>$4,218.50</span>
-        <span style="color:#fcbe40;">Tips Total:</span><span>$743.20</span>
+        <span style="color:#fcbe40;">Transactions:</span><span>0</span>
+        <span style="color:#fcbe40;">CC Total:</span><span>$0.00</span>
+        <span style="color:#fcbe40;">Tips Total:</span><span>$0.00</span>
         <span style="color:#fcbe40;">Status:</span><span style="color:${statusColor};">${statusText}</span>
       </div>
     `)}

@@ -10,45 +10,24 @@ import { CFG, FALLBACK_ROSTER, FALLBACK_MENU } from '../config.js';
 import { T, chamfer, statusCard, checkOverviewPanel, snapshotOverlay, msgButton } from '../theme-manager.js';
 
 /* ═══════════════════════════════════════════════════════════
-   §1  MOCK DATA
+   §1  RUNTIME DATA (populated from APP state)
    ═══════════════════════════════════════════════════════════ */
-const MOCK_HOURLY_TODAY   = [180,320,510,440,620,580,390,210];
-const MOCK_HOURLY_LASTWK  = [150,280,470,400,560,520,350,190];
-const MOCK_LABOR_PCT=22, MOCK_LABOR_WARN=30, MOCK_LABOR_CRIT=35;
-const MOCK_LABOR_COST=626, MOCK_LABOR_SALES=2847;
-const MOCK_SPLH_NOW=142, MOCK_SPLH_LAST=128;
-const MOCK_HR_LABOR=[1.5,2,3,2.5,2,2.5,3,1.5];
-const MOCK_HR_LABOR_LW=[1.5,2,2.5,2.5,2,2,2.5,1.5];
-const MOCK_ROLES=[{name:'Servers',cost:312,hrs:14.5,color:'#33ffff'},{name:'Kitchen',cost:210,hrs:10,color:'#ff8c00'},{name:'Bar',cost:72,hrs:3.5,color:'#fcbe40'},{name:'Host',cost:32,hrs:2,color:'#C6FFBB'}];
-const MOCK_DAYPARTS=[{name:'Lunch',time:'11a\u20132p',today:1010,lastWk:900,pct:35},{name:'Afternoon',time:'2p\u20135p',today:680,lastWk:760,pct:24},{name:'Dinner',time:'5p\u20138p',today:1157,lastWk:1030,pct:41}];
-const MOCK_ALERTS=[{id:'A1',text:"Ribeye 86'd \u2014 kitchen",time:'7:12 PM',read:false,type:'86'},{id:'A2',text:'Printer 2 paper low',time:'7:20 PM',read:false,type:'system'},{id:'A3',text:"Prosecco 86'd \u2014 bar",time:'6:45 PM',read:true,type:'86'},{id:'A4',text:'Happy Hour ends in 15 min',time:'6:45 PM',read:true,type:'info'}];
-const MOCK_RECV=[{id:'R1',from:'Jordan K.',ref:'C-103',type:'VOID Item',reason:'Wrong order',time:'7:34 PM',status:'PENDING',read:false},{id:'R2',from:'Casey R.',ref:'C-108',type:'DISC 20%',reason:'Long wait',time:'7:41 PM',status:'PENDING',read:false},{id:'R3',from:'Sam T.',ref:'C-105',type:'COMP Dessert',reason:'Birthday',time:'7:15 PM',status:'APPROVED',read:true}];
-const MOCK_SENT=[{id:'S1',ref:'C-101',type:'DISC 15%',reason:'Regular',time:'7:10 PM',status:'APPROVED',read:true},{id:'S2',ref:'C-102',type:'COMP App',reason:'Kitchen delay',time:'7:28 PM',status:'PENDING',read:false}];
-const MOCK_SERVERS=[{name:'Alex M.',openChecks:2,unadjustedTips:0,gross:467.50,checkedOut:false,checkoutTime:null,reminded:false,transactions:[
-  {ref:'C-101',table:'Bar 1',subtotal:84.50,tip:12.75,tipAdjusted:true,method:'card',time:'6:32 PM'},
-  {ref:'C-104',table:'Patio 3',subtotal:126.00,tip:null,tipAdjusted:false,method:'card',time:'7:10 PM'},
-  {ref:'C-107',table:'Table 5',subtotal:157.00,tip:null,tipAdjusted:false,method:'card',time:'7:45 PM'},
-  {ref:'C-115',table:'Bar 2',subtotal:42.00,tip:8.00,tipAdjusted:true,method:'cash',time:'8:12 PM'},
-  {ref:'C-118',table:'Table 2',subtotal:58.00,tip:null,tipAdjusted:false,method:'card',time:'8:30 PM'}
-]},{name:'Jordan K.',openChecks:0,unadjustedTips:0,gross:312,checkedOut:true,checkoutTime:'8:45 PM',reminded:false,transactions:[
-  {ref:'C-103',table:'Table 7',subtotal:98.00,tip:18.00,tipAdjusted:true,method:'card',time:'6:45 PM'},
-  {ref:'C-106',table:'Table 12',subtotal:134.00,tip:20.10,tipAdjusted:true,method:'card',time:'7:30 PM'},
-  {ref:'C-110',table:'Bar 4',subtotal:45.00,tip:9.00,tipAdjusted:true,method:'cash',time:'7:50 PM'},
-  {ref:'C-114',table:'Table 1',subtotal:35.00,tip:5.00,tipAdjusted:true,method:'card',time:'8:15 PM'}
-]},{name:'Casey R.',openChecks:3,unadjustedTips:4,gross:528.75,checkedOut:false,checkoutTime:null,reminded:false,transactions:[
-  {ref:'C-108',table:'Table 9',subtotal:167.50,tip:null,tipAdjusted:false,method:'card',time:'7:00 PM'},
-  {ref:'C-109',table:'Table 3',subtotal:89.25,tip:13.40,tipAdjusted:true,method:'card',time:'7:20 PM'},
-  {ref:'C-111',table:'Patio 1',subtotal:112.00,tip:null,tipAdjusted:false,method:'card',time:'7:55 PM'},
-  {ref:'C-116',table:'Table 6',subtotal:78.00,tip:null,tipAdjusted:false,method:'card',time:'8:20 PM'},
-  {ref:'C-119',table:'Bar 3',subtotal:82.00,tip:15.00,tipAdjusted:true,method:'cash',time:'8:40 PM'}
-]},{name:'Sam T.',openChecks:0,unadjustedTips:2,gross:189.25,checkedOut:false,checkoutTime:null,reminded:false,transactions:[
-  {ref:'C-105',table:'Table 8',subtotal:64.25,tip:10.00,tipAdjusted:true,method:'card',time:'6:50 PM'},
-  {ref:'C-112',table:'Table 11',subtotal:72.00,tip:null,tipAdjusted:false,method:'card',time:'8:00 PM'},
-  {ref:'C-117',table:'Table 4',subtotal:53.00,tip:null,tipAdjusted:false,method:'card',time:'8:25 PM'}
-]}];
-const MOCK_DISCOUNTS=[{ref:'C-101',type:'DISC 15%',amount:12.60,server:'Alex M.',reason:'Regular',time:'7:10 PM'},{ref:'C-108',type:'DISC 20%',amount:18.40,server:'Casey R.',reason:'Long wait',time:'7:41 PM'},{ref:'C-112',type:'DISC 10%',amount:8.50,server:'Sam T.',reason:'Military',time:'8:02 PM'},{ref:'C-105',type:'COMP',amount:8.00,server:'Sam T.',reason:'Birthday',time:'7:15 PM'}];
-const MOCK_VOIDS=[{ref:'C-103',item:'Fish Tacos',amount:13,server:'Jordan K.',reason:'Wrong order',time:'7:34 PM'},{ref:'C-109',item:'IPA Draft',amount:7,server:'Casey R.',reason:'Spilled',time:'7:55 PM'}];
-const MOCK_BATCH={cardTotal:2847,cashTotal:412.50,tipsEntered:12,tipsTotal:18,tipAmount:486.20};
+const MOCK_HOURLY_TODAY   = [];
+const MOCK_HOURLY_LASTWK  = [];
+const MOCK_LABOR_PCT=0, MOCK_LABOR_WARN=30, MOCK_LABOR_CRIT=35;
+const MOCK_LABOR_COST=0, MOCK_LABOR_SALES=0;
+const MOCK_SPLH_NOW=0, MOCK_SPLH_LAST=0;
+const MOCK_HR_LABOR=[];
+const MOCK_HR_LABOR_LW=[];
+const MOCK_ROLES=[];
+const MOCK_DAYPARTS=[];
+const MOCK_ALERTS=[];
+const MOCK_RECV=[];
+const MOCK_SENT=[];
+const MOCK_SERVERS=[];
+const MOCK_DISCOUNTS=[];
+const MOCK_VOIDS=[];
+const MOCK_BATCH={cardTotal:0,cashTotal:0,tipsEntered:0,tipsTotal:0,tipAmount:0};
 const DISC_WARN_PCT=3, DISC_CRIT_PCT=5;
 const TIME_LABELS=['11a','12p','1p','2p','3p','4p','5p','now'];
 

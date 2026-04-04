@@ -14,16 +14,13 @@ const HEADER_BAR = `background:var(--mint);color:var(--bg);font-family:var(--fh)
 
 registerLiteScene('lite-snapshot', {
   onEnter(el) {
-    // Seed placeholder checks
-    let openChecks = [
-      { id: 'C-101', server: 'Server', total: 24.50, items: [{ name: 'Burger', price: 8, qty: 2 }, { name: 'Beer', price: 5, qty: 1 }, { name: 'Fries', price: 3.50, qty: 1 }] },
-      { id: 'C-102', server: 'Server', total: 12.00, items: [{ name: 'Wings', price: 7, qty: 1 }, { name: 'Soda', price: 2.50, qty: 2 }] },
-      { id: 'C-103', server: 'Server', total: 18.75, items: [{ name: 'Nachos', price: 9, qty: 1 }, { name: 'Margarita', price: 9.75, qty: 1 }] },
-    ];
-    let closedChecks = [
-      { id: 'C-098', server: 'Server', total: 31.00, items: [] },
-      { id: 'C-099', server: 'Server', total: 15.50, items: [] },
-    ];
+    // Checks populated from APP state at runtime
+    let openChecks = (APP.orders || []).filter(o => o.status === 'open').map(o => ({
+      id: o.id, server: o.server || '', total: o.total || (o.items || []).reduce((s, i) => s + (i.price || 0) * (i.qty || 1), 0), items: o.items || [],
+    }));
+    let closedChecks = (APP.orders || []).filter(o => o.status === 'closed').map(o => ({
+      id: o.id, server: o.server || '', total: o.total || 0, items: o.items || [],
+    }));
 
     function render() {
       el.style.cssText = 'display:flex;flex-direction:column;height:100%;padding:8px;gap:8px;';
@@ -53,9 +50,9 @@ registerLiteScene('lite-snapshot', {
         <div style="${PANEL}display:flex;align-items:center;gap:8px;padding:8px 12px;">
           <div style="${HEADER_BAR}flex:0 0 auto;">ACTIONS</div>
           <button class="btn-s" style="border:var(--border-w) solid var(--mint);padding:8px 16px;cursor:pointer;font-family:var(--fb);border-radius:0;"
-                  onclick="window._liteOpenItem()">Open Item <span style="opacity:0.5;font-size:11px;">PLACEHOLDER</span></button>
+                  onclick="window._liteOpenItem()">Open Item</button>
           <button class="btn-s" style="border:var(--border-w) solid var(--lavender);padding:8px 16px;cursor:pointer;font-family:var(--fb);color:var(--lavender);border-radius:0;"
-                  onclick="window._liteDiscount()">Discount <span style="opacity:0.5;font-size:11px;">PLACEHOLDER</span></button>
+                  onclick="window._liteDiscount()">Discount</button>
           <div style="flex:1;"></div>
           <button class="btn-p" style="padding:8px 20px;cursor:pointer;font-family:var(--fb);border-radius:0;border:var(--border-w) solid var(--mint);"
                   onclick="window.go('lite-close-day')">Batch / Tip Adjust</button>

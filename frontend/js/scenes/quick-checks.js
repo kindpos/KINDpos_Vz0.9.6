@@ -9,25 +9,25 @@ import {
   T, chamfer, btnWrap,
 } from '../theme-manager.js';
 
-const MOCK_CHECKS = [
-  { id: 1, name: 'Bar 1', items: 3, total: 27.50, time: '2:14p', status: 'open' },
-  { id: 2, name: 'Walk-up', items: 1, total: 12.00, time: '2:18p', status: 'open' },
-  { id: 3, name: 'Bar 2', items: 5, total: 48.75, time: '2:22p', status: 'open' },
-  { id: 4, name: 'Window', items: 2, total: 19.00, time: '2:31p', status: 'open' },
-  { id: 5, name: 'Tab: Mike', items: 4, total: 36.00, time: '1:45p', status: 'open' },
-  { id: 6, name: 'Tab: Sarah', items: 7, total: 63.25, time: '12:50p', status: 'open' },
-  { id: 100, name: 'Walk-up', items: 2, total: 18.50, time: '1:02p', status: 'closed', closedAt: '1:15p', paidWith: 'CASH' },
-  { id: 101, name: 'Bar 1', items: 3, total: 31.00, time: '12:30p', status: 'closed', closedAt: '12:55p', paidWith: 'VISA' },
-  { id: 102, name: 'Window', items: 1, total: 9.50, time: '11:44a', status: 'closed', closedAt: '11:50a', paidWith: 'CASH' },
-  { id: 103, name: 'Tab: Joe', items: 6, total: 72.00, time: '11:10a', status: 'closed', closedAt: '12:40p', paidWith: 'MC' },
-  { id: 104, name: 'Walk-up', items: 2, total: 22.00, time: '10:55a', status: 'closed', closedAt: '11:05a', paidWith: 'VISA' },
-];
+// Checks are populated from APP.orders at runtime
+function loadChecks() {
+  return (APP.orders || []).map(o => ({
+    id: o.id,
+    name: o.label || o.name || ('Check ' + o.id),
+    items: (o.items || []).length,
+    total: o.total || (o.items || []).reduce((s, i) => s + (i.price || 0) * (i.qty || 1), 0),
+    time: o.time || '',
+    status: o.status || 'open',
+    closedAt: o.closedAt || null,
+    paidWith: o.paidWith || null,
+  }));
+}
 
 registerLiteScene('quick-checks', {
   onEnter(el, p) {
     // ── State ──
     const state = {
-      checks: JSON.parse(JSON.stringify(MOCK_CHECKS)),
+      checks: loadChecks(),
       selectedIds: new Set(),
       closedDrawerOpen: false,
       nextId: 200,
